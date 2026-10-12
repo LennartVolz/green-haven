@@ -17,11 +17,15 @@ const MIN_ZOOM := 0.45
 const MAX_ZOOM := 1.5
 const DRAG_THRESHOLD := 16.0
 const PLACE_FINGER_OFFSET := 96.0
+const DAY_LENGTH_SECONDS := 24.0 * 60.0 * 60.0
+const REAL_DAY_LENGTH_SECONDS := 8.0 * 60.0
 
 ## Wird von der UI gesetzt: gibt true zurück, wenn ein Bildschirmpunkt auf UI liegt.
 var ui_blocker := Callable()
 
 var cam: Camera2D
+var day_modulate: CanvasModulate
+var day_time_seconds := 8.0 * 60.0 * 60.0
 var terrain: Node2D
 var fields_layer: Node2D
 var entities: Node2D
@@ -55,6 +59,9 @@ var _focus_tween: Tween
 
 
 func _ready() -> void:
+	day_modulate = CanvasModulate.new()
+	day_modulate.color = day_color_at(day_time_seconds)
+	add_child(day_modulate)
 	terrain = TerrainScript.new()
 	add_child(terrain)
 	fields_layer = FieldsScript.new()
@@ -151,6 +158,32 @@ func _on_event(event_name: String, data: Dictionary) -> void:
 
 # ------------------------------------------------------------------ Kamera
 
+static func daylight_at(seconds: float) -> float:
+	var solar_height := sin(fposmod(seconds, DAY_LENGTH_SECONDS) / DAY_LENGTH_SECONDS * TAU - PI * 0.5)
+	var value := clampf((solar_height + 0.12) / 0.72, 0.0, 1.0)
+	return value * value * (3.0 - 2.0 * value)
+
+
+static func day_color_at(seconds: float) -> Color:
+	var daylight := daylight_at(seconds)
+	var solar_height := sin(fposmod(seconds, DAY_LENGTH_SECONDS) / DAY_LENGTH_SECONDS * TAU - PI * 0.5)
+	var tint := Color(0.42, 0.52, 0.78).lerp(Color.WHITE, daylight)
+	var twilight := clampf(1.0 - absf(solar_height) / 0.3, 0.0, 1.0)
+	return tint.lerp(Color(1.0, 0.72, 0.52), twilight * 0.28)
+
+
+static func clock_text_at(seconds: float) -> String:
+	var total_minutes := int(floor(fposmod(seconds, DAY_LENGTH_SECONDS) / 60.0))
+	var hour := floori(float(total_minutes) / 60.0)
+	var minute := total_minutes % 60
+	var period := "Tag" if hour >= 6 and hour < 18 else "Nacht"
+	return "%02d:%02d · %s" % [hour, minute, period]
+
+
+func day_clock_text() -> String:
+	return clock_text_at(day_time_seconds)
+
+
 func _vp_size() -> Vector2:
 	return get_viewport_rect().size
 
@@ -187,6 +220,8 @@ func zoom_at(screen_pos: Vector2, factor: float) -> void:
 
 
 func _process(delta: float) -> void:
+	day_time_seconds = fposmod(day_time_seconds + delta * DAY_LENGTH_SECONDS / REAL_DAY_LENGTH_SECONDS, DAY_LENGTH_SECONDS)
+	day_modulate.color = day_color_at(day_time_seconds)
 	if _touches.is_empty() and _pan_vel.length() > 25.0:
 		cam.position -= _pan_vel * delta / cam.zoom.x
 		_pan_vel *= pow(0.004, delta)

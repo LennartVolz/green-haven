@@ -3,6 +3,8 @@ extends SceneTree
 ## Start:  godot --headless --path . -s res://tests/run_tests.gd
 ## Exit-Code 0 = alle Tests bestanden.
 
+const WorldScript := preload("res://scripts/world/world.gd")
+
 var gs: Node
 var gd: Node
 var ss: Node
@@ -39,6 +41,7 @@ func _initialize() -> void:
 	ss.path_override = "user://test_save.json"
 	ss.delete_save()
 	test_new_game()
+	test_day_night()
 	test_farming()
 	test_inventory()
 	test_levels()
@@ -55,6 +58,16 @@ func _initialize() -> void:
 	print("")
 	print("Ergebnis: %d bestanden, %d fehlgeschlagen" % [passed, failed])
 	quit(1 if failed > 0 else 0)
+
+
+func test_day_night() -> void:
+	begin("Tag-Nacht-Zyklus")
+	check(WorldScript.daylight_at(0.0) < 0.01, "Mitternacht ist dunkel")
+	check(WorldScript.daylight_at(12.0 * 3600.0) > 0.99, "Mittag ist hell")
+	check(WorldScript.daylight_at(6.0 * 3600.0) < WorldScript.daylight_at(9.0 * 3600.0), "Sonnenaufgang wird heller")
+	check(WorldScript.daylight_at(18.0 * 3600.0) > WorldScript.daylight_at(21.0 * 3600.0), "Sonnenuntergang wird dunkler")
+	check(WorldScript.clock_text_at(8.0 * 3600.0) == "08:00 · Tag", "Uhr zeigt Tageszeit")
+	check(WorldScript.clock_text_at(20.0 * 3600.0) == "20:00 · Nacht", "Uhr zeigt Nachtzeit")
 
 
 func test_new_game() -> void:

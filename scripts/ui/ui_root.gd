@@ -38,6 +38,7 @@ var _toolbar: PanelContainer
 var _nav: PanelContainer
 var _side: VBoxContainer
 var _coins_label: Label
+var _day_label: Label
 var _level_label: Label
 var _xp_bar: ProgressBar
 var _toast_panel: PanelContainer
@@ -143,6 +144,12 @@ func _build_top() -> void:
 	_xp_bar.size_flags_horizontal = Control.SIZE_FILL
 	lv.add_child(_xp_bar)
 	h.add_child(lv)
+	var day_panel := UiKit.panel(Color(0, 0, 0, 0.16), 24, 10)
+	_day_label = UiKit.label("08:00 · Tag", 27, UiKit.cream())
+	_day_label.custom_minimum_size = Vector2(190, 0)
+	_day_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	day_panel.add_child(_day_label)
+	h.add_child(day_panel)
 	h.add_child(UiKit.spacer())
 	var cp := UiKit.panel(Color(0, 0, 0, 0.2), 30, 10)
 	var ch := UiKit.hbox(10)
@@ -365,6 +372,7 @@ func _process(delta: float) -> void:
 	_tick_acc += delta
 	if _tick_acc >= 0.25:
 		_tick_acc = 0.0
+		_day_label.text = world.day_clock_text()
 		if _sheet_name != "":
 			_tick()
 	# Münzanzeige zählt sanft hoch

@@ -27,6 +27,7 @@ jobs:
           mv /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
 
       - name: Android-Debug-Keystore und Editor-Einstellungen
+        shell: bash
         run: |
           # Das Image bringt Keystore und SDK-Pfad meist schon mit; nur fehlendes ergänzen.
           if [ ! -f /root/debug.keystore ]; then
@@ -44,6 +45,7 @@ jobs:
           cat "$SETTINGS" | grep export/android || true
 
       - name: APK exportieren
+        shell: bash
         run: |
           mkdir -p build
           set +e

@@ -1,38 +1,38 @@
 # Green Haven
 
-Gemütliches veganes Farming-Spiel für Smartphones (Android zuerst, iOS vorbereitet).
-Gebaut mit **Godot 4.4**, **GDScript** und 2D-Rendering – keine Web-App, kein Backend, komplett offline spielbar.
+A cozy vegan farming game for smartphones (Android first, iOS prepared).
+Built with Godot 4.4, GDScript, and 2D rendering — no web app, no backend, fully playable offline.
 
-Du startest mit einer kleinen Farm, baust Gemüse, Obst und Getreide an, stellst vegane Produkte in
-Bäckerei, Küche, Pflanzenmilch-Manufaktur, Tofu-Werkstatt und Saftbar her, erfüllst Kundenaufträge und
-gibst geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfach gepflegt.
+You begin with a small farm, grow vegetables, fruits, and grains, craft vegan products in a bakery,
+kitchen, plant milk factory, tofu workshop, and juice bar, complete customer orders, and give rescued
+animals a home. The animals produce nothing — they are simply cared for.
 
-## Umfang
+## Scope
 
-- 10 Pflanzen mit mehreren Wachstumsphasen, Stufen- und Freischaltsystem
-- 5 Produktionsgebäude, 14 Rezepte, Warteschlangen, Ausbau und Abholfunktion
-- Kundenaufträge, Münzen, XP, Quests, Shop, Dekoration, Landerweiterung
-- Tierrefugium mit 5 Tierarten, Bedürfnissen, Streicheln/Füttern und kosmetischen Belohnungen
-- Touch-Steuerung: Tippen, Wischen zum Säen/Ernten, Kamera-Pan mit Trägheit, Pinch-Zoom, Platzieren per Ziehen
-- Lokaler, versionierter Spielstand; Wachstum und Produktion laufen offline weiter
+- 10 crops with multiple growth stages, tier-based progression, and unlock system
+- 5 production buildings, 14 recipes, queues, upgrades, and pickup functionality
+- Customer orders, coins, XP, quests, shop, decoration, and land expansion
+- Animal sanctuary with 5 animal types, needs, petting/feeding, and cosmetic rewards
+- Touch controls: tap, swipe to sow/harvest, camera pan with inertia, pinch-to-zoom, placement by drag
+- Local, versioned save system; crop growth and production continue offline
 
-## Schnellstart
+## Quick Start
 
+```bash
+godot --headless --path . -s res://tests/run_tests.gd   # Logic tests (328 checks)
+godot --path .                                          # Start the game on desktop
 ```
-godot --headless --path . -s res://tests/run_tests.gd   # Logiktests (328 Prüfungen)
-godot --path .                                          # Spiel am Desktop starten
-```
 
-Android-APK, iOS und Release-Builds: siehe [docs/BUILD.md](docs/BUILD.md).
-Bei jedem Push baut GitHub Actions (`.github/workflows/android.yml`) die Tests und einen Debug-APK
-(Artefakt `GreenHaven-debug-apk` unter *Actions*).
+Android APK, iOS, and release builds: see [docs/BUILD.md](docs/BUILD.md).
+Every push triggers GitHub Actions (`.github/workflows/android.yml`) to run the tests and build a debug APK
+(artifact `GreenHaven-debug-apk` under Actions).
 
-## Projektstruktur
+## Project Structure
 
-```
-scripts/core/    GameData (Balancing), GameState (Logik), SaveSystem, Sfx
-scripts/world/   Welt, Kamera/Touch, Gelände, Felder, Objekte, Tiere, Painter
-scripts/ui/      UiRoot (HUD, Aktionen), UiKit, Icons, sheets/ (Menüs)
+```text
+scripts/core/    GameData (balancing), GameState (logic), SaveSystem, Sfx
+scripts/world/   World, camera/touch, terrain, fields, objects, animals, Painter
+scripts/ui/      UiRoot (HUD, actions), UiKit, icons, sheets/ (menus)
 scenes/          main, world, ui_root, entity, animal
 tests/           run_tests.gd, screenshots.gd
 docs/            BUILD.md

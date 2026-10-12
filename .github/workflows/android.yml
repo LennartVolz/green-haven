@@ -1,0 +1,51 @@
+# Baut bei jedem Push einen installierbaren Android-Debug-APK.
+# Hinweis: Diese Datei wurde in der Entwicklungsumgebung nicht ausgeführt
+# (dort waren die Android-SDK-Quellen gesperrt). Sie folgt dem Standardablauf
+# des Images barichello/godot-ci.
+name: android-build
+on:
+  push:
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: "4.4.1"
+
+jobs:
+  tests-and-apk:
+    runs-on: ubuntu-22.04
+    container:
+      image: barichello/godot-ci:4.4.1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Logiktests (headless)
+        run: godot --headless --path . --import || true; godot --headless --path . -s res://tests/run_tests.gd
+
+      - name: Export-Templates bereitstellen
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates
+          mv /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+
+      - name: Android-Debug-Keystore und Editor-Einstellungen
+        run: |
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android \
+            -keystore /root/debug.keystore -storepass android \
+            -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+          godot --headless --quit || true
+          SETTINGS=$(ls ~/.config/godot/editor_settings-4*.tres | head -n 1)
+          {
+            echo 'export/android/android_sdk_path = "/usr/lib/android-sdk"'
+            echo 'export/android/debug_keystore = "/root/debug.keystore"'
+            echo 'export/android/debug_keystore_user = "androiddebugkey"'
+            echo 'export/android/debug_keystore_pass = "android"'
+          } >> "$SETTINGS"
+
+      - name: APK exportieren
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" build/GreenHaven-debug.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GreenHaven-debug-apk
+          path: build/GreenHaven-debug.apk

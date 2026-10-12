@@ -1,0 +1,967 @@
+extends Node
+## Zentraler Spielzustand: Wirtschaft, Inventar, Felder, Produktion, Aufträge,
+## Tierrefugium und Quests. Enthält die gesamte Spiellogik ohne Darstellung,
+## damit sie headless getestet werden kann.
+##
+## Zeitbasierte Systeme (Wachstum, Produktion, Tierbedürfnisse) speichern nur
+## Zeitstempel. Dadurch läuft die Welt offline "weiter": beim nächsten Start
+## wird der Fortschritt einfach aus der verstrichenen Zeit berechnet.
+
+signal coins_changed
+signal xp_changed
+signal level_up(new_level: int, unlocks: Array)
+signal inventory_changed
+signal world_changed
+signal orders_changed
+signal animals_changed
+signal quests_changed
+signal toast(text: String, kind: String)
+signal game_event(event_name: String, data: Dictionary)
+signal fx(kind: String, world_pos: Vector2, text: String)
+signal sound(sound_name: String)
+
+const SAVE_VERSION := 1
+const MAX_ORDERS := 4
+const ORDER_COOLDOWN := 25.0
+const PET_COOLDOWN := 12.0
+const MAX_UPGRADES := 3
+## Tiere sind in 8 Stunden von "voll" auf "leer"; ohne Strafe, nur Stimmung.
+const ANIMAL_DECAY_PER_SEC := 100.0 / (8.0 * 3600.0)
+
+var rng := RandomNumberGenerator.new()
+var loaded := false
+var time_offset := 0.0   ## nur für Tests: verschiebt die Spielzeit
+var last_error := ""
+
+var coins := 0
+var level := 1
+var xp := 0
+var inventory: Dictionary = {}
+var fields: Dictionary = {}      ## Vector2i -> {"crop": String, "t": float}
+var objects: Array = []          ## {"uid","kind","type","cell","queue","upgrades"}
+var animals: Array = []          ## {"uid","species","name","story","hunger","happy","hearts","last","paddock","pet_at"}
+var land := Rect2i()
+var land_level := 0
+var orders: Array = []
+var stats: Dictionary = {}
+var claimed_quests: Array = []
+var settings: Dictionary = {"sound": true, "vibration": true}
+var tutorial_step := 0
+var next_uid := 1
+var next_order_at := 0.0
+var away_seconds := 0.0
+
+var _occ: Dictionary = {}        ## Vector2i -> uid
+
+
+func _ready() -> void:
+	rng.randomize()
+	if not loaded:
+		reset_state()
+
+
+func now() -> float:
+	return Time.get_unix_time_from_system() + time_offset
+
+
+func _process(_delta: float) -> void:
+	if loaded:
+		_fill_orders()
+
+
+# ---------------------------------------------------------------- Zustand
+
+func reset_state() -> void:
+	coins = 0
+	level = 1
+	xp = 0
+	inventory = {}
+	fields = {}
+	objects = []
+	animals = []
+	land = GameData.START_LAND
+	land_level = 0
+	orders = []
+	stats = {}
+	claimed_quests = []
+	tutorial_step = 0
+	next_uid = 1
+	next_order_at = 0.0
+	away_seconds = 0.0
+	_occ = {}
+
+
+func new_game() -> void:
+	reset_state()
+	coins = GameData.START_COINS
+	for dx in range(2):
+		for dy in range(2):
+			fields[Vector2i(land.position.x + 3 + dx, land.position.y + 3 + dy)] = {"crop": "", "t": 0.0}
+	loaded = true
+	_fill_orders()
+	_emit_all()
+
+
+func _emit_all() -> void:
+	coins_changed.emit()
+	xp_changed.emit()
+	inventory_changed.emit()
+	world_changed.emit()
+	orders_changed.emit()
+	animals_changed.emit()
+	quests_changed.emit()
+
+
+func _new_uid() -> int:
+	var u := next_uid
+	next_uid += 1
+	return u
+
+
+func bump(stat: String, n: int = 1) -> void:
+	stats[stat] = int(stats.get(stat, 0)) + n
+
+
+func event(event_name: String, data: Dictionary = {}) -> void:
+	game_event.emit(event_name, data)
+
+
+func cell_center(cell: Vector2i) -> Vector2:
+	return (Vector2(cell) + Vector2(0.5, 0.5)) * GameData.TILE
+
+
+# ---------------------------------------------------------- Münzen / XP
+
+func add_coins(n: int) -> void:
+	if n <= 0:
+		return
+	coins += n
+	coins_changed.emit()
+
+
+func spend_coins(n: int) -> bool:
+	if n < 0 or n > coins:
+		return false
+	coins -= n
+	coins_changed.emit()
+	return true
+
+
+func add_xp(n: int) -> void:
+	if n <= 0:
+		return
+	if level >= GameData.MAX_LEVEL:
+		xp = 0
+		xp_changed.emit()
+		return
+	xp += n
+	while level < GameData.MAX_LEVEL and xp >= GameData.xp_needed(level):
+		xp -= GameData.xp_needed(level)
+		level += 1
+		sound.emit("level")
+		level_up.emit(level, GameData.unlocks_at(level))
+	if level >= GameData.MAX_LEVEL:
+		xp = 0
+	xp_changed.emit()
+	quests_changed.emit()
+
+
+# ------------------------------------------------------------- Inventar
+
+func item_count(id: String) -> int:
+	return int(inventory.get(id, 0))
+
+
+func add_item(id: String, n: int = 1) -> void:
+	if n <= 0 or not GameData.items.has(id):
+		return
+	inventory[id] = item_count(id) + n
+	inventory_changed.emit()
+
+
+func remove_item(id: String, n: int = 1) -> bool:
+	if n <= 0 or item_count(id) < n:
+		return false
+	var left := item_count(id) - n
+	if left <= 0:
+		inventory.erase(id)
+	else:
+		inventory[id] = left
+	inventory_changed.emit()
+	return true
+
+
+func has_items(req: Dictionary) -> bool:
+	for id in req:
+		if item_count(id) < int(req[id]):
+			return false
+	return true
+
+
+## Entnimmt alle Zutaten atomar: entweder vollständig oder gar nicht.
+func take_items(req: Dictionary) -> bool:
+	if not has_items(req):
+		return false
+	for id in req:
+		remove_item(id, int(req[id]))
+	return true
+
+
+func sell_item(id: String, n: int) -> int:
+	if n <= 0 or not GameData.items.has(id):
+		return 0
+	n = mini(n, item_count(id))
+	if n <= 0 or not remove_item(id, n):
+		return 0
+	var gain: int = n * int(GameData.items[id].sell)
+	add_coins(gain)
+	sound.emit("coin")
+	return gain
+
+
+func buy_item(id: String, n: int = 1) -> bool:
+	if not GameData.EXTRA_ITEMS.has(id) or n <= 0:
+		return false
+	var d: Dictionary = GameData.EXTRA_ITEMS[id]
+	if level < int(d["level"]):
+		last_error = "Ab Stufe %d" % int(d["level"])
+		return false
+	if not spend_coins(int(d["shop"]) * n):
+		last_error = "Nicht genug Münzen"
+		return false
+	add_item(id, n)
+	sound.emit("coin")
+	return true
+
+
+# ------------------------------------------------------------ Welt/Raster
+
+func in_land(cell: Vector2i) -> bool:
+	return land.has_point(cell)
+
+
+func rebuild_occupancy() -> void:
+	_occ = {}
+	for o in objects:
+		for c in footprint_cells(o.type, o.cell):
+			_occ[c] = o.uid
+
+
+func footprint_cells(type: String, cell: Vector2i) -> Array:
+	var sz := GameData.object_size(type)
+	var out: Array = []
+	for x in range(sz.x):
+		for y in range(sz.y):
+			out.append(Vector2i(cell.x + x, cell.y + y))
+	return out
+
+
+func is_free(cell: Vector2i, ignore_uid: int = -1) -> bool:
+	if not in_land(cell) or fields.has(cell):
+		return false
+	if _occ.has(cell) and int(_occ[cell]) != ignore_uid:
+		return false
+	return true
+
+
+func can_place(type: String, cell: Vector2i, ignore_uid: int = -1) -> bool:
+	for c in footprint_cells(type, cell):
+		if not is_free(c, ignore_uid):
+			return false
+	return true
+
+
+func get_object(uid: int) -> Dictionary:
+	for o in objects:
+		if int(o.uid) == uid:
+			return o
+	return {}
+
+
+func object_at(cell: Vector2i) -> Dictionary:
+	if _occ.has(cell):
+		return get_object(int(_occ[cell]))
+	return {}
+
+
+func count_type(type: String) -> int:
+	var n := 0
+	for o in objects:
+		if o.type == type:
+			n += 1
+	return n
+
+
+func has_building(type: String) -> bool:
+	return count_type(type) > 0
+
+
+func can_till(cell: Vector2i) -> bool:
+	return is_free(cell)
+
+
+func till(cell: Vector2i) -> bool:
+	if not can_till(cell):
+		last_error = "Hier kann kein Feld entstehen"
+		return false
+	if not spend_coins(GameData.TILL_COST):
+		last_error = "Nicht genug Münzen"
+		return false
+	fields[cell] = {"crop": "", "t": 0.0}
+	world_changed.emit()
+	event("tilled", {"cell": cell})
+	return true
+
+
+func place_object(type: String, cell: Vector2i) -> int:
+	var d := GameData.object_def(type)
+	if d.is_empty():
+		last_error = "Unbekanntes Objekt"
+		return -1
+	if level < int(d["level"]):
+		last_error = "Ab Stufe %d" % int(d["level"])
+		return -1
+	if d.has("max") and count_type(type) >= int(d["max"]):
+		last_error = "Davon ist nur %d Stück möglich" % int(d["max"])
+		return -1
+	if not can_place(type, cell):
+		last_error = "Hier ist kein Platz"
+		return -1
+	if not spend_coins(int(d["cost"])):
+		last_error = "Nicht genug Münzen"
+		return -1
+	var obj := {"uid": _new_uid(), "kind": d["kind"], "type": type, "cell": cell, "queue": [], "upgrades": 0}
+	objects.append(obj)
+	rebuild_occupancy()
+	bump("built")
+	world_changed.emit()
+	quests_changed.emit()
+	event("built", {"type": type, "uid": obj.uid})
+	return obj.uid
+
+
+func move_object(uid: int, cell: Vector2i) -> bool:
+	var o := get_object(uid)
+	if o.is_empty() or not can_place(o.type, cell, uid):
+		last_error = "Hier ist kein Platz"
+		return false
+	o.cell = cell
+	rebuild_occupancy()
+	world_changed.emit()
+	return true
+
+
+func sell_price(o: Dictionary) -> int:
+	return int(GameData.object_def(o.type)["cost"]) / 2
+
+
+func sell_object(uid: int) -> bool:
+	var o := get_object(uid)
+	if o.is_empty():
+		return false
+	if not (o.queue as Array).is_empty():
+		last_error = "Erst die Produktion abholen"
+		return false
+	for a in animals:
+		if int(a.paddock) == uid:
+			last_error = "Im Gehege leben noch Tiere"
+			return false
+	add_coins(sell_price(o))
+	objects.erase(o)
+	rebuild_occupancy()
+	world_changed.emit()
+	quests_changed.emit()
+	return true
+
+
+func next_expansion() -> Dictionary:
+	if land_level >= GameData.LAND_EXPANSIONS.size():
+		return {}
+	return GameData.LAND_EXPANSIONS[land_level]
+
+
+func expand_land() -> bool:
+	var ex := next_expansion()
+	if ex.is_empty():
+		last_error = "Die Farm ist voll ausgebaut"
+		return false
+	if level < int(ex["level"]):
+		last_error = "Ab Stufe %d" % int(ex["level"])
+		return false
+	if not spend_coins(int(ex["cost"])):
+		last_error = "Nicht genug Münzen"
+		return false
+	land = land.grow(1)
+	land_level += 1
+	world_changed.emit()
+	sound.emit("build")
+	event("expanded", {})
+	return true
+
+
+# --------------------------------------------------------------- Anbau
+
+func crop_progress(cell: Vector2i) -> float:
+	if not fields.has(cell):
+		return 0.0
+	var f: Dictionary = fields[cell]
+	if f.crop == "":
+		return 0.0
+	var grow: float = float(GameData.CROPS[f.crop]["grow"])
+	return clampf((now() - float(f.t)) / grow, 0.0, 1.0)
+
+
+func crop_remaining(cell: Vector2i) -> float:
+	if not fields.has(cell) or fields[cell].crop == "":
+		return 0.0
+	var grow: float = float(GameData.CROPS[fields[cell].crop]["grow"])
+	return maxf(0.0, grow - (now() - float(fields[cell].t)))
+
+
+func is_ready(cell: Vector2i) -> bool:
+	return fields.has(cell) and fields[cell].crop != "" and crop_progress(cell) >= 1.0
+
+
+## 0 = Saat, 1 = Keimling, 2 = wachsend, 3 = erntereif
+func crop_stage(cell: Vector2i) -> int:
+	var p := crop_progress(cell)
+	if p >= 1.0:
+		return 3
+	if p >= 0.6:
+		return 2
+	if p >= 0.25:
+		return 1
+	return 0
+
+
+func plant(cell: Vector2i, crop: String) -> bool:
+	if not fields.has(cell) or not GameData.CROPS.has(crop):
+		last_error = "Hier ist kein Feld"
+		return false
+	if fields[cell].crop != "":
+		last_error = "Hier wächst schon etwas"
+		return false
+	var c: Dictionary = GameData.CROPS[crop]
+	if level < int(c["level"]):
+		last_error = "%s ab Stufe %d" % [c["name"], int(c["level"])]
+		return false
+	if not spend_coins(int(c["seed"])):
+		last_error = "Nicht genug Münzen für Saatgut"
+		return false
+	fields[cell] = {"crop": crop, "t": now()}
+	bump("planted")
+	world_changed.emit()
+	quests_changed.emit()
+	fx.emit("plant", cell_center(cell), "")
+	sound.emit("plant")
+	event("planted", {"crop": crop, "cell": cell})
+	return true
+
+
+func harvest(cell: Vector2i) -> bool:
+	if not is_ready(cell):
+		return false
+	var crop: String = fields[cell].crop
+	var c: Dictionary = GameData.CROPS[crop]
+	var amount: int = int(c["yield"])
+	add_item(crop, amount)
+	add_xp(int(c["xp"]))
+	bump("harvested")
+	if c["perennial"]:
+		fields[cell] = {"crop": crop, "t": now()}
+	else:
+		fields[cell] = {"crop": "", "t": 0.0}
+	world_changed.emit()
+	fx.emit("harvest", cell_center(cell), "+%d %s" % [amount, c["name"]])
+	sound.emit("harvest")
+	event("harvested", {"crop": crop, "cell": cell})
+	return true
+
+
+# ----------------------------------------------------------- Produktion
+
+func queue_capacity(o: Dictionary) -> int:
+	return int(GameData.BUILDINGS[o.type]["slots"]) + int(o.upgrades)
+
+
+func upgrade_cost(o: Dictionary) -> int:
+	return 200 * (int(o.upgrades) + 1)
+
+
+func upgrade_building(uid: int) -> bool:
+	var o := get_object(uid)
+	if o.is_empty() or o.kind != "production":
+		return false
+	if int(o.upgrades) >= MAX_UPGRADES:
+		last_error = "Maximal ausgebaut"
+		return false
+	if not spend_coins(upgrade_cost(o)):
+		last_error = "Nicht genug Münzen"
+		return false
+	o.upgrades = int(o.upgrades) + 1
+	world_changed.emit()
+	sound.emit("build")
+	return true
+
+
+func start_recipe(uid: int, recipe_id: String) -> bool:
+	var o := get_object(uid)
+	if o.is_empty() or o.kind != "production" or not GameData.RECIPES.has(recipe_id):
+		return false
+	var r: Dictionary = GameData.RECIPES[recipe_id]
+	if r["building"] != o.type:
+		last_error = "Dieses Rezept gehört in ein anderes Gebäude"
+		return false
+	if level < int(r["level"]):
+		last_error = "Ab Stufe %d" % int(r["level"])
+		return false
+	var q: Array = o.queue
+	if q.size() >= queue_capacity(o):
+		last_error = "Die Warteschlange ist voll"
+		return false
+	if not take_items(r["inputs"]):
+		last_error = "Zutaten fehlen"
+		return false
+	var start: float = now()
+	if not q.is_empty():
+		start = maxf(start, float(q[q.size() - 1]["end"]))
+	q.append({"recipe": recipe_id, "start": start, "end": start + float(r["time"])})
+	world_changed.emit()
+	sound.emit("tap")
+	event("recipe_started", {"recipe": recipe_id})
+	return true
+
+
+func entry_progress(entry: Dictionary) -> float:
+	var span: float = float(entry["end"]) - float(entry["start"])
+	if span <= 0.0:
+		return 1.0
+	return clampf((now() - float(entry["start"])) / span, 0.0, 1.0)
+
+
+func ready_count(o: Dictionary) -> int:
+	var n := 0
+	for e in o.queue:
+		if float(e["end"]) <= now():
+			n += 1
+	return n
+
+
+## Holt alle fertigen Produkte ab. Die Warteschlange läuft sequenziell, daher
+## bilden fertige Einträge immer ein Präfix.
+func collect_ready(uid: int) -> Array:
+	var o := get_object(uid)
+	var got: Array = []
+	if o.is_empty():
+		return got
+	var q: Array = o.queue
+	while not q.is_empty() and float(q[0]["end"]) <= now():
+		var e: Dictionary = q.pop_front()
+		var rid: String = e["recipe"]
+		add_item(rid, 1)
+		add_xp(int(GameData.RECIPES[rid]["xp"]))
+		bump("crafted")
+		got.append(rid)
+	if not got.is_empty():
+		world_changed.emit()
+		fx.emit("collect", cell_center(o.cell) + Vector2(GameData.TILE, 0), "+%d" % got.size())
+		sound.emit("harvest")
+		event("collected", {"uid": uid, "items": got})
+	return got
+
+
+# -------------------------------------------------------------- Aufträge
+
+func _order_candidates() -> Array:
+	var crops: Array = []
+	var products: Array = []
+	for id in GameData.CROPS:
+		if int(GameData.CROPS[id]["level"]) <= level:
+			crops.append(id)
+	for id in GameData.RECIPES:
+		var r: Dictionary = GameData.RECIPES[id]
+		if int(r["level"]) <= level and has_building(r["building"]):
+			products.append(id)
+	return [crops, products]
+
+
+func generate_order() -> Dictionary:
+	var cand := _order_candidates()
+	var crops: Array = cand[0]
+	var products: Array = cand[1]
+	var want := 1 + rng.randi_range(0, 1 if level < 5 else 2)
+	var items: Dictionary = {}
+	var tries := 0
+	while items.size() < want and tries < 30:
+		tries += 1
+		var use_product := not products.is_empty() and rng.randf() < 0.45
+		var pool: Array = products if use_product else crops
+		var id: String = pool[rng.randi_range(0, pool.size() - 1)]
+		if items.has(id):
+			continue
+		if use_product:
+			items[id] = rng.randi_range(1, 2 + level / 8)
+		else:
+			items[id] = rng.randi_range(2, 4 + level / 6)
+	var value := 0
+	for id in items:
+		value += int(GameData.items[id]["sell"]) * int(items[id])
+	var reward := int(round(value * rng.randf_range(1.25, 1.55))) + 2
+	return {
+		"id": _new_uid(),
+		"customer": GameData.CUSTOMERS[rng.randi_range(0, GameData.CUSTOMERS.size() - 1)],
+		"items": items,
+		"coins": reward,
+		"xp": maxi(3, int(round(reward * 0.3))),
+	}
+
+
+func _fill_orders() -> void:
+	var changed := false
+	while orders.size() < MAX_ORDERS and now() >= next_order_at:
+		orders.append(generate_order())
+		next_order_at = now() + (0.0 if orders.size() < 3 else ORDER_COOLDOWN)
+		changed = true
+	if changed:
+		orders_changed.emit()
+
+
+func find_order(order_id: int) -> int:
+	for i in range(orders.size()):
+		if int(orders[i].id) == order_id:
+			return i
+	return -1
+
+
+func can_fulfill(order: Dictionary) -> bool:
+	return has_items(order.items)
+
+
+func fulfillable_orders() -> int:
+	var n := 0
+	for o in orders:
+		if can_fulfill(o):
+			n += 1
+	return n
+
+
+func fulfill_order(order_id: int) -> bool:
+	var idx := find_order(order_id)
+	if idx < 0:
+		return false
+	var o: Dictionary = orders[idx]
+	if not take_items(o.items):
+		last_error = "Dir fehlen noch Waren"
+		return false
+	orders.remove_at(idx)   # zuerst entfernen: keine doppelte Belohnung möglich
+	next_order_at = now() + ORDER_COOLDOWN
+	add_coins(int(o.coins))
+	add_xp(int(o.xp))
+	bump("orders")
+	orders_changed.emit()
+	quests_changed.emit()
+	sound.emit("coin")
+	event("order_done", {"id": order_id})
+	return true
+
+
+func skip_order(order_id: int) -> bool:
+	var idx := find_order(order_id)
+	if idx < 0:
+		return false
+	orders.remove_at(idx)
+	next_order_at = now() + ORDER_COOLDOWN
+	orders_changed.emit()
+	return true
+
+
+# ------------------------------------------------------------- Tierrefugium
+
+func animal_stat(a: Dictionary, key: String) -> float:
+	var elapsed := maxf(0.0, now() - float(a.last))
+	var rate := ANIMAL_DECAY_PER_SEC * (1.0 if key == "hunger" else 0.7)
+	return clampf(float(a[key]) - elapsed * rate, 0.0, 100.0)
+
+
+func wellbeing(a: Dictionary) -> float:
+	return (animal_stat(a, "hunger") + animal_stat(a, "happy")) * 0.5
+
+
+func _settle(a: Dictionary) -> void:
+	a.hunger = animal_stat(a, "hunger")
+	a.happy = animal_stat(a, "happy")
+	a.last = now()
+
+
+func get_animal(uid: int) -> Dictionary:
+	for a in animals:
+		if int(a.uid) == uid:
+			return a
+	return {}
+
+
+func animals_in(paddock_uid: int) -> int:
+	var n := 0
+	for a in animals:
+		if int(a.paddock) == paddock_uid:
+			n += 1
+	return n
+
+
+func free_paddock() -> Dictionary:
+	for o in objects:
+		if o.kind == "paddock" and animals_in(int(o.uid)) < int(GameData.BUILDINGS[o.type]["capacity"]):
+			return o
+	return {}
+
+
+func adopt_animal(species: String) -> int:
+	if not GameData.ANIMALS.has(species):
+		return -1
+	var d: Dictionary = GameData.ANIMALS[species]
+	if level < int(d["level"]):
+		last_error = "Ab Stufe %d" % int(d["level"])
+		return -1
+	var pad := free_paddock()
+	if pad.is_empty():
+		last_error = "Du brauchst ein Gehege mit freiem Platz"
+		return -1
+	if not spend_coins(int(d["cost"])):
+		last_error = "Nicht genug Münzen"
+		return -1
+	var used: Array = []
+	for a in animals:
+		used.append(a.name)
+	var names: Array = d["names"]
+	var nm: String = names[rng.randi_range(0, names.size() - 1)]
+	var tries := 0
+	while used.has(nm) and tries < 12:
+		nm = names[rng.randi_range(0, names.size() - 1)]
+		tries += 1
+	if used.has(nm):
+		nm = "%s %d" % [nm, animals.size() + 1]
+	var stories: Array = d["stories"]
+	var a := {
+		"uid": _new_uid(), "species": species, "name": nm,
+		"story": rng.randi_range(0, stories.size() - 1),
+		"hunger": 70.0, "happy": 70.0, "hearts": 0, "last": now(),
+		"paddock": int(pad.uid), "pet_at": 0.0,
+	}
+	animals.append(a)
+	animals_changed.emit()
+	quests_changed.emit()
+	sound.emit("pet")
+	event("adopted", {"species": species, "uid": a.uid})
+	return int(a.uid)
+
+
+func feed_animal(uid: int) -> bool:
+	var a := get_animal(uid)
+	if a.is_empty():
+		return false
+	var food: String = GameData.ANIMALS[a.species]["food"]
+	if animal_stat(a, "hunger") >= 95.0:
+		last_error = "%s ist schon satt" % a.name
+		return false
+	if not remove_item(food, 1):
+		last_error = "Dir fehlt: %s" % GameData.item_name(food)
+		return false
+	_settle(a)
+	a.hunger = minf(100.0, float(a.hunger) + 45.0)
+	a.hearts = int(a.hearts) + 2
+	add_xp(3)
+	bump("fed")
+	animals_changed.emit()
+	quests_changed.emit()
+	sound.emit("pet")
+	event("fed", {"uid": uid})
+	return true
+
+
+func pet_cooldown_left(a: Dictionary) -> float:
+	return maxf(0.0, float(a.pet_at) - now())
+
+
+func pet_animal(uid: int) -> bool:
+	var a := get_animal(uid)
+	if a.is_empty() or pet_cooldown_left(a) > 0.0:
+		return false
+	_settle(a)
+	a.happy = minf(100.0, float(a.happy) + 18.0)
+	a.hearts = int(a.hearts) + 1
+	a.pet_at = now() + PET_COOLDOWN
+	add_xp(1)
+	bump("pets")
+	animals_changed.emit()
+	quests_changed.emit()
+	sound.emit("pet")
+	event("petted", {"uid": uid})
+	return true
+
+
+func cosmetics_of(a: Dictionary) -> Array:
+	var out: Array = []
+	for c in GameData.COSMETICS:
+		if int(a.hearts) >= int(c["hearts"]):
+			out.append(c["id"])
+	return out
+
+
+# ----------------------------------------------------------------- Quests
+
+func quest_progress(q: Dictionary) -> int:
+	match q["type"]:
+		"stat":
+			return int(stats.get(q["key"], 0))
+		"level":
+			return level
+		"building":
+			return count_type(q["building"])
+		"animals":
+			return animals.size()
+		"decos":
+			var n := 0
+			for o in objects:
+				if o.kind == "deco":
+					n += 1
+			return n
+	return 0
+
+
+func quest_done(q: Dictionary) -> bool:
+	return quest_progress(q) >= int(q["target"])
+
+
+func quest_claimed(id: String) -> bool:
+	return claimed_quests.has(id)
+
+
+func claimable_quests() -> int:
+	var n := 0
+	for q in GameData.QUESTS:
+		if quest_done(q) and not quest_claimed(q["id"]):
+			n += 1
+	return n
+
+
+func claim_quest(id: String) -> bool:
+	for q in GameData.QUESTS:
+		if q["id"] == id:
+			if quest_claimed(id) or not quest_done(q):
+				return false
+			claimed_quests.append(id)   # zuerst markieren: keine doppelte Belohnung
+			add_coins(int(q["coins"]))
+			add_xp(int(q["xp"]))
+			quests_changed.emit()
+			sound.emit("coin")
+			return true
+	return false
+
+
+# ------------------------------------------------------ Offline-Fortschritt
+
+func offline_report() -> Dictionary:
+	var ready_fields := 0
+	for cell in fields:
+		if is_ready(cell):
+			ready_fields += 1
+	var ready_products := 0
+	for o in objects:
+		if o.kind == "production":
+			ready_products += ready_count(o)
+	return {"fields": ready_fields, "products": ready_products, "away": away_seconds}
+
+
+# ------------------------------------------------------------ Speichern
+
+func serialize() -> Dictionary:
+	var f: Array = []
+	for cell in fields:
+		f.append({"x": cell.x, "y": cell.y, "crop": fields[cell].crop, "t": fields[cell].t})
+	var objs: Array = []
+	for o in objects:
+		objs.append({"uid": o.uid, "kind": o.kind, "type": o.type, "x": o.cell.x, "y": o.cell.y,
+			"queue": (o.queue as Array).duplicate(true), "upgrades": o.upgrades})
+	return {
+		"version": SAVE_VERSION,
+		"saved_at": now(),
+		"coins": coins, "level": level, "xp": xp,
+		"inventory": inventory.duplicate(),
+		"fields": f, "objects": objs,
+		"animals": animals.duplicate(true),
+		"land": [land.position.x, land.position.y, land.size.x, land.size.y],
+		"land_level": land_level,
+		"orders": orders.duplicate(true),
+		"stats": stats.duplicate(),
+		"claimed_quests": claimed_quests.duplicate(),
+		"settings": settings.duplicate(),
+		"tutorial_step": tutorial_step,
+		"next_uid": next_uid,
+		"next_order_at": next_order_at,
+	}
+
+
+## Liest einen (bereits migrierten) Spielstand. Ungültige Einträge werden
+## verworfen, negative Bestände und unbekannte IDs können nicht entstehen.
+func deserialize(d: Dictionary) -> bool:
+	if not d.has("version"):
+		return false
+	reset_state()
+	coins = maxi(0, int(d.get("coins", 0)))
+	level = clampi(int(d.get("level", 1)), 1, GameData.MAX_LEVEL)
+	xp = maxi(0, int(d.get("xp", 0)))
+	var inv: Dictionary = d.get("inventory", {})
+	for id in inv:
+		var n := int(inv[id])
+		if GameData.items.has(id) and n > 0:
+			inventory[id] = n
+	for e in d.get("fields", []):
+		var crop: String = str(e.get("crop", ""))
+		if crop != "" and not GameData.CROPS.has(crop):
+			crop = ""
+		fields[Vector2i(int(e.x), int(e.y))] = {"crop": crop, "t": float(e.get("t", 0.0))}
+	for e in d.get("objects", []):
+		var type: String = str(e.get("type", ""))
+		if GameData.object_def(type).is_empty():
+			continue
+		var queue: Array = []
+		for qe in e.get("queue", []):
+			if GameData.RECIPES.has(str(qe.get("recipe", ""))):
+				queue.append({"recipe": str(qe.recipe), "start": float(qe.start), "end": float(qe["end"])})
+		objects.append({"uid": int(e.uid), "kind": GameData.object_def(type)["kind"], "type": type,
+			"cell": Vector2i(int(e.x), int(e.y)), "queue": queue, "upgrades": clampi(int(e.get("upgrades", 0)), 0, MAX_UPGRADES)})
+	for e in d.get("animals", []):
+		if not GameData.ANIMALS.has(str(e.get("species", ""))):
+			continue
+		animals.append({"uid": int(e.uid), "species": str(e.species), "name": str(e.get("name", "Tier")),
+			"story": int(e.get("story", 0)), "hunger": float(e.get("hunger", 70)), "happy": float(e.get("happy", 70)),
+			"hearts": maxi(0, int(e.get("hearts", 0))), "last": float(e.get("last", now())),
+			"paddock": int(e.get("paddock", -1)), "pet_at": float(e.get("pet_at", 0.0))})
+	var l: Array = d.get("land", [])
+	if l.size() == 4:
+		land = Rect2i(int(l[0]), int(l[1]), int(l[2]), int(l[3]))
+	land_level = int(d.get("land_level", 0))
+	for e in d.get("orders", []):
+		var items: Dictionary = {}
+		for id in e.get("items", {}):
+			if GameData.items.has(id) and int(e.items[id]) > 0:
+				items[id] = int(e.items[id])
+		if not items.is_empty():
+			orders.append({"id": int(e.id), "customer": str(e.get("customer", "Gast")), "items": items,
+				"coins": maxi(0, int(e.get("coins", 0))), "xp": maxi(0, int(e.get("xp", 0)))})
+	var st: Dictionary = d.get("stats", {})
+	for k in st:
+		stats[k] = int(st[k])
+	claimed_quests = (d.get("claimed_quests", []) as Array).duplicate()
+	var s: Dictionary = d.get("settings", {})
+	settings["sound"] = bool(s.get("sound", true))
+	settings["vibration"] = bool(s.get("vibration", true))
+	tutorial_step = int(d.get("tutorial_step", 0))
+	next_uid = maxi(int(d.get("next_uid", 1)), 1)
+	next_order_at = float(d.get("next_order_at", 0.0))
+	away_seconds = maxf(0.0, now() - float(d.get("saved_at", now())))
+	rebuild_occupancy()
+	loaded = true
+	_fill_orders()
+	_emit_all()
+	return true

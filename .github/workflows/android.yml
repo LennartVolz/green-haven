@@ -37,8 +37,10 @@ jobs:
           fi
           godot --headless --quit || true
           SETTINGS=$(ls ~/.config/godot/editor_settings-4*.tres | head -n 1)
-          setting() { grep -q "^$1 " "$SETTINGS" || echo "$1 = \"$2\"" >> "$SETTINGS"; }
+          JAVA_HOME_DIR=$(dirname "$(dirname "$(readlink -f "$(which javac)")")")
+          setting() { sed -i "\|^$1 = |d" "$SETTINGS"; echo "$1 = \"$2\"" >> "$SETTINGS"; }
           setting export/android/android_sdk_path /usr/lib/android-sdk
+          setting export/android/java_sdk_path "$JAVA_HOME_DIR"
           setting export/android/debug_keystore /root/debug.keystore
           setting export/android/debug_keystore_user androiddebugkey
           setting export/android/debug_keystore_pass android

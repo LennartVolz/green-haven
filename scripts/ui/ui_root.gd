@@ -39,6 +39,7 @@ var _nav: PanelContainer
 var _side: VBoxContainer
 var _coins_label: Label
 var _day_label: Label
+var _weather_label: Label
 var _level_label: Label
 var _xp_bar: ProgressBar
 var _toast_panel: PanelContainer
@@ -145,10 +146,14 @@ func _build_top() -> void:
 	lv.add_child(_xp_bar)
 	h.add_child(lv)
 	var day_panel := UiKit.panel(Color(0, 0, 0, 0.16), 24, 10)
-	_day_label = UiKit.label("08:00 · Tag", 27, UiKit.cream())
-	_day_label.custom_minimum_size = Vector2(190, 0)
+	var day_info := UiKit.vbox(0)
+	_day_label = UiKit.label("08:00 · Tag", 25, UiKit.cream())
 	_day_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	day_panel.add_child(_day_label)
+	day_info.add_child(_day_label)
+	_weather_label = UiKit.label("Wetter: Sonnig", 21, UiKit.cream())
+	_weather_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	day_info.add_child(_weather_label)
+	day_panel.add_child(day_info)
 	h.add_child(day_panel)
 	h.add_child(UiKit.spacer())
 	var cp := UiKit.panel(Color(0, 0, 0, 0.2), 30, 10)
@@ -373,6 +378,7 @@ func _process(delta: float) -> void:
 	if _tick_acc >= 0.25:
 		_tick_acc = 0.0
 		_day_label.text = world.day_clock_text()
+		_weather_label.text = "Wetter: %s" % world.current_weather
 		if _sheet_name != "":
 			_tick()
 	# Münzanzeige zählt sanft hoch

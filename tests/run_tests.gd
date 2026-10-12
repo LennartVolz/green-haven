@@ -68,6 +68,12 @@ func test_day_night() -> void:
 	check(WorldScript.daylight_at(18.0 * 3600.0) > WorldScript.daylight_at(21.0 * 3600.0), "Sonnenuntergang wird dunkler")
 	check(WorldScript.clock_text_at(8.0 * 3600.0) == "08:00 · Tag", "Uhr zeigt Tageszeit")
 	check(WorldScript.clock_text_at(20.0 * 3600.0) == "20:00 · Nacht", "Uhr zeigt Nachtzeit")
+	check(WorldScript.weather_at(0.0) == "Sonnig", "Wetterzyklus startet sonnig")
+	check(WorldScript.weather_at(120.0) == "Bewölkt", "Wetter wechselt zu bewölkt")
+	check(WorldScript.weather_at(240.0) == "Regen", "Wetter wechselt zu Regen")
+	check(WorldScript.weather_at(360.0) == "Nebel", "Wetter wechselt zu Nebel")
+	check(WorldScript.weather_at(480.0) == "Sonnig", "Wetterzyklus wiederholt sich")
+	check(WorldScript.weather_tint_at("Regen") != Color.WHITE, "Regen verändert die Lichtfarbe")
 
 
 func test_new_game() -> void:

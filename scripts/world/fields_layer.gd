@@ -9,8 +9,16 @@ var highlight: Array = []     ## Zellen mit zusätzlicher Markierung
 
 
 func _ready() -> void:
-	z_index = -10
-	GameState.world_changed.connect(queue_redraw)
+	# Nach dem Terrain (z = -20), vor den Objekten (z = 1) zeichnen.
+	z_index = 0
+	z_as_relative = true
+	GameState.world_changed.connect(_on_world_changed)
+	GameState.animals_changed.connect(_on_world_changed)
+	queue_redraw()
+
+
+func _on_world_changed() -> void:
+	queue_redraw()
 
 
 func pop(cell: Vector2i) -> void:

@@ -181,6 +181,11 @@ func _build_side() -> void:
 	var till := UiKit.icon_button("plus", "warm", 96)
 	till.pressed.connect(act_till)
 	_side.add_child(till)
+	var land := UiKit.button("Land", "light", 24)
+	land.custom_minimum_size = Vector2(112, 96)
+	land.tooltip_text = "Farmfläche erweitern"
+	land.pressed.connect(act_open_shop_tab.bind("land"))
+	_side.add_child(land)
 	var edit := UiKit.icon_button("hammer", "light", 96)
 	edit.pressed.connect(act_edit)
 	_side.add_child(edit)

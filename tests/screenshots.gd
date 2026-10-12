@@ -20,6 +20,11 @@ func frames(n: int) -> void:
 func shot(name: String) -> void:
 	await frames(4)
 	var img := root.get_texture().get_image()
+	if name == "start":
+		var cell: Vector2i = gs.fields.keys()[0]
+		var p := win(world_to_screen(gs.cell_center(cell)))
+		var soil := img.get_pixel(clampi(roundi(p.x), 0, img.get_width() - 1), clampi(roundi(p.y), 0, img.get_height() - 1))
+		assert(soil.r > soil.g and soil.g > soil.b, "Startfeld muss im Screenshot sichtbar braun gerendert sein: %s" % soil)
 	var path := "%s/%02d_%s.png" % [out_dir, shots, name]
 	img.save_png(path)
 	shots += 1
@@ -96,6 +101,15 @@ func run() -> void:
 	await frames(10)
 	print("viewport ", root.get_visible_rect().size)
 	await shot("start")
+	assert(world.fields_layer.z_index > world.terrain.z_index, "Felder müssen über dem Terrain liegen")
+	assert(world.fields_layer.z_index < world.entities.z_index, "Felder müssen unter Gebäuden und Tieren liegen")
+	var land_button := ui._side.get_child(1) as Button
+	assert(land_button.text == "Land" and land_button.is_visible_in_tree(), "Direkter Land-Button muss sichtbar sein")
+	land_button.pressed.emit()
+	await frames(3)
+	assert(ui._sheet_name == "shop" and ui.state.get("shop_tab", "") == "land", "Land-Button muss die Land-Erweiterung öffnen")
+	await shot("land_button")
+	ui.close_sheet()
 
 	# Feld antippen -> Saatauswahl
 	var cell: Vector2i = gs.fields.keys()[0]

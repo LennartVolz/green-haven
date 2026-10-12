@@ -309,6 +309,8 @@ func set_state(key: String, value: Variant) -> void:
 func open_sheet(sheet_name: String, args: Dictionary = {}) -> void:
 	_sheet_name = sheet_name
 	_sheet_args = args
+	if sheet_name == "shop" and state.get("shop_tab", "") == "":
+		state["shop_tab"] = "crops"
 	_sheet.visible = true
 	_toolbar.visible = false if world.tool_mode == "" else _toolbar.visible
 	_scroll.scroll_vertical = 0
@@ -341,6 +343,7 @@ func _rebuild() -> void:
 		"inventory":
 			InventorySheet.build(self, _sheet_args)
 		"shop":
+			set_title("Shop")
 			ShopSheet.build(self, _sheet_args)
 		"orders":
 			OrdersSheet.build(self, _sheet_args)
@@ -356,6 +359,12 @@ func _rebuild() -> void:
 			RefugeSheet.build(self, _sheet_args)
 		"animal":
 			AnimalSheet.build(self, _sheet_args)
+		_:
+			var message := UiKit.wrap_label("Dieser Bereich ist gerade nicht verfügbar. Schließe das Fenster und versuche es erneut.", 28, UiKit.earth_dark())
+			content.add_child(message)
+	if content.get_child_count() == 0:
+		set_title("Shop" if _sheet_name == "shop" else "Green Haven")
+		content.add_child(UiKit.wrap_label("Hier gibt es gerade nichts anzuzeigen. Bitte öffne den Bereich erneut.", 28, UiKit.earth_dark()))
 	_tick()
 
 
@@ -578,7 +587,8 @@ func act_open(sheet_name: String, args: Dictionary = {}) -> void:
 
 func act_open_shop_tab(tab: String) -> void:
 	state["shop_tab"] = tab
-	open_sheet("shop", {})
+	GameState.sound.emit("tap")
+	open_sheet("shop", {"tab": tab})
 
 
 func act_place(type: String) -> void:

@@ -72,7 +72,8 @@ func _ready() -> void:
 	fields_layer = FieldsScript.new()
 	add_child(fields_layer)
 	entities = Node2D.new()
-	entities.z_index = 1
+	entities.z_index = 2
+	entities.z_as_relative = true
 	entities.y_sort_enabled = true
 	add_child(entities)
 	ghost = GhostScript.new()

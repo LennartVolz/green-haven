@@ -101,6 +101,7 @@ func run() -> void:
 	await frames(10)
 	print("viewport ", root.get_visible_rect().size)
 	await shot("start")
+	assert(world.terrain.z_index == 0, "Terrain muss über der Clear-Color gezeichnet werden")
 	assert(world.fields_layer.z_index > world.terrain.z_index, "Felder müssen über dem Terrain liegen")
 	assert(world.fields_layer.z_index < world.entities.z_index, "Felder müssen unter Gebäuden und Tieren liegen")
 	var land_button := ui._side.get_child(1) as Button
@@ -108,6 +109,7 @@ func run() -> void:
 	land_button.pressed.emit()
 	await frames(3)
 	assert(ui._sheet_name == "shop" and ui.state.get("shop_tab", "") == "land", "Land-Button muss die Land-Erweiterung öffnen")
+	assert(ui.content.get_child_count() > 0 and ui._title.text == "Shop", "Shop-Land-Tab muss Inhalte zeigen")
 	await shot("land_button")
 	ui.close_sheet()
 

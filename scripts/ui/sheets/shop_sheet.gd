@@ -5,7 +5,10 @@ extends RefCounted
 static func build(ui, _args: Dictionary) -> void:
 	ui.set_title("Shop")
 	var c: VBoxContainer = ui.content
-	var tab: String = ui.state.get("shop_tab", "crops")
+	var tab: String = str(_args.get("tab", ui.state.get("shop_tab", "crops")))
+	if not ["crops", "buildings", "decos", "land"].has(tab):
+		tab = "crops"
+		ui.state["shop_tab"] = tab
 	var tabs := [["crops", "Pflanzen"], ["buildings", "Gebäude"], ["decos", "Deko"], ["land", "Land"]]
 	var th := UiKit.hbox(8)
 	for t in tabs:

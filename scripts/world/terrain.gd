@@ -6,7 +6,9 @@ var _land_cache := Rect2i()
 
 
 func _ready() -> void:
-	z_index = -20
+	# Im normalen Canvas-Bereich über der Clear-Color zeichnen.
+	z_index = 0
+	z_as_relative = true
 	GameState.world_changed.connect(_on_world_changed)
 	_land_cache = GameState.land
 	queue_redraw()

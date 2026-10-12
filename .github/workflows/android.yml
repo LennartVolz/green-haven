@@ -46,9 +46,18 @@ jobs:
       - name: APK exportieren
         run: |
           mkdir -p build
-          godot --headless --path . --export-debug "Android" build/GreenHaven-debug.apk
+          set +e
+          godot --headless --path . --export-debug "Android" build/GreenHaven-debug.apk 2>&1 | tee build/export.log
+          code=${PIPESTATUS[0]}
+          grep -a -E "ERROR|error|Error|Cannot|Invalid|not found" build/export.log | head -15 | while read -r line; do echo "::error::${line}"; done
+          ls -la build || true
+          [ -f build/GreenHaven-debug.apk ] && exit 0
+          exit ${code:-1}
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: GreenHaven-debug-apk
-          path: build/GreenHaven-debug.apk
+          name: GreenHaven-build
+          path: |
+            build/GreenHaven-debug.apk
+            build/export.log

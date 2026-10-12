@@ -49,7 +49,10 @@ jobs:
           set +e
           godot --headless --path . --export-debug "Android" build/GreenHaven-debug.apk 2>&1 | tee build/export.log
           code=${PIPESTATUS[0]}
-          grep -a -E "ERROR|error|Error|Cannot|Invalid|not found" build/export.log | head -15 | while read -r line; do echo "::error::${line}"; done
+          if [ ! -f build/GreenHaven-debug.apk ]; then
+            msg=$(tail -c 3000 build/export.log | tr -d '\r' | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')
+            echo "::error title=Export-Log (exit ${code})::${msg}"
+          fi
           ls -la build || true
           [ -f build/GreenHaven-debug.apk ] && exit 0
           exit ${code:-1}

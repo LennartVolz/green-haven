@@ -57,6 +57,10 @@ var _tick_acc := 0.0
 var _coin_shown := -1.0
 var _displayed_coins := 0.0
 var _modal_queue: Array = []
+var _land_button: Button
+var _edit_button: Button
+var _close_button: Button
+var _layout_wide := true
 
 
 func _ready() -> void:
@@ -77,6 +81,7 @@ func _ready() -> void:
 	GameState.quests_changed.connect(_on_state_changed)
 	GameState.coins_changed.connect(_on_state_changed)
 	get_viewport().size_changed.connect(_apply_safe_area)
+	get_viewport().size_changed.connect(_apply_layout)
 	_displayed_coins = float(GameState.coins)
 	_on_coins()
 	_on_xp()
@@ -105,6 +110,8 @@ func _build() -> void:
 
 
 func _apply_safe_area() -> void:
+	if _safe == null:
+		return
 	var l := 6
 	var t := 6
 	var r := 6
@@ -186,9 +193,11 @@ func _build_side() -> void:
 	land.tooltip_text = "Farmfläche erweitern"
 	land.pressed.connect(act_open_shop_tab.bind("land"))
 	_side.add_child(land)
+	_land_button = land
 	var edit := UiKit.icon_button("hammer", "light", 96)
 	edit.pressed.connect(act_edit)
 	_side.add_child(edit)
+	_edit_button = edit
 
 
 func _build_tutorial() -> void:
@@ -247,12 +256,13 @@ func _build_bottom() -> void:
 	var close := UiKit.icon_button("close", "danger", 84)
 	close.pressed.connect(close_sheet)
 	head.add_child(close)
+	_close_button = close
 	sv.add_child(head)
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.scroll_deadzone = 24
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_scroll.custom_minimum_size = Vector2(0, 760)
+	_scroll.custom_minimum_size = Vector2.ZERO
 	content = UiKit.vbox(14)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(content)
@@ -281,6 +291,63 @@ func _build_bottom() -> void:
 		_nav_buttons[d[0]] = b
 	_nav.add_child(nh)
 	_bottom.add_child(_nav)
+	_apply_layout()
+
+
+func _apply_layout() -> void:
+	if _layer == null or _top == null or _bottom == null:
+		return
+	var size := _layer.size
+	if size.x <= 0.0 or size.y <= 0.0:
+		size = get_viewport().get_visible_rect().size
+	_layout_wide = size.x >= size.y
+	var margin := maxf(8.0, minf(size.y * 0.018, 22.0))
+	var header_height := minf(124.0, maxf(82.0, size.y * 0.19))
+	var nav_height := minf(130.0, maxf(76.0, size.y * 0.22))
+	_top.offset_left = margin
+	_top.offset_top = margin
+	_top.offset_right = -margin
+	_top.custom_minimum_size.y = header_height
+	var side_width := minf(120.0, maxf(76.0, size.x * 0.085))
+	_side.offset_right = -margin
+	_side.offset_top = header_height + margin * 2.0
+	_side.add_theme_constant_override("separation", int(margin * 0.65))
+	var side_button := minf(96.0, maxf(64.0, size.y * 0.145))
+	for button in [_side.get_child(0), _land_button, _edit_button]:
+		if button is Control:
+			button.custom_minimum_size = Vector2(side_width, side_button)
+	_bottom.offset_left = margin
+	_bottom.offset_right = -margin
+	_bottom.offset_bottom = -margin
+	_bottom.add_theme_constant_override("separation", int(margin * 0.4))
+	_nav.add_theme_constant_override("margin_left", int(margin * 0.55))
+	_nav.add_theme_constant_override("margin_right", int(margin * 0.55))
+	_nav.add_theme_constant_override("margin_top", int(margin * 0.35))
+	_nav.add_theme_constant_override("margin_bottom", int(margin * 0.35))
+	for button in _nav_buttons.values():
+		button.custom_minimum_size = Vector2(0, nav_height)
+	var close_size := minf(84.0, maxf(56.0, size.y * 0.15))
+	if _close_button != null:
+		_close_button.custom_minimum_size = Vector2(close_size, close_size)
+	var bottom_reserved := nav_height + margin * 2.0
+	if _toolbar.visible:
+		bottom_reserved += 104.0 + margin * 0.5
+	var available_height := maxf(0.0, size.y - header_height - bottom_reserved - margin * 4.0)
+	var sheet_height := minf(available_height, size.y * (0.82 if _layout_wide else 0.56))
+	if _sheet != null:
+		_sheet.custom_minimum_size.y = sheet_height if _sheet.visible else 0.0
+	if _scroll != null:
+		_scroll.custom_minimum_size.y = 0.0
+	if _tut_panel != null:
+		_tut_panel.offset_top = header_height + margin * 2.0
+		_tut_panel.offset_left = margin
+		_tut_panel.offset_right = -(side_width + margin * 2.0) if _layout_wide else -margin
+	if _toast_panel != null:
+		_toast_panel.position.y = header_height + margin * 3.0
+	if _modal != null and _modal.visible:
+		var card := _modal.get_node_or_null("CenterContainer/PanelContainer") as Control
+		if card != null:
+			card.custom_minimum_size = Vector2(minf(840.0, size.x - margin * 4.0), 0.0)
 
 
 # --------------------------------------------------------------- Blockierung
@@ -308,13 +375,16 @@ func set_state(key: String, value: Variant) -> void:
 
 func open_sheet(sheet_name: String, args: Dictionary = {}) -> void:
 	_sheet_name = sheet_name
-	_sheet_args = args
+	_sheet_args = args.duplicate(true)
+	if sheet_name == "shop" and _sheet_args.has("tab"):
+		state["shop_tab"] = _sheet_args["tab"]
 	if sheet_name == "shop" and state.get("shop_tab", "") == "":
 		state["shop_tab"] = "crops"
 	_sheet.visible = true
 	_toolbar.visible = false if world.tool_mode == "" else _toolbar.visible
 	_scroll.scroll_vertical = 0
 	_rebuild()
+	_apply_layout()
 	_update_nav_highlight()
 
 
@@ -330,6 +400,7 @@ func refresh_sheet() -> void:
 		return
 	var keep := _scroll.scroll_vertical
 	_rebuild()
+	_apply_layout()
 	await get_tree().process_frame
 	_scroll.scroll_vertical = keep
 
@@ -351,14 +422,14 @@ func _rebuild() -> void:
 			QuestsSheet.build(self, _sheet_args)
 		"settings":
 			SettingsSheet.build(self, _sheet_args)
-		"crops":
-			CropsSheet.build(self, _sheet_args)
 		"production":
 			ProductionSheet.build(self, _sheet_args)
 		"refuge":
 			RefugeSheet.build(self, _sheet_args)
 		"animal":
 			AnimalSheet.build(self, _sheet_args)
+		"crops":
+			CropsSheet.build(self, _sheet_args)
 		_:
 			var message := UiKit.wrap_label("Dieser Bereich ist gerade nicht verfügbar. Schließe das Fenster und versuche es erneut.", 28, UiKit.earth_dark())
 			content.add_child(message)
@@ -490,6 +561,7 @@ func _update_toolbar(mode: String, data: Dictionary) -> void:
 		ch.queue_free()
 	if mode == "":
 		_toolbar.visible = false
+		_apply_layout()
 		return
 	if mode == "plant" or mode == "till" or mode == "place" or mode == "edit":
 		close_sheet()
@@ -572,6 +644,7 @@ func _update_toolbar(mode: String, data: Dictionary) -> void:
 	v.add_child(h)
 	_toolbar.add_child(v)
 	_toolbar.visible = true
+	_apply_layout()
 
 
 func _confirm_place() -> void:

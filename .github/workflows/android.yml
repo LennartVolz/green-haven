@@ -19,7 +19,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Logiktests (headless)
-        run: godot --headless --path . --import || true; godot --headless --path . -s res://tests/run_tests.gd
+        run: |
+          godot --headless --path . --editor --quit
+          godot --headless --path . -s res://tests/run_tests.gd
 
       - name: Export-Templates bereitstellen
         run: |

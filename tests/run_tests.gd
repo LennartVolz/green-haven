@@ -3,8 +3,7 @@ extends SceneTree
 ## Start:  godot --headless --path . -s res://tests/run_tests.gd
 ## Exit-Code 0 = alle Tests bestanden.
 
-const WorldScript := preload("res://scripts/world/world.gd")
-
+var world_script: GDScript
 var gs: Node
 var gd: Node
 var ss: Node
@@ -18,7 +17,7 @@ func check(cond: bool, msg: String) -> void:
 		passed += 1
 	else:
 		failed += 1
-		print("  FAIL [%s] %s" % [section, msg])
+		printerr("  FAIL [%s] %s" % [section, msg])
 
 
 func begin(name: String) -> void:
@@ -38,6 +37,7 @@ func _initialize() -> void:
 	gs = root.get_node("GameState")
 	gd = root.get_node("GameData")
 	ss = root.get_node("SaveSystem")
+	world_script = load("res://scripts/world/world.gd")
 	ss.path_override = "user://test_save.json"
 	ss.delete_save()
 	test_new_game()
@@ -62,18 +62,18 @@ func _initialize() -> void:
 
 func test_day_night() -> void:
 	begin("Tag-Nacht-Zyklus")
-	check(WorldScript.daylight_at(0.0) < 0.01, "Mitternacht ist dunkel")
-	check(WorldScript.daylight_at(12.0 * 3600.0) > 0.99, "Mittag ist hell")
-	check(WorldScript.daylight_at(6.0 * 3600.0) < WorldScript.daylight_at(9.0 * 3600.0), "Sonnenaufgang wird heller")
-	check(WorldScript.daylight_at(18.0 * 3600.0) > WorldScript.daylight_at(21.0 * 3600.0), "Sonnenuntergang wird dunkler")
-	check(WorldScript.clock_text_at(8.0 * 3600.0) == "08:00 · Tag", "Uhr zeigt Tageszeit")
-	check(WorldScript.clock_text_at(20.0 * 3600.0) == "20:00 · Nacht", "Uhr zeigt Nachtzeit")
-	check(WorldScript.weather_at(0.0) == "Sonnig", "Wetterzyklus startet sonnig")
-	check(WorldScript.weather_at(120.0) == "Bewölkt", "Wetter wechselt zu bewölkt")
-	check(WorldScript.weather_at(240.0) == "Regen", "Wetter wechselt zu Regen")
-	check(WorldScript.weather_at(360.0) == "Nebel", "Wetter wechselt zu Nebel")
-	check(WorldScript.weather_at(480.0) == "Sonnig", "Wetterzyklus wiederholt sich")
-	check(WorldScript.weather_tint_at("Regen") != Color.WHITE, "Regen verändert die Lichtfarbe")
+	check(world_script.daylight_at(0.0) < 0.01, "Mitternacht ist dunkel")
+	check(world_script.daylight_at(12.0 * 3600.0) > 0.99, "Mittag ist hell")
+	check(world_script.daylight_at(6.0 * 3600.0) < world_script.daylight_at(9.0 * 3600.0), "Sonnenaufgang wird heller")
+	check(world_script.daylight_at(18.0 * 3600.0) > world_script.daylight_at(21.0 * 3600.0), "Sonnenuntergang wird dunkler")
+	check(world_script.clock_text_at(8.0 * 3600.0) == "08:00 · Tag", "Uhr zeigt Tageszeit")
+	check(world_script.clock_text_at(20.0 * 3600.0) == "20:00 · Nacht", "Uhr zeigt Nachtzeit")
+	check(world_script.weather_at(0.0) == "Sonnig", "Wetterzyklus startet sonnig")
+	check(world_script.weather_at(120.0) == "Bewölkt", "Wetter wechselt zu bewölkt")
+	check(world_script.weather_at(240.0) == "Regen", "Wetter wechselt zu Regen")
+	check(world_script.weather_at(360.0) == "Nebel", "Wetter wechselt zu Nebel")
+	check(world_script.weather_at(480.0) == "Sonnig", "Wetterzyklus wiederholt sich")
+	check(world_script.weather_tint_at("Regen") != Color.WHITE, "Regen verändert die Lichtfarbe")
 
 
 func test_new_game() -> void:

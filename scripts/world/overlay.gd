@@ -126,6 +126,6 @@ func _draw() -> void:
 				var y := view.position.y + view.size.y * (0.42 + float(i) * 0.13)
 				Painter.ellipse(self, Vector2(x, y), view.size.x * 0.48, 42.0, fog)
 				Painter.ellipse(self, Vector2(x + 110.0, y + 8.0), view.size.x * 0.36, 32.0, fog)
-			"Sonnig":
-				pass
+		"Sonnig":
+			pass
 	queue_redraw()

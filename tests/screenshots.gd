@@ -1,7 +1,7 @@
 extends SceneTree
 ## Spielt eine Szenenfolge durch und speichert Screenshots (zur visuellen Prüfung).
 ## Start (mit Display, z. B. xvfb):
-##   godot --path . --rendering-driver opengl3 --resolution 540x960 -s res://tests/screenshots.gd -- /pfad/zum/ordner
+##   godot --path . --rendering-driver opengl3 --resolution 960x540 -s res://tests/screenshots.gd -- /pfad/zum/ordner
 
 var out_dir := "/tmp"
 var gs: Node
@@ -21,10 +21,15 @@ func shot(name: String) -> void:
 	await frames(4)
 	var img := root.get_texture().get_image()
 	if name == "start":
+		assert(img.get_width() > img.get_height(), "Startbild muss im Querformat sein: %s" % img.get_size())
 		var cell: Vector2i = gs.fields.keys()[0]
 		var p := win(world_to_screen(gs.cell_center(cell)))
 		var soil := img.get_pixel(clampi(roundi(p.x), 0, img.get_width() - 1), clampi(roundi(p.y), 0, img.get_height() - 1))
-		assert(soil.r > soil.g and soil.g > soil.b, "Startfeld muss im Screenshot sichtbar braun gerendert sein: %s" % soil)
+		assert(soil.r > soil.g and soil.r > 0.25, "Startfeld muss im Screenshot als sichtbarer Boden gerendert sein: %s" % soil)
+		assert(world.terrain.is_visible_in_tree() and world.fields_layer.is_visible_in_tree(), "Terrain und Felder müssen sichtbar sein")
+	if name == "land_button":
+		assert(ui._sheet.visible and ui._sheet.size.y > 0.0, "Land-Shop muss eine positive sichtbare Höhe haben: %s" % ui._sheet.size)
+		assert(ui.content.get_child_count() >= 2, "Land-Shop muss Erweiterungs-Karten enthalten")
 	var path := "%s/%02d_%s.png" % [out_dir, shots, name]
 	img.save_png(path)
 	shots += 1
@@ -32,7 +37,7 @@ func shot(name: String) -> void:
 
 
 func win(p: Vector2) -> Vector2:
-	## Viewport-Koordinaten (1080x1920) -> Fensterkoordinaten
+	## Viewport-Koordinaten (1920x1080) -> Fensterkoordinaten
 	return p * Vector2(root.size) / root.get_visible_rect().size
 
 
@@ -116,6 +121,7 @@ func run() -> void:
 	# Feld antippen -> Saatauswahl
 	var cell: Vector2i = gs.fields.keys()[0]
 	await tap(world_to_screen(gs.cell_center(cell)))
+	assert(ui._sheet.size.y > 0.0 and ui._sheet.size.y < ui._layer.size.y * 0.9, "Sheet muss nach dem Öffnen in den Viewport passen: %s" % ui._sheet.size)
 	log.append("sheet after field tap: %s" % ui._sheet_name)
 	await shot("crops_sheet")
 	# Weizen wählen -> Werkzeug
@@ -141,9 +147,11 @@ func run() -> void:
 
 	# Kamera: verschieben und zoomen
 	var cp0: Vector2 = world.cam.position
-	await drag(Vector2(300, 1000), Vector2(200, 800), 8)
-	log.append("camera moved: %s" % (world.cam.position - cp0))
-	world.zoom_at(Vector2(540, 900), 0.8)
+	await drag(Vector2(1100, 500), Vector2(900, 500), 8)
+	var camera_delta: Vector2 = world.cam.position - cp0
+	assert(camera_delta.length() > 0.0, "Kamera muss sich im Querformat per Wischgeste bewegen")
+	log.append("camera moved: %s" % camera_delta)
+	world.zoom_at(Vector2(960, 540), 0.8)
 	await frames(2)
 	log.append("zoom: %s" % world.cam.zoom)
 	world.reset_camera()

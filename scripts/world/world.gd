@@ -162,6 +162,9 @@ func _on_event(event_name: String, data: Dictionary) -> void:
 	if event_name == "petted" and _animal_nodes.has(int(data.uid)):
 		_animal_nodes[int(data.uid)].petted()
 		GameState.fx.emit("coin", _animal_nodes[int(data.uid)].position, "")
+	elif event_name == "played" and _animal_nodes.has(int(data.uid)):
+		_animal_nodes[int(data.uid)].activity_played()
+		GameState.fx.emit("collect", _animal_nodes[int(data.uid)].position, "")
 
 
 # ------------------------------------------------------------------ Kamera

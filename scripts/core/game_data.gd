@@ -76,15 +76,15 @@ const DECOS := {
 
 ## Gerettete Tiere. Sie produzieren nichts – sie werden gepflegt und geliebt.
 const ANIMALS := {
-	"rabbit": {"name": "Kaninchen", "cost": 100, "level": 3, "food": "carrot", "names": ["Krümel", "Möhre", "Flocke", "Pünktchen"],
+	"rabbit": {"name": "Kaninchen", "cost": 100, "level": 3, "food": "carrot", "traits": ["curious", "gentle", "playful"], "names": ["Krümel", "Möhre", "Flocke", "Pünktchen"],
 		"stories": ["wurde als Findelkind in einer Gartenlaube entdeckt.", "lebte zu eng in einem winzigen Käfig und genießt jetzt die Wiese.", "ist aus einer Hinterhofhaltung gerettet worden."]},
-	"chicken": {"name": "Huhn", "cost": 120, "level": 3, "food": "wheat", "names": ["Berta", "Frieda", "Paula", "Gundula"],
+	"chicken": {"name": "Huhn", "cost": 120, "level": 3, "food": "wheat", "traits": ["curious", "social", "brave"], "names": ["Berta", "Frieda", "Paula", "Gundula"],
 		"stories": ["kam aus einer Massentierhaltung und lernt gerade, Gras zu entdecken.", "ist von einem Transporter gefallen und wurde aufgenommen.", "liebt Sonnenbäder im Staub."]},
-	"sheep": {"name": "Schaf", "cost": 250, "level": 5, "food": "oat", "names": ["Wölkchen", "Watte", "Mohn", "Linus"],
+	"sheep": {"name": "Schaf", "cost": 250, "level": 5, "food": "oat", "traits": ["gentle", "cozy", "patient"], "names": ["Wölkchen", "Watte", "Mohn", "Linus"],
 		"stories": ["wurde als Lamm ausgesetzt und mit der Flasche aufgezogen.", "braucht keinen Scherer – das Fell darf einfach flauschig bleiben.", "folgt dir überall hin, sobald du Hafer dabeihast."]},
-	"pig": {"name": "Schwein", "cost": 300, "level": 6, "food": "potato", "names": ["Rosa", "Trüffel", "Emil", "Schnuffi"],
+	"pig": {"name": "Schwein", "cost": 300, "level": 6, "food": "potato", "traits": ["playful", "curious", "cozy"], "names": ["Rosa", "Trüffel", "Emil", "Schnuffi"],
 		"stories": ["suhlt sich nach jedem Regen mit Begeisterung im Matsch.", "entkam einem Schlachttransport und fand hier ein Zuhause.", "ist ein echter Kuschelfan und grunzt vor Glück."]},
-	"cow": {"name": "Kuh", "cost": 450, "level": 8, "food": "wheat", "names": ["Mathilda", "Klara", "Bruno", "Elsa"],
+	"cow": {"name": "Kuh", "cost": 450, "level": 8, "food": "wheat", "traits": ["gentle", "patient", "social"], "names": ["Mathilda", "Klara", "Bruno", "Elsa"],
 		"stories": ["durfte ihr Kalb behalten und muss nie wieder gemolken werden.", "liebt Streicheleinheiten hinter den Ohren.", "döst am liebsten im Schatten des Apfelbaums."]},
 }
 
@@ -114,6 +114,24 @@ const QUESTS := [
 	{"id": "q_order15", "text": "Erfülle 15 Aufträge", "type": "stat", "key": "orders", "target": 15, "coins": 400, "xp": 120},
 	{"id": "q_animals3", "text": "Rette 3 Tiere", "type": "animals", "target": 3, "coins": 300, "xp": 100},
 ]
+
+const ANIMAL_TRAITS := {
+	"curious": {"name": "Neugierig", "description": "erkundet gern jeden Winkel."},
+	"gentle": {"name": "Sanftmütig", "description": "mag ruhige Momente und vorsichtige Nähe."},
+	"playful": {"name": "Verspielt", "description": "freut sich besonders über kleine Spiele."},
+	"social": {"name": "Gesellig", "description": "fühlt sich in Gesellschaft wohl."},
+	"brave": {"name": "Mutig", "description": "probiert gern Neues aus."},
+	"cozy": {"name": "Gemütlich", "description": "liebt sonnige Ruhepausen."},
+	"patient": {"name": "Geduldig", "description": "lässt sich Zeit und beobachtet aufmerksam."},
+}
+
+const ANIMAL_ACTIVITIES := {
+	"rabbit": {"name": "Schnüffelspiel", "description": "Ein paar versteckte Kräuter zum Erkunden."},
+	"chicken": {"name": "Pickspiel", "description": "Ein kleines Suchspiel im weichen Stroh."},
+	"sheep": {"name": "Wollpflege", "description": "Eine sanfte Bürstenrunde, ganz ohne Scheren."},
+	"pig": {"name": "Matschbad", "description": "Ein fröhliches Planschen und Wühlen."},
+	"cow": {"name": "Kraulzeit", "description": "Eine ruhige Massage hinter den Ohren."},
+}
 
 const CUSTOMERS := ["Lena", "Jonas", "Mira", "Oskar", "Fatima", "Ben", "Sofia", "Karim", "Hanna", "Leo", "Yuki", "Pia", "Tarek", "Ida"]
 

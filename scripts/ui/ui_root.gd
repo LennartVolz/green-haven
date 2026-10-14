@@ -739,14 +739,24 @@ func act_upgrade(uid: int) -> void:
 		show_toast("Neuer Produktionsplatz!", "good")
 
 
-func act_adopt(species: String) -> void:
-	var uid := GameState.adopt_animal(species)
+func act_adopt(species: String, rescue: bool = false) -> void:
+	var uid := GameState.adopt_animal(species, rescue)
 	if uid < 0:
 		_fail()
 		return
 	var a := GameState.get_animal(uid)
 	show_toast("%s hat ein neues Zuhause gefunden!" % a.name, "good")
 	open_sheet("animal", {"uid": uid})
+
+
+func act_play_animal(uid: int) -> void:
+	if _check(GameState.animal_activity(uid)):
+		show_toast("Eine schöne gemeinsame Zeit!", "good")
+
+
+func act_toggle_cosmetic(uid: int, cosmetic_id: String, equipped: bool) -> void:
+	if _check(GameState.set_animal_cosmetic(uid, cosmetic_id, equipped)):
+		refresh_sheet()
 
 
 func act_feed(uid: int) -> void:

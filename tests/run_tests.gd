@@ -49,6 +49,7 @@ func _initialize() -> void:
 	test_orders()
 	test_quests()
 	test_animals()
+	test_animal_extensions()
 	test_land_and_objects()
 	test_save_roundtrip()
 	test_offline_progress()
@@ -292,6 +293,53 @@ func test_animals() -> void:
 		check(not gd.RECIPES.has("egg") and not gd.items.has("milk") and not gd.items.has("egg"), "Tiere liefern keine Waren")
 
 
+func test_animal_extensions() -> void:
+	begin("Tierprofile, Beschäftigung, Accessoires und Rettung")
+	level_to(3)
+	gs.coins = 5000
+	var pad: int = gs.place_object("paddock", Vector2i(8, 11))
+	check(pad > 0, "Gehege für Rettungsfall")
+	check(not gs.rescue_case.is_empty(), "Rettungsangebot erscheint bei freiem Gehege")
+	var offered_story: int = int(gs.rescue_case["story"])
+	var offer_save: Dictionary = gs.serialize()
+	gs.new_game()
+	check(gs.deserialize(offer_save), "aktives Rettungsangebot laden")
+	check(int(gs.rescue_case["story"]) == offered_story, "Rettungsfall samt Geschichte bleibt gespeichert")
+	var species: String = gs.rescue_case["species"]
+	var coins_before: int = gs.coins
+	var rescued: int = gs.adopt_animal(species, true)
+	check(rescued > 0, "Rettung aufnehmen")
+	check(int(gs.get_animal(rescued).story) == offered_story, "Rettung behält ihre angebotene Geschichte")
+	check(gs.coins == coins_before, "Rettungsfall kostet keine Aufnahmegebühr")
+	check(gs.rescue_case.is_empty(), "angenommener Fall wird entfernt")
+	var animal: Dictionary = gs.get_animal(rescued)
+	check(animal.traits.size() == 2, "Tier bekommt zwei Charakterzüge")
+	for trait_id in animal.traits:
+		check(gd.ANIMAL_TRAITS.has(trait_id) and gd.ANIMALS[species]["traits"].has(trait_id), "Charakterzug passt zur Tierart")
+	check(gs.animals_in_paddock(pad).size() == 1, "Gehegeübersicht liefert Bewohner")
+	var old_happy: float = gs.animal_stat(animal, "happy")
+	check(gs.animal_activity(rescued), "optionale Beschäftigung funktioniert")
+	check(gs.stats.get("activities", 0) == 1, "Beschäftigung wird gezählt")
+	check(gs.animal_stat(animal, "happy") > old_happy, "Beschäftigung hebt Wohlbefinden")
+	check(not gs.animal_activity(rescued), "Beschäftigung hat eine Abklingzeit")
+	animal.hearts = 100
+	check(gs.set_animal_cosmetic(rescued, "flower", true), "freigeschaltetes Accessoire anlegen")
+	check(gs.equipped_cosmetics_of(animal).has("flower"), "Accessoire wird getragen")
+	check(not gs.set_animal_cosmetic(rescued, "unknown", true), "unbekanntes Accessoire ablehnen")
+	var encoded: Dictionary = gs.serialize()
+	check(int(encoded.version) == 2 and encoded.animals[0].has("traits") and encoded.animals[0].has("accessories"), "neue Profildaten werden gespeichert")
+	gs.new_game()
+	check(gs.deserialize(encoded), "erweiterte Tierdaten laden")
+	var restored: Dictionary = gs.get_animal(rescued)
+	check(restored.traits.size() == 2 and restored.accessories.has("flower"), "Profil und Accessoire bleiben beim Speichern/Laden erhalten")
+	check(gs.animals_in_paddock(pad).size() == 1, "Gehegezuordnung bleibt erhalten")
+	check(gs.set_animal_cosmetic(rescued, "flower", false), "Accessoire wieder ablegen")
+	check(not gs.equipped_cosmetics_of(restored).has("flower"), "abgelegtes Accessoire wird nicht gerendert")
+	gs.time_offset += gs.RESCUE_COOLDOWN
+	gs._refresh_rescue_case()
+	check(not gs.rescue_case.is_empty(), "neues Rettungsangebot nach der freiwilligen Pause")
+
+
 func test_land_and_objects() -> void:
 	begin("Land und Objekte")
 	var cell := Vector2i(8, 11)
@@ -357,6 +405,7 @@ func test_save_roundtrip() -> void:
 	check(uid > 0 and gs.get_object(uid).uid != bak, "neue UIDs kollidieren nicht")
 	var d: Dictionary = gs.serialize()
 	check(int(d.version) == gs.SAVE_VERSION, "Version im Spielstand")
+	check(gs.SAVE_VERSION == 2, "neue Tierdaten verwenden Save-Version 2")
 
 
 func test_offline_progress() -> void:
@@ -411,6 +460,13 @@ func test_corrupt_and_migration() -> void:
 	check(not gs.inventory.has("ghost") and not gs.inventory.has("carrot"), "ungültige/negative Items verworfen")
 	check(gs.fields[Vector2i(8, 11)].crop == "", "unbekannte Pflanze verworfen")
 	check(gs.tutorial_step == 99, "Tutorial bei Altstand übersprungen")
+	check(int(ss.migrate({"version": 1, "animals": []}).version) == 2, "Version 1 migriert auf neue Tierdaten")
+	var legacy_animal := {"uid": 10, "species": "rabbit", "name": "Alt-Tier", "hunger": 60, "happy": 55, "last": gs.now(), "paddock": 1}
+	var migrated: Dictionary = ss.migrate({"version": 1, "animals": [legacy_animal]})
+	check(legacy_animal.has("traits") and legacy_animal.has("accessories") and legacy_animal.has("activity_at"), "Tierfelder aus altem Spielstand ergänzt")
+	var legacy_state: Dictionary = {"version": 2, "animals": [legacy_animal], "objects": [{"uid": 1, "type": "paddock", "x": 8, "y": 11}], "land": [8, 11, 8, 8]}
+	check(gs.deserialize(legacy_state), "älteres Tierprofil laden")
+	check(gs.get_animal(10).traits.size() == 2 and gs.get_animal(10).accessories.is_empty(), "altes Profil erhält gültige Standard-Charakterzüge")
 	# Komplett unbrauchbar
 	var f3 := FileAccess.open("user://test_save.json", FileAccess.WRITE)
 	f3.store_string("müll")

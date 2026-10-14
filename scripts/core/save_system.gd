@@ -101,6 +101,16 @@ func migrate(data: Dictionary) -> Dictionary:
 			data["land_level"] = 0
 		if not data.has("tutorial_step"):
 			data["tutorial_step"] = 99
+		v = 1
+	if v < 2:
+		# Neue Tierprofile und Rettungsfälle sind optionale Felder alter Stände.
+		data["rescue_case"] = {}
+		data["next_rescue_at"] = 0.0
+		for animal in data.get("animals", []):
+			animal["traits"] = []
+			animal["accessories"] = []
+			animal["activity_at"] = 0.0
+		data["version"] = 2
 	return data
 
 

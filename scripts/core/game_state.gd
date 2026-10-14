@@ -20,10 +20,12 @@ signal game_event(event_name: String, data: Dictionary)
 signal fx(kind: String, world_pos: Vector2, text: String)
 signal sound(sound_name: String)
 
-const SAVE_VERSION := 1
+const SAVE_VERSION := 2
 const MAX_ORDERS := 4
 const ORDER_COOLDOWN := 25.0
 const PET_COOLDOWN := 12.0
+const ACTIVITY_COOLDOWN := 180.0
+const RESCUE_COOLDOWN := 600.0
 const MAX_UPGRADES := 3
 ## Tiere sind in 8 Stunden von "voll" auf "leer"; ohne Strafe, nur Stimmung.
 const ANIMAL_DECAY_PER_SEC := 100.0 / (8.0 * 3600.0)
@@ -39,7 +41,9 @@ var xp := 0
 var inventory: Dictionary = {}
 var fields: Dictionary = {}      ## Vector2i -> {"crop": String, "t": float}
 var objects: Array = []          ## {"uid","kind","type","cell","queue","upgrades"}
-var animals: Array = []          ## {"uid","species","name","story","hunger","happy","hearts","last","paddock","pet_at"}
+var animals: Array = []          ## {uid,species,name,story,traits,hunger,happy,hearts,last,paddock,pet_at,activity_at,accessories}
+var rescue_case: Dictionary = {}
+var next_rescue_at := 0.0
 var land := Rect2i()
 var land_level := 0
 var orders: Array = []
@@ -67,6 +71,7 @@ func now() -> float:
 func _process(_delta: float) -> void:
 	if loaded:
 		_fill_orders()
+		_refresh_rescue_case()
 
 
 # ---------------------------------------------------------------- Zustand
@@ -79,6 +84,8 @@ func reset_state() -> void:
 	fields = {}
 	objects = []
 	animals = []
+	rescue_case = {}
+	next_rescue_at = 0.0
 	land = GameData.START_LAND
 	land_level = 0
 	orders = []
@@ -333,6 +340,8 @@ func place_object(type: String, cell: Vector2i) -> int:
 	var obj := {"uid": _new_uid(), "kind": d["kind"], "type": type, "cell": cell, "queue": [], "upgrades": 0}
 	objects.append(obj)
 	rebuild_occupancy()
+	if obj.kind == "paddock":
+		_refresh_rescue_case()
 	bump("built")
 	world_changed.emit()
 	quests_changed.emit()
@@ -715,18 +724,21 @@ func free_paddock() -> Dictionary:
 	return {}
 
 
-func adopt_animal(species: String) -> int:
+func adopt_animal(species: String, rescue: bool = false) -> int:
 	if not GameData.ANIMALS.has(species):
 		return -1
 	var d: Dictionary = GameData.ANIMALS[species]
 	if level < int(d["level"]):
 		last_error = "Ab Stufe %d" % int(d["level"])
 		return -1
-	var pad := free_paddock()
+	if rescue and (rescue_case.is_empty() or str(rescue_case.get("species", "")) != species):
+		last_error = "Dieser Rettungsfall ist nicht mehr verfügbar"
+		return -1
+	var pad: Dictionary = free_paddock()
 	if pad.is_empty():
 		last_error = "Du brauchst ein Gehege mit freiem Platz"
 		return -1
-	if not spend_coins(int(d["cost"])):
+	if not rescue and not spend_coins(int(d["cost"])):
 		last_error = "Nicht genug Münzen"
 		return -1
 	var used: Array = []
@@ -743,16 +755,108 @@ func adopt_animal(species: String) -> int:
 	var stories: Array = d["stories"]
 	var a := {
 		"uid": _new_uid(), "species": species, "name": nm,
-		"story": rng.randi_range(0, stories.size() - 1),
+		"story": int(rescue_case.get("story", 0)) if rescue else rng.randi_range(0, stories.size() - 1),
 		"hunger": 70.0, "happy": 70.0, "hearts": 0, "last": now(),
-		"paddock": int(pad.uid), "pet_at": 0.0,
+		"paddock": int(pad.uid), "pet_at": 0.0, "activity_at": 0.0,
+		"traits": _choose_animal_traits(species), "accessories": [],
 	}
 	animals.append(a)
-	animals_changed.emit()
+	if rescue:
+		rescue_case = {}
+		next_rescue_at = now() + RESCUE_COOLDOWN
+		animals_changed.emit()
+		event("rescue_accepted", {"species": species, "uid": a.uid})
+	else:
+		animals_changed.emit()
 	quests_changed.emit()
 	sound.emit("pet")
 	event("adopted", {"species": species, "uid": a.uid})
 	return int(a.uid)
+
+
+func animals_in_paddock(paddock_uid: int) -> Array:
+	var result: Array = []
+	for a in animals:
+		if int(a.get("paddock", -1)) == paddock_uid:
+			result.append(a)
+	return result
+
+
+func _choose_animal_traits(species: String) -> Array:
+	var available: Array = GameData.ANIMALS.get(species, {}).get("traits", []).duplicate()
+	var chosen: Array = []
+	while not available.is_empty() and chosen.size() < 2:
+		var index := rng.randi_range(0, available.size() - 1)
+		chosen.append(available.pop_at(index))
+	return chosen
+
+
+func _refresh_rescue_case() -> void:
+	if level < 3 or count_type("paddock") == 0:
+		return
+	if not rescue_case.is_empty():
+		return
+	if now() < next_rescue_at or free_paddock().is_empty():
+		return
+	var eligible: Array = []
+	for species in GameData.ANIMALS:
+		if level >= int(GameData.ANIMALS[species]["level"]):
+			eligible.append(species)
+	if eligible.is_empty():
+		return
+	var species: String = eligible[rng.randi_range(0, eligible.size() - 1)]
+	var stories: Array = GameData.ANIMALS[species]["stories"]
+	rescue_case = {"species": species, "story": rng.randi_range(0, stories.size() - 1)}
+	animals_changed.emit()
+	event("rescue_offered", {"species": species})
+
+
+func activity_cooldown_left(a: Dictionary) -> float:
+	return maxf(0.0, float(a.get("activity_at", 0.0)) - now())
+
+
+func animal_activity(uid: int) -> bool:
+	var a := get_animal(uid)
+	if a.is_empty() or activity_cooldown_left(a) > 0.0:
+		return false
+	_settle(a)
+	a.happy = minf(100.0, float(a.happy) + 12.0)
+	a.hearts = int(a.hearts) + 1
+	a.activity_at = now() + ACTIVITY_COOLDOWN
+	add_xp(1)
+	bump("activities")
+	animals_changed.emit()
+	quests_changed.emit()
+	sound.emit("pet")
+	event("played", {"uid": uid, "species": a.species})
+	return true
+
+
+func set_animal_cosmetic(uid: int, cosmetic_id: String, equipped: bool) -> bool:
+	var a := get_animal(uid)
+	if a.is_empty():
+		return false
+	var unlocked := cosmetics_of(a)
+	if not unlocked.has(cosmetic_id):
+		last_error = "Diese Belohnung ist noch nicht freigeschaltet"
+		return false
+	var equipped_items: Array = a.get("accessories", []).duplicate()
+	if equipped and not equipped_items.has(cosmetic_id):
+		equipped_items.append(cosmetic_id)
+	elif not equipped:
+		equipped_items.erase(cosmetic_id)
+	a.accessories = equipped_items
+	animals_changed.emit()
+	return true
+
+
+func equipped_cosmetics_of(a: Dictionary) -> Array:
+	var unlocked := cosmetics_of(a)
+	var result: Array = []
+	for id in a.get("accessories", []):
+		if unlocked.has(id):
+			result.append(id)
+	return result
 
 
 func feed_animal(uid: int) -> bool:
@@ -889,6 +993,8 @@ func serialize() -> Dictionary:
 		"inventory": inventory.duplicate(),
 		"fields": f, "objects": objs,
 		"animals": animals.duplicate(true),
+		"rescue_case": rescue_case.duplicate(true),
+		"next_rescue_at": next_rescue_at,
 		"land": [land.position.x, land.position.y, land.size.x, land.size.y],
 		"land_level": land_level,
 		"orders": orders.duplicate(true),
@@ -933,10 +1039,31 @@ func deserialize(d: Dictionary) -> bool:
 	for e in d.get("animals", []):
 		if not GameData.ANIMALS.has(str(e.get("species", ""))):
 			continue
-		animals.append({"uid": int(e.uid), "species": str(e.species), "name": str(e.get("name", "Tier")),
-			"story": int(e.get("story", 0)), "hunger": float(e.get("hunger", 70)), "happy": float(e.get("happy", 70)),
-			"hearts": maxi(0, int(e.get("hearts", 0))), "last": float(e.get("last", now())),
-			"paddock": int(e.get("paddock", -1)), "pet_at": float(e.get("pet_at", 0.0))})
+		var species: String = str(e.species)
+		var valid_traits: Array = []
+		for trait_id in e.get("traits", []):
+			if GameData.ANIMAL_TRAITS.has(str(trait_id)) and GameData.ANIMALS[species]["traits"].has(str(trait_id)) and not valid_traits.has(str(trait_id)):
+				valid_traits.append(str(trait_id))
+		if valid_traits.is_empty():
+			valid_traits = _choose_animal_traits(species)
+		var hearts := maxi(0, int(e.get("hearts", 0)))
+		var valid_accessories: Array = []
+		for cosmetic in e.get("accessories", []):
+			for definition in GameData.COSMETICS:
+				if str(definition["id"]) == str(cosmetic) and hearts >= int(definition["hearts"]) and not valid_accessories.has(str(cosmetic)):
+					valid_accessories.append(str(cosmetic))
+		animals.append({"uid": int(e.uid), "species": species, "name": str(e.get("name", "Tier")),
+			"story": clampi(int(e.get("story", 0)), 0, GameData.ANIMALS[species]["stories"].size() - 1),
+			"traits": valid_traits, "hunger": clampf(float(e.get("hunger", 70)), 0.0, 100.0), "happy": clampf(float(e.get("happy", 70)), 0.0, 100.0),
+			"hearts": hearts, "last": float(e.get("last", now())),
+			"paddock": int(e.get("paddock", -1)), "pet_at": float(e.get("pet_at", 0.0)),
+			"activity_at": float(e.get("activity_at", 0.0)), "accessories": valid_accessories})
+	var saved_rescue: Dictionary = d.get("rescue_case", {})
+	if GameData.ANIMALS.has(str(saved_rescue.get("species", ""))):
+		var rescue_species: String = str(saved_rescue.species)
+		rescue_case = {"species": rescue_species,
+			"story": clampi(int(saved_rescue.get("story", 0)), 0, GameData.ANIMALS[rescue_species]["stories"].size() - 1)}
+	next_rescue_at = float(d.get("next_rescue_at", 0.0))
 	var l: Array = d.get("land", [])
 	if l.size() == 4:
 		land = Rect2i(int(l[0]), int(l[1]), int(l[2]), int(l[3]))

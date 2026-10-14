@@ -16,6 +16,7 @@ animals a home. The animals produce nothing — they are simply cared for.
 - Animal sanctuary with 5 animal types, personal traits, optional species-specific activities, selectable cosmetic rewards, and no-pressure rescue offers
 - Refuge journal for rescues and shared moments, friendship milestones with animated reactions and profile stories
 - Optional multi-part neighborhood delivery stories with persistent progress and completion rewards
+- 10 claimable achievements for orders, harvests, crafting, animal care, friendship, stories, and farm expansion
 - Per-paddock occupancy and wellbeing overview; animal profiles, journal and story progress are included in versioned saves
 - Touch controls: tap, swipe to sow/harvest, camera pan with inertia, pinch-to-zoom, placement by drag
 - Local, versioned save system; crop growth and production continue offline

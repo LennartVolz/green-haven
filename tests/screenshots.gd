@@ -303,6 +303,10 @@ func run() -> void:
 				has_story_order = true
 				break
 		assert(has_story_order, "Storyauftrag wird im Auftragsbuch angezeigt")
+		ui.act_open("achievements", {})
+		await frames(3)
+		assert(ui._sheet_name == "achievements" and ui._title.text == "Erfolge", "Erfolge öffnen sich über die Navigation")
+		assert(ui.content.get_child_count() == GameData.ACHIEVEMENTS.size() + 1, "Erfolgsübersicht zeigt alle Meilensteine")
 		ui.close_sheet()
 		quit()
 		return
@@ -353,6 +357,11 @@ func run() -> void:
 			break
 	assert(has_story_order, "Storyauftrag wird im Auftragsbuch angezeigt")
 	await shot("sheet_story_order")
+	ui.act_open("achievements", {})
+	await frames(3)
+	assert(ui._sheet_name == "achievements" and ui._title.text == "Erfolge", "Erfolge öffnen sich über die Navigation")
+	assert(ui.content.get_child_count() == GameData.ACHIEVEMENTS.size() + 1, "Erfolgsübersicht zeigt alle Meilensteine")
+	await shot("sheet_achievements")
 	ui.act_open("animal", {"uid": gs.animals[0].uid})
 	await shot("sheet_animal")
 	ui.act_open("quests", {})

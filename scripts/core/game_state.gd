@@ -20,7 +20,7 @@ signal game_event(event_name: String, data: Dictionary)
 signal fx(kind: String, world_pos: Vector2, text: String)
 signal sound(sound_name: String)
 
-const SAVE_VERSION := 3
+const SAVE_VERSION := 4
 const MAX_ORDERS := 4
 const ORDER_COOLDOWN := 25.0
 const PET_COOLDOWN := 12.0
@@ -52,6 +52,7 @@ var delivery_story_stage := 0
 var diary: Array = []
 var stats: Dictionary = {}
 var claimed_quests: Array = []
+var claimed_achievements: Array = []
 var settings: Dictionary = {"sound": true, "vibration": true}
 var tutorial_step := 0
 var next_uid := 1
@@ -97,6 +98,7 @@ func reset_state() -> void:
 	diary = []
 	stats = {}
 	claimed_quests = []
+	claimed_achievements = []
 	tutorial_step = 0
 	next_uid = 1
 	next_order_at = 0.0
@@ -434,6 +436,7 @@ func expand_land() -> bool:
 		return false
 	land = land.grow(1)
 	land_level += 1
+	bump("expansions")
 	world_changed.emit()
 	sound.emit("build")
 	event("expanded", {})
@@ -747,6 +750,7 @@ func fulfill_order(order_id: int) -> bool:
 		if delivery_story_stage >= stages.size():
 			add_coins(int(campaign["bonus_coins"]))
 			add_xp(int(campaign["bonus_xp"]))
+			bump("stories_completed")
 			add_diary_entry("%s ist abgeschlossen. Die Nachbarschaft bedankt sich für deine Hilfe!" % campaign["title"])
 			active_delivery_story = ""
 			delivery_story_stage = 0
@@ -1029,6 +1033,47 @@ func quest_progress(q: Dictionary) -> int:
 	return 0
 
 
+func achievement_progress(achievement: Dictionary) -> int:
+	match str(achievement["type"]):
+		"stat":
+			return int(stats.get(str(achievement["key"]), 0))
+		"animals":
+			return animals.size()
+		"friendship":
+			var best := 0
+			for animal in animals:
+				best = maxi(best, int(animal.get("hearts", 0)))
+			return best
+	return 0
+
+
+func achievement_unlocked(achievement: Dictionary) -> bool:
+	return achievement_progress(achievement) >= int(achievement["target"])
+
+
+func claimable_achievements() -> int:
+	var count := 0
+	for achievement in GameData.ACHIEVEMENTS:
+		if achievement_unlocked(achievement) and not claimed_achievements.has(achievement["id"]):
+			count += 1
+	return count
+
+
+func claim_achievement(id: String) -> bool:
+	for achievement in GameData.ACHIEVEMENTS:
+		if str(achievement["id"]) != id:
+			continue
+		if claimed_achievements.has(id) or not achievement_unlocked(achievement):
+			return false
+		claimed_achievements.append(id)
+		add_coins(int(achievement["coins"]))
+		add_xp(int(achievement["xp"]))
+		quests_changed.emit()
+		sound.emit("coin")
+		return true
+	return false
+
+
 func quest_done(q: Dictionary) -> bool:
 	return quest_progress(q) >= int(q["target"])
 
@@ -1100,6 +1145,7 @@ func serialize() -> Dictionary:
 		"diary": diary.duplicate(true),
 		"stats": stats.duplicate(),
 		"claimed_quests": claimed_quests.duplicate(),
+		"claimed_achievements": claimed_achievements.duplicate(),
 		"settings": settings.duplicate(),
 		"tutorial_step": tutorial_step,
 		"next_uid": next_uid,
@@ -1195,6 +1241,13 @@ func deserialize(d: Dictionary) -> bool:
 	while diary.size() > 100:
 		diary.pop_front()
 	claimed_quests = (d.get("claimed_quests", []) as Array).duplicate()
+	claimed_achievements = []
+	for achievement_id in d.get("claimed_achievements", []):
+		for achievement in GameData.ACHIEVEMENTS:
+			if str(achievement["id"]) == str(achievement_id):
+				if not claimed_achievements.has(str(achievement_id)):
+					claimed_achievements.append(str(achievement_id))
+				break
 	var s: Dictionary = d.get("settings", {})
 	settings["sound"] = bool(s.get("sound", true))
 	settings["vibration"] = bool(s.get("vibration", true))

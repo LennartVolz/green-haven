@@ -181,6 +181,21 @@ const QUESTS := [
 	{"id": "q_animals3", "text": "Rette 3 Tiere", "type": "animals", "target": 3, "coins": 300, "xp": 100},
 ]
 
+## Dauerhafte Erfolge: Kriterium + einmalige Münz-/XP-Belohnung.
+const ACHIEVEMENTS := [
+	{"id": "orders_2", "text": "Zwei gute Nachbarn", "description": "Erfülle 2 Bestellungen.", "type": "stat", "key": "orders", "target": 2, "coins": 50, "xp": 20},
+	{"id": "orders_10", "text": "Stammkundschaft", "description": "Erfülle 10 Bestellungen.", "type": "stat", "key": "orders", "target": 10, "coins": 180, "xp": 70},
+	{"id": "orders_25", "text": "Das ganze Viertel kennt dich", "description": "Erfülle 25 Bestellungen.", "type": "stat", "key": "orders", "target": 25, "coins": 450, "xp": 180},
+	{"id": "harvest_25", "text": "Erste reiche Ernte", "description": "Ernte 25 Felder.", "type": "stat", "key": "harvested", "target": 25, "coins": 100, "xp": 35},
+	{"id": "harvest_100", "text": "Grüne Daumen", "description": "Ernte 100 Felder.", "type": "stat", "key": "harvested", "target": 100, "coins": 300, "xp": 110},
+	{"id": "crafted_10", "text": "Kleine Manufaktur", "description": "Stelle 10 Produkte her.", "type": "stat", "key": "crafted", "target": 10, "coins": 150, "xp": 55},
+	{"id": "animals_3", "text": "Ein Refugium voller Leben", "description": "Gib 3 Tieren ein sicheres Zuhause.", "type": "animals", "target": 3, "coins": 220, "xp": 85},
+	{"id": "friendship_15", "text": "Vertrauen wächst", "description": "Erreiche 15 Freundschaftsherzen mit einem Tier.", "type": "friendship", "target": 15, "coins": 180, "xp": 65},
+	{"id": "story_complete", "text": "Gute Geschichten teilen", "description": "Schließe eine Liefergeschichte ab.", "type": "stat", "key": "stories_completed", "target": 1, "coins": 200, "xp": 80},
+	{"id": "land_expansion", "text": "Platz zum Wachsen", "description": "Erweitere deine Farm zum ersten Mal.", "type": "stat", "key": "expansions", "target": 1, "coins": 100, "xp": 35},
+]
+
+
 const ANIMAL_TRAITS := {
 	"curious": {"name": "Neugierig", "description": "erkundet gern jeden Winkel."},
 	"gentle": {"name": "Sanftmütig", "description": "mag ruhige Momente und vorsichtige Nähe."},

@@ -48,6 +48,7 @@ func _initialize() -> void:
 	test_production()
 	test_orders()
 	test_delivery_stories()
+	test_achievements()
 	test_quests()
 	test_animals()
 	test_animal_extensions()
@@ -292,6 +293,40 @@ func test_delivery_stories() -> void:
 	check(gs.diary.size() >= 5 and String(gs.diary.back().text).contains("abgeschlossen"), "Abschluss und Abschnitte stehen im Refugiums-Tagebuch")
 
 
+func test_achievements() -> void:
+	begin("Erfolge")
+	var order_achievement: Dictionary = {}
+	for achievement in gd.ACHIEVEMENTS:
+		if achievement["id"] == "orders_2":
+			order_achievement = achievement
+	check(not order_achievement.is_empty(), "Erfolg für zwei Bestellungen vorhanden")
+	check(gs.achievement_progress(order_achievement) == 0 and not gs.achievement_unlocked(order_achievement), "Bestellerfolg beginnt bei null")
+	gs.bump("orders")
+	check(not gs.achievement_unlocked(order_achievement), "eine Bestellung reicht noch nicht")
+	gs.bump("orders")
+	check(gs.achievement_unlocked(order_achievement), "zwei Bestellungen schalten den Erfolg frei")
+	var coins_before: int = gs.coins
+	check(gs.claimable_achievements() == 1, "freigeschaltete Belohnung wird gezählt")
+	check(gs.claim_achievement("orders_2"), "Belohnung ist abholbar")
+	check(gs.coins == coins_before + int(order_achievement["coins"]), "Erfolg vergibt Münzen")
+	check(not gs.claim_achievement("orders_2"), "Erfolgsbelohnung gibt es nur einmal")
+	check(gs.coins == coins_before + int(order_achievement["coins"]), "kein doppelter Münzbonus")
+	var animals_achievement: Dictionary = {}
+	for achievement in gd.ACHIEVEMENTS:
+		if achievement["id"] == "friendship_15":
+			animals_achievement = achievement
+	var animal := {"hearts": 14}
+	gs.animals.append(animal)
+	check(gs.achievement_progress(animals_achievement) == 14, "Freundschaft zählt den höchsten Tierwert")
+	animal.hearts = 15
+	check(gs.achievement_unlocked(animals_achievement), "15 Herzen schalten Freundschaftserfolg frei")
+	var encoded: Dictionary = gs.serialize()
+	gs.new_game()
+	check(gs.deserialize(encoded), "Erfolgs-Status laden")
+	check(gs.claimed_achievements.has("orders_2") and not gs.claim_achievement("orders_2"), "abgeholte Erfolge bleiben dauerhaft gespeichert")
+	check(gs.claimed_achievements.size() == 1, "unbekannte Erfolgs-IDs werden nicht gespeichert")
+
+
 func test_quests() -> void:
 	begin("Quests")
 	var q: Dictionary = gd.QUESTS[0]
@@ -407,7 +442,7 @@ func test_animal_extensions() -> void:
 	check(gs.equipped_cosmetics_of(animal).has("flower"), "Accessoire wird getragen")
 	check(not gs.set_animal_cosmetic(rescued, "unknown", true), "unbekanntes Accessoire ablehnen")
 	var encoded: Dictionary = gs.serialize()
-	check(int(encoded.version) == 3 and encoded.animals[0].has("traits") and encoded.animals[0].has("accessories"), "neue Profildaten werden gespeichert")
+	check(int(encoded.version) == 4 and encoded.animals[0].has("traits") and encoded.animals[0].has("accessories"), "neue Profildaten werden gespeichert")
 	gs.new_game()
 	check(gs.deserialize(encoded), "erweiterte Tierdaten laden")
 	var restored: Dictionary = gs.get_animal(rescued)
@@ -465,6 +500,7 @@ func test_save_roundtrip() -> void:
 	gs.place_object("bench", Vector2i(8, 16))
 	gs.bump("planted", 3)
 	gs.claimed_quests.append("q_plant5")
+	gs.claimed_achievements.append("orders_2")
 	gs.settings["sound"] = false
 	var before := _snapshot()
 	check(ss.save_game(), "speichern")
@@ -478,6 +514,7 @@ func test_save_roundtrip() -> void:
 	check(gs.get_object(bak).queue.size() == 1, "Produktionsschlange erhalten")
 	check(gs.animals.size() == 1 and int(gs.animals[0].paddock) == pad, "Tier im Gehege erhalten")
 	check(gs.claimed_quests.has("q_plant5"), "Quest-Status erhalten")
+	check(gs.claimed_achievements.has("orders_2"), "Erfolgs-Status erhalten")
 	check(gs.settings["sound"] == false, "Einstellungen erhalten")
 	check(not gs.object_at(Vector2i(8, 11)).is_empty(), "Belegung neu aufgebaut")
 	check(not gs.can_place("tree", Vector2i(8, 11)), "belegte Fläche bleibt belegt")
@@ -485,7 +522,7 @@ func test_save_roundtrip() -> void:
 	check(uid > 0 and gs.get_object(uid).uid != bak, "neue UIDs kollidieren nicht")
 	var d: Dictionary = gs.serialize()
 	check(int(d.version) == gs.SAVE_VERSION, "Version im Spielstand")
-	check(gs.SAVE_VERSION == 3, "Tagebuch und Geschichten verwenden Save-Version 3")
+	check(gs.SAVE_VERSION == 4, "Erfolge verwenden Save-Version 4")
 
 
 func test_offline_progress() -> void:
@@ -540,9 +577,11 @@ func test_corrupt_and_migration() -> void:
 	check(not gs.inventory.has("ghost") and not gs.inventory.has("carrot"), "ungültige/negative Items verworfen")
 	check(gs.fields[Vector2i(8, 11)].crop == "", "unbekannte Pflanze verworfen")
 	check(gs.tutorial_step == 99, "Tutorial bei Altstand übersprungen")
-	check(int(ss.migrate({"version": 1, "animals": []}).version) == 3, "Version 1 migriert schrittweise auf Version 3")
+	check(int(ss.migrate({"version": 1, "animals": []}).version) == 4, "Version 1 migriert schrittweise auf Version 4")
 	var v2_migrated: Dictionary = ss.migrate({"version": 2, "animals": []})
-	check(int(v2_migrated.version) == 3 and v2_migrated.diary.is_empty(), "Version 2 erhält leere Tagebuch- und Storyfelder")
+	check(int(v2_migrated.version) == 4 and v2_migrated.diary.is_empty() and v2_migrated.claimed_achievements.is_empty(), "Version 2 erhält Story- und Erfolgsmigration")
+	var v3_migrated: Dictionary = ss.migrate({"version": 3, "animals": []})
+	check(int(v3_migrated.version) == 4 and v3_migrated.claimed_achievements.is_empty(), "Version 3 erhält leere Erfolgshistorie")
 	var legacy_animal := {"uid": 10, "species": "rabbit", "name": "Alt-Tier", "hunger": 60, "happy": 55, "last": gs.now(), "paddock": 1}
 	var migrated: Dictionary = ss.migrate({"version": 1, "animals": [legacy_animal]})
 	check(legacy_animal.has("traits") and legacy_animal.has("accessories") and legacy_animal.has("activity_at"), "Tierfelder aus altem Spielstand ergänzt")

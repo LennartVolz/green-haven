@@ -118,6 +118,11 @@ func migrate(data: Dictionary) -> Dictionary:
 		data["active_delivery_story"] = ""
 		data["delivery_story_stage"] = 0
 		data["version"] = 3
+		v = 3
+	if v < 4:
+		# Erfolge nutzen bestehende Statistiken, neue Belohnungs-IDs starten ungeclaimt.
+		data["claimed_achievements"] = []
+		data["version"] = 4
 	return data
 
 

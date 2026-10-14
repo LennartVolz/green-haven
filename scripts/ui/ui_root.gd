@@ -13,6 +13,7 @@ const ProductionSheet := preload("res://scripts/ui/sheets/production_sheet.gd")
 const RefugeSheet := preload("res://scripts/ui/sheets/refuge_sheet.gd")
 const AnimalSheet := preload("res://scripts/ui/sheets/animal_sheet.gd")
 const DiarySheet := preload("res://scripts/ui/sheets/diary_sheet.gd")
+const AchievementsSheet := preload("res://scripts/ui/sheets/achievements_sheet.gd")
 
 const TUTORIAL := [
 	"Willkommen auf Green Haven! Tippe auf ein leeres Feld und wähle Weizen.",
@@ -288,6 +289,7 @@ func _build_bottom() -> void:
 		["inventory", "crate", "Vorrat"],
 		["refuge", "paw", "Refugium"],
 		["quests", "flag", "Ziele"],
+		["achievements", "star", "Erfolge"],
 	]
 	for d in defs:
 		var b := UiKit.nav_button(d[1], d[2], 120, 130)
@@ -435,6 +437,8 @@ func _rebuild() -> void:
 			OrdersSheet.build(self, _sheet_args)
 		"quests":
 			QuestsSheet.build(self, _sheet_args)
+		"achievements":
+			AchievementsSheet.build(self, _sheet_args)
 		"settings":
 			SettingsSheet.build(self, _sheet_args)
 		"production":
@@ -512,6 +516,7 @@ func _update_badges() -> void:
 		return
 	UiKit.badge(_nav_buttons["orders"], GameState.fulfillable_orders())
 	UiKit.badge(_nav_buttons["quests"], GameState.claimable_quests())
+	UiKit.badge(_nav_buttons["achievements"], GameState.claimable_achievements())
 
 
 # ------------------------------------------------------------------ HUD
@@ -748,6 +753,11 @@ func act_skip_order(order_id: int) -> void:
 func act_claim(quest_id: String) -> void:
 	if _check(GameState.claim_quest(quest_id)):
 		show_toast("Belohnung erhalten!", "good")
+
+
+func act_claim_achievement(achievement_id: String) -> void:
+	if _check(GameState.claim_achievement(achievement_id)):
+		show_toast("Erfolg belohnt!", "good")
 
 
 func act_start_recipe(uid: int, recipe: String) -> void:

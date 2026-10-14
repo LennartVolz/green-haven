@@ -10,8 +10,11 @@ static func build(ui, _args: Dictionary) -> void:
 	for o in GameState.orders:
 		var ok := GameState.can_fulfill(o)
 		var card := UiKit.panel(UiKit.cream(), 26, 14, UiKit.sage() if ok else UiKit.cream_dark(), 4)
+		card.mouse_filter = Control.MOUSE_FILTER_PASS
+		card.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var v := UiKit.vbox(8)
+		v.mouse_filter = Control.MOUSE_FILTER_PASS
 		var head := UiKit.hbox(10)
 		head.add_child(UiKit.icon("heart", 40))
 		var nm := UiKit.label("%s wünscht sich:" % String(o["customer"]), 32)
@@ -23,12 +26,12 @@ static func build(ui, _args: Dictionary) -> void:
 		head.add_child(skip)
 		v.add_child(head)
 		var chips := HFlowContainer.new()
+		chips.mouse_filter = Control.MOUSE_FILTER_PASS
 		chips.add_theme_constant_override("h_separation", 22)
 		chips.add_theme_constant_override("v_separation", 6)
-		chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		for id in o["items"]:
 			var chip := UiKit.hbox(6)
-			chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			chip.mouse_filter = Control.MOUSE_FILTER_PASS
 			chip.add_child(UiKit.item_icon(id, 64))
 			var have: int = GameState.item_count(id)
 			var need: int = int(o["items"][id])

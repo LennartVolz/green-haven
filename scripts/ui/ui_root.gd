@@ -53,6 +53,7 @@ var _nav_buttons: Dictionary = {}
 var _sheet_name := ""
 var _sheet_args: Dictionary = {}
 var _refresh_queued := false
+var _scroll_restore_generation := 0
 var _tick_acc := 0.0
 var _coin_shown := -1.0
 var _displayed_coins := 0.0
@@ -249,6 +250,7 @@ func _build_bottom() -> void:
 	_sheet.add_theme_stylebox_override("panel", sb)
 	_sheet.visible = false
 	var sv := UiKit.vbox(10)
+	sv.mouse_filter = Control.MOUSE_FILTER_PASS
 	var head := UiKit.hbox(12)
 	_title = UiKit.label("", 42)
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -260,7 +262,10 @@ func _build_bottom() -> void:
 	sv.add_child(head)
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_scroll.scroll_deadzone = 24
+	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
+	_scroll.mouse_filter = Control.MOUSE_FILTER_STOP
+	_scroll.scroll_deadzone = 10
+	_scroll.follow_focus = false
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.custom_minimum_size = Vector2.ZERO
 	content = UiKit.vbox(14)
@@ -401,12 +406,21 @@ func refresh_sheet() -> void:
 	var keep := _scroll.scroll_vertical
 	_rebuild()
 	_apply_layout()
-	await get_tree().process_frame
-	_scroll.scroll_vertical = keep
+	_scroll_restore_generation += 1
+	var generation := _scroll_restore_generation
+	get_tree().process_frame.connect(_restore_scroll_position.bind(keep, generation), CONNECT_ONE_SHOT)
+
+
+func _restore_scroll_position(keep: int, generation: int) -> void:
+	if generation != _scroll_restore_generation or _sheet_name == "" or not is_instance_valid(_scroll):
+		return
+	var bar := _scroll.get_v_scroll_bar()
+	_scroll.scroll_vertical = clampi(keep, 0, maxi(0, int(bar.max_value - bar.page)))
 
 
 func _rebuild() -> void:
 	ticker.clear()
+	content.mouse_filter = Control.MOUSE_FILTER_PASS
 	for ch in content.get_children():
 		content.remove_child(ch)
 		ch.queue_free()

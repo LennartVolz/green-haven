@@ -22,6 +22,7 @@ static func build(ui, args: Dictionary) -> void:
 	v.add_child(UiKit.icon_text("heart", "%d Herzen" % int(a.hearts), 32))
 	var stories: Array = d["stories"]
 	var story: String = stories[clampi(int(a.story), 0, stories.size() - 1)]
+	v.add_child(UiKit.label("Seine Geschichte", 24, UiKit.earth_dark()))
 	v.add_child(UiKit.wrap_label("%s %s" % [a.name, story], 26))
 	var traits: Array = a.get("traits", [])
 	var trait_names: Array = []

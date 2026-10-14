@@ -19,6 +19,9 @@ func frames(n: int) -> void:
 
 func shot(name: String) -> void:
 	await frames(4)
+	if DisplayServer.get_name() == "headless":
+		print("screenshot skipped (headless dummy renderer): ", name)
+		return
 	var img := root.get_texture().get_image()
 	if name == "start":
 		assert(img.get_width() > img.get_height(), "Startbild muss im Querformat sein: %s" % img.get_size())
@@ -221,7 +224,52 @@ func run() -> void:
 	ui.refresh_sheet()
 	await frames(3)
 	await shot("sheet_shop_land")
+	# Mehrere hohe Aufträge erzwingen echte Scrollstrecke und testen Touch-Drag im Sheet.
+	var order_template: Dictionary = gs.generate_order()
+	gs.orders.clear()
+	for i in range(gs.MAX_ORDERS):
+		var order: Dictionary = order_template.duplicate(true)
+		order["id"] = 9000 + i
+		order["customer"] = "Kundschaft %d" % (i + 1)
+		gs.orders.append(order)
 	ui.act_open("orders", {})
+	await frames(5)
+	var orders_scroll: ScrollContainer = ui._scroll
+	var scroll_bar := orders_scroll.get_v_scroll_bar()
+	assert(scroll_bar.max_value > scroll_bar.page, "Auftragsbuch mit vier Karten muss scrollbar sein")
+	var scroll_rect := orders_scroll.get_global_rect()
+	var start_scroll := Vector2(scroll_rect.position.x + scroll_rect.size.x * 0.5, scroll_rect.position.y + scroll_rect.size.y * 0.8)
+	var end_scroll := Vector2(start_scroll.x, scroll_rect.position.y + scroll_rect.size.y * 0.25)
+	await drag(start_scroll, end_scroll, 12)
+	await frames(3)
+	assert(orders_scroll.scroll_vertical > 0, "Touch-Wisch auf Auftragskarten muss nach unten scrollen")
+	print("order touch scroll passed: %d / %d" % [orders_scroll.scroll_vertical, scroll_bar.max_value - scroll_bar.page])
+	if DisplayServer.get_name() == "headless":
+		var saved_scroll := orders_scroll.scroll_vertical
+		ui.refresh_sheet()
+		await frames(3)
+		assert(absf(float(orders_scroll.scroll_vertical - saved_scroll)) < 2.0, "Sheet-Aktualisierung behält die Scrollposition")
+		print("order refresh scroll restore passed: %d" % orders_scroll.scroll_vertical)
+		var down_scroll := orders_scroll.scroll_vertical
+		start_scroll.y = scroll_rect.position.y + scroll_rect.size.y * 0.25
+		end_scroll.y = scroll_rect.position.y + scroll_rect.size.y * 0.8
+		await drag(start_scroll, end_scroll, 12)
+		assert(orders_scroll.scroll_vertical < down_scroll, "Touch-Wisch zurück nach oben funktioniert ebenfalls")
+		print("reverse order touch scroll passed: %d" % orders_scroll.scroll_vertical)
+		ui.close_sheet()
+		quit()
+		return
+	var saved_scroll := orders_scroll.scroll_vertical
+	ui.refresh_sheet()
+	await frames(3)
+	assert(orders_scroll.scroll_vertical > 0 and absf(orders_scroll.scroll_vertical - saved_scroll) < 2.0, "Sheet-Aktualisierung erhält die Scrollposition")
+	await shot("sheet_orders_scrolled")
+	var current_scroll := orders_scroll.scroll_vertical
+	start_scroll.y = scroll_rect.position.y + scroll_rect.size.y * 0.25
+	end_scroll.y = scroll_rect.position.y + scroll_rect.size.y * 0.8
+	await drag(start_scroll, end_scroll, 12)
+	assert(orders_scroll.scroll_vertical < current_scroll, "Touch-Wisch nach unten scrollt wieder zum Anfang")
+	print("reverse order touch scroll passed: %d" % orders_scroll.scroll_vertical)
 	await shot("sheet_orders")
 	ui.act_open("inventory", {})
 	await shot("sheet_inventory")

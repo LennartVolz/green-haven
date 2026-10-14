@@ -745,13 +745,7 @@ func adopt_animal(species: String, rescue: bool = false) -> int:
 	for a in animals:
 		used.append(a.name)
 	var names: Array = d["names"]
-	var nm: String = names[rng.randi_range(0, names.size() - 1)]
-	var tries := 0
-	while used.has(nm) and tries < 12:
-		nm = names[rng.randi_range(0, names.size() - 1)]
-		tries += 1
-	if used.has(nm):
-		nm = "%s %d" % [nm, animals.size() + 1]
+	var nm := _next_animal_name(names, used, animals.size() + 1)
 	var stories: Array = d["stories"]
 	var a := {
 		"uid": _new_uid(), "species": species, "name": nm,
@@ -780,6 +774,22 @@ func animals_in_paddock(paddock_uid: int) -> Array:
 		if int(a.get("paddock", -1)) == paddock_uid:
 			result.append(a)
 	return result
+
+
+func _next_animal_name(names: Array, used: Array, sequence: int) -> String:
+	var available: Array = []
+	for candidate in names:
+		if not used.has(candidate):
+			available.append(String(candidate))
+	if not available.is_empty():
+		return String(available[rng.randi_range(0, available.size() - 1)])
+	var base_name := String(names[(sequence - 1) % names.size()])
+	var suffix := maxi(2, int(floor(float(sequence - 1) / float(names.size()))) + 1)
+	var unique_name := "%s %d" % [base_name, suffix]
+	while used.has(unique_name):
+		suffix += 1
+		unique_name = "%s %d" % [base_name, suffix]
+	return unique_name
 
 
 func _choose_animal_traits(species: String) -> Array:

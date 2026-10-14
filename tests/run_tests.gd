@@ -296,6 +296,25 @@ func test_animals() -> void:
 
 func test_animal_extensions() -> void:
 	begin("Tierprofile, Beschäftigung, Accessoires und Rettung")
+	var used_names: Array = []
+	for i in range(7):
+		var next_name: String = gs._next_animal_name(["A", "B"], used_names, i + 1)
+		check(not used_names.has(next_name), "freie Namen werden nicht wiederholt")
+		used_names.append(next_name)
+	check(gs._next_animal_name(["A", "B"], ["A", "B"], 3) == "A 2", "Namen bleiben auch bei mehr als acht Tieren eindeutig")
+	for species in gd.ANIMALS:
+		var animal_def: Dictionary = gd.ANIMALS[species]
+		check(animal_def["names"].size() == 8, "%s hat acht Rufnamen" % species)
+		var unique_names := {}
+		for animal_name in animal_def["names"]:
+			check(not unique_names.has(animal_name), "%s Rufnamen sind verschieden" % species)
+			unique_names[animal_name] = true
+		check(animal_def["stories"].size() == 8, "%s hat acht persönliche Geschichten" % species)
+		var unique_stories := {}
+		for story_text in animal_def["stories"]:
+			check(not String(story_text).strip_edges().is_empty(), "%s Geschichte ist ausgefüllt" % species)
+			check(not unique_stories.has(story_text), "%s Geschichten unterscheiden sich" % species)
+			unique_stories[story_text] = true
 	level_to(3)
 	gs.coins = 5000
 	var pad: int = gs.place_object("paddock", Vector2i(8, 11))
@@ -310,7 +329,9 @@ func test_animal_extensions() -> void:
 	var coins_before: int = gs.coins
 	var rescued: int = gs.adopt_animal(species, true)
 	check(rescued > 0, "Rettung aufnehmen")
+	check(not String(gs.get_animal(rescued).name).is_empty(), "gerettetes Tier erhält individuellen Rufnamen")
 	check(int(gs.get_animal(rescued).story) == offered_story, "Rettung behält ihre angebotene Geschichte")
+	check(not String(gd.ANIMALS[species]["stories"][offered_story]).is_empty(), "gerettetes Tier hat eine erzählte Vorgeschichte")
 	check(gs.coins == coins_before, "Rettungsfall kostet keine Aufnahmegebühr")
 	check(gs.rescue_case.is_empty(), "angenommener Fall wird entfernt")
 	var animal: Dictionary = gs.get_animal(rescued)

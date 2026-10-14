@@ -60,12 +60,14 @@ static func wrap_label(text: String, size: int = 30, color: Color = Color(0.29, 
 
 static func hbox(sep: int = 12) -> HBoxContainer:
 	var b := HBoxContainer.new()
+	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	b.add_theme_constant_override("separation", sep)
 	return b
 
 
 static func vbox(sep: int = 12) -> VBoxContainer:
 	var b := VBoxContainer.new()
+	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	b.add_theme_constant_override("separation", sep)
 	return b
 
@@ -90,6 +92,7 @@ static func margin(child: Control, l: int, t: int, r: int, b: int) -> MarginCont
 
 static func panel(bg: Color, radius: int = 24, pad: int = 16, border: Color = Color(0, 0, 0, 0), border_w: int = 0, shadow: int = 0) -> PanelContainer:
 	var p := PanelContainer.new()
+	p.mouse_filter = Control.MOUSE_FILTER_PASS
 	p.add_theme_stylebox_override("panel", style(bg, radius, border, border_w, shadow, pad))
 	return p
 
@@ -120,6 +123,7 @@ static func item_icon(id: String, px: int = 72) -> ItemIcon:
 ## kind: primary (salbei), warm (gelb), danger (rot), light (creme), ghost
 static func button(text: String, kind: String = "primary", font_size: int = 34) -> Button:
 	var b := Button.new()
+	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	b.text = text
 	b.custom_minimum_size = Vector2(0, MIN_TOUCH)
 	b.add_theme_font_size_override("font_size", font_size)

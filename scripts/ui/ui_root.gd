@@ -12,6 +12,7 @@ const CropsSheet := preload("res://scripts/ui/sheets/crops_sheet.gd")
 const ProductionSheet := preload("res://scripts/ui/sheets/production_sheet.gd")
 const RefugeSheet := preload("res://scripts/ui/sheets/refuge_sheet.gd")
 const AnimalSheet := preload("res://scripts/ui/sheets/animal_sheet.gd")
+const DiarySheet := preload("res://scripts/ui/sheets/diary_sheet.gd")
 
 const TUTORIAL := [
 	"Willkommen auf Green Haven! Tippe auf ein leeres Feld und wähle Weizen.",
@@ -440,6 +441,8 @@ func _rebuild() -> void:
 			ProductionSheet.build(self, _sheet_args)
 		"refuge":
 			RefugeSheet.build(self, _sheet_args)
+		"diary":
+			DiarySheet.build(self, _sheet_args)
 		"animal":
 			AnimalSheet.build(self, _sheet_args)
 		"crops":
@@ -727,6 +730,15 @@ func act_expand() -> void:
 func act_fulfill(order_id: int) -> void:
 	if _check(GameState.fulfill_order(order_id)):
 		show_toast("Auftrag erfüllt!", "good")
+
+
+func act_start_delivery_story(story_id: String) -> void:
+	if _check(GameState.start_delivery_story(story_id)):
+		show_toast("Eine neue Nachbarschaftsgeschichte beginnt!", "good")
+
+
+func act_open_diary() -> void:
+	open_sheet("diary", {})
 
 
 func act_skip_order(order_id: int) -> void:

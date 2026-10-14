@@ -20,7 +20,7 @@ signal game_event(event_name: String, data: Dictionary)
 signal fx(kind: String, world_pos: Vector2, text: String)
 signal sound(sound_name: String)
 
-const SAVE_VERSION := 2
+const SAVE_VERSION := 3
 const MAX_ORDERS := 4
 const ORDER_COOLDOWN := 25.0
 const PET_COOLDOWN := 12.0
@@ -47,6 +47,9 @@ var next_rescue_at := 0.0
 var land := Rect2i()
 var land_level := 0
 var orders: Array = []
+var active_delivery_story := ""
+var delivery_story_stage := 0
+var diary: Array = []
 var stats: Dictionary = {}
 var claimed_quests: Array = []
 var settings: Dictionary = {"sound": true, "vibration": true}
@@ -89,6 +92,9 @@ func reset_state() -> void:
 	land = GameData.START_LAND
 	land_level = 0
 	orders = []
+	active_delivery_story = ""
+	delivery_story_stage = 0
+	diary = []
 	stats = {}
 	claimed_quests = []
 	tutorial_step = 0
@@ -127,6 +133,32 @@ func _new_uid() -> int:
 
 func bump(stat: String, n: int = 1) -> void:
 	stats[stat] = int(stats.get(stat, 0)) + n
+
+
+func add_diary_entry(text: String, animal_uid: int = -1) -> void:
+	diary.append({"time": now(), "text": text, "animal_uid": animal_uid})
+	while diary.size() > 100:
+		diary.pop_front()
+
+
+func friendship_level(a: Dictionary) -> int:
+	var result := 0
+	for i in range(GameData.FRIENDSHIP_THRESHOLDS.size()):
+		if int(a.get("hearts", 0)) >= int(GameData.FRIENDSHIP_THRESHOLDS[i]):
+			result = i + 1
+	return result
+
+
+func record_animal_moment(a: Dictionary, moment: String, hearts_gained: int) -> void:
+	var old_level := friendship_level(a)
+	a.hearts = int(a.get("hearts", 0)) + hearts_gained
+	add_diary_entry("%s: %s" % [a.name, moment], int(a.uid))
+	var new_level := friendship_level(a)
+	if new_level > old_level:
+		var species: String = str(a.species)
+		var story: String = GameData.FRIENDSHIP_STORIES[species][new_level - 1]
+		add_diary_entry("%s vertraut dir jetzt mehr und %s" % [a.name, story], int(a.uid))
+		event("friendship_milestone", {"uid": int(a.uid), "level": new_level})
 
 
 func event(event_name: String, data: Dictionary = {}) -> void:
@@ -627,12 +659,54 @@ func generate_order() -> Dictionary:
 
 func _fill_orders() -> void:
 	var changed := false
-	while orders.size() < MAX_ORDERS and now() >= next_order_at:
+	var reserve_story_slot := not active_delivery_story.is_empty() and not _has_story_order()
+	while orders.size() < MAX_ORDERS - (1 if reserve_story_slot else 0) and now() >= next_order_at:
 		orders.append(generate_order())
 		next_order_at = now() + (0.0 if orders.size() < 3 else ORDER_COOLDOWN)
 		changed = true
+	if not active_delivery_story.is_empty() and orders.size() < MAX_ORDERS and not _has_story_order():
+		var campaign: Dictionary = GameData.DELIVERY_STORIES.get(active_delivery_story, {})
+		var stages: Array = campaign.get("stages", [])
+		if delivery_story_stage < stages.size():
+			var stage: Dictionary = stages[delivery_story_stage]
+			orders.append({"id": _new_uid(), "customer": String(campaign["customer"]),
+				"items": (stage["items"] as Dictionary).duplicate(), "coins": int(stage["coins"]), "xp": int(stage["xp"]),
+				"story_id": active_delivery_story, "story_stage": delivery_story_stage, "story_text": String(stage["text"])})
+			changed = true
 	if changed:
 		orders_changed.emit()
+
+
+func _has_story_order() -> bool:
+	for order in orders:
+		if str(order.get("story_id", "")) == active_delivery_story:
+			return true
+	return false
+
+
+func start_delivery_story(story_id: String) -> bool:
+	if not GameData.DELIVERY_STORIES.has(story_id) or not active_delivery_story.is_empty():
+		return false
+	var campaign: Dictionary = GameData.DELIVERY_STORIES[story_id]
+	if level < int(campaign["level"]):
+		return false
+	active_delivery_story = story_id
+	delivery_story_stage = 0
+	if orders.size() >= MAX_ORDERS:
+		# Eine optionale Standardbestellung weicht, damit die angenommene Reihe sofort beginnt.
+		orders.pop_back()
+	add_diary_entry("Begonnen: %s. %s" % [campaign["title"], campaign["intro"]])
+	_fill_orders()
+	orders_changed.emit()
+	return true
+
+
+func available_delivery_stories() -> Array:
+	var result: Array = []
+	for story_id in GameData.DELIVERY_STORIES:
+		if level >= int(GameData.DELIVERY_STORIES[story_id]["level"]):
+			result.append(story_id)
+	return result
 
 
 func find_order(order_id: int) -> int:
@@ -664,6 +738,18 @@ func fulfill_order(order_id: int) -> bool:
 		return false
 	orders.remove_at(idx)   # zuerst entfernen: keine doppelte Belohnung möglich
 	next_order_at = now() + ORDER_COOLDOWN
+	if o.has("story_id") and str(o["story_id"]) == active_delivery_story and GameData.DELIVERY_STORIES.has(active_delivery_story):
+		var campaign: Dictionary = GameData.DELIVERY_STORIES[active_delivery_story]
+		var completed_stage := delivery_story_stage
+		delivery_story_stage += 1
+		add_diary_entry("%s · Abschnitt %d abgeschlossen: %s" % [campaign["title"], completed_stage + 1, str(o.get("story_text", ""))])
+		var stages: Array = campaign["stages"]
+		if delivery_story_stage >= stages.size():
+			add_coins(int(campaign["bonus_coins"]))
+			add_xp(int(campaign["bonus_xp"]))
+			add_diary_entry("%s ist abgeschlossen. Die Nachbarschaft bedankt sich für deine Hilfe!" % campaign["title"])
+			active_delivery_story = ""
+			delivery_story_stage = 0
 	add_coins(int(o.coins))
 	add_xp(int(o.xp))
 	bump("orders")
@@ -676,7 +762,7 @@ func fulfill_order(order_id: int) -> bool:
 
 func skip_order(order_id: int) -> bool:
 	var idx := find_order(order_id)
-	if idx < 0:
+	if idx < 0 or orders[idx].has("story_id"):
 		return false
 	orders.remove_at(idx)
 	next_order_at = now() + ORDER_COOLDOWN
@@ -755,6 +841,7 @@ func adopt_animal(species: String, rescue: bool = false) -> int:
 		"traits": _choose_animal_traits(species), "accessories": [],
 	}
 	animals.append(a)
+	add_diary_entry("%s hat im Refugium ein sicheres Zuhause gefunden." % a.name, int(a.uid))
 	if rescue:
 		rescue_case = {}
 		next_rescue_at = now() + RESCUE_COOLDOWN
@@ -831,8 +918,8 @@ func animal_activity(uid: int) -> bool:
 		return false
 	_settle(a)
 	a.happy = minf(100.0, float(a.happy) + 12.0)
-	a.hearts = int(a.hearts) + 1
 	a.activity_at = now() + ACTIVITY_COOLDOWN
+	record_animal_moment(a, "ihr habt zusammen gespielt", 1)
 	add_xp(1)
 	bump("activities")
 	animals_changed.emit()
@@ -882,7 +969,7 @@ func feed_animal(uid: int) -> bool:
 		return false
 	_settle(a)
 	a.hunger = minf(100.0, float(a.hunger) + 45.0)
-	a.hearts = int(a.hearts) + 2
+	record_animal_moment(a, "wurde liebevoll gefüttert", 2)
 	add_xp(3)
 	bump("fed")
 	animals_changed.emit()
@@ -902,8 +989,8 @@ func pet_animal(uid: int) -> bool:
 		return false
 	_settle(a)
 	a.happy = minf(100.0, float(a.happy) + 18.0)
-	a.hearts = int(a.hearts) + 1
 	a.pet_at = now() + PET_COOLDOWN
+	record_animal_moment(a, "hat eine ruhige Streicheleinheit genossen", 1)
 	add_xp(1)
 	bump("pets")
 	animals_changed.emit()
@@ -1008,6 +1095,9 @@ func serialize() -> Dictionary:
 		"land": [land.position.x, land.position.y, land.size.x, land.size.y],
 		"land_level": land_level,
 		"orders": orders.duplicate(true),
+		"active_delivery_story": active_delivery_story,
+		"delivery_story_stage": delivery_story_stage,
+		"diary": diary.duplicate(true),
 		"stats": stats.duplicate(),
 		"claimed_quests": claimed_quests.duplicate(),
 		"settings": settings.duplicate(),
@@ -1084,11 +1174,26 @@ func deserialize(d: Dictionary) -> bool:
 			if GameData.items.has(id) and int(e.items[id]) > 0:
 				items[id] = int(e.items[id])
 		if not items.is_empty():
-			orders.append({"id": int(e.id), "customer": str(e.get("customer", "Gast")), "items": items,
-				"coins": maxi(0, int(e.get("coins", 0))), "xp": maxi(0, int(e.get("xp", 0)))})
+			var order := {"id": int(e.id), "customer": str(e.get("customer", "Gast")), "items": items,
+				"coins": maxi(0, int(e.get("coins", 0))), "xp": maxi(0, int(e.get("xp", 0)))}
+			if GameData.DELIVERY_STORIES.has(str(e.get("story_id", ""))):
+				order["story_id"] = str(e.story_id)
+				order["story_stage"] = int(e.get("story_stage", 0))
+				order["story_text"] = str(e.get("story_text", ""))
+			orders.append(order)
 	var st: Dictionary = d.get("stats", {})
 	for k in st:
 		stats[k] = int(st[k])
+	active_delivery_story = str(d.get("active_delivery_story", ""))
+	if not GameData.DELIVERY_STORIES.has(active_delivery_story):
+		active_delivery_story = ""
+	var story_stage_count := int(GameData.DELIVERY_STORIES.get(active_delivery_story, {}).get("stages", []).size())
+	delivery_story_stage = clampi(int(d.get("delivery_story_stage", 0)), 0, maxi(0, story_stage_count - 1)) if not active_delivery_story.is_empty() else 0
+	for entry in d.get("diary", []):
+		if typeof(entry) == TYPE_DICTIONARY and entry.has("text"):
+			diary.append({"time": float(entry.get("time", now())), "text": str(entry.text), "animal_uid": int(entry.get("animal_uid", -1))})
+	while diary.size() > 100:
+		diary.pop_front()
 	claimed_quests = (d.get("claimed_quests", []) as Array).duplicate()
 	var s: Dictionary = d.get("settings", {})
 	settings["sound"] = bool(s.get("sound", true))

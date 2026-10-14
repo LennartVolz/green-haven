@@ -159,7 +159,10 @@ func _on_fx(kind: String, pos: Vector2, text: String) -> void:
 
 
 func _on_event(event_name: String, data: Dictionary) -> void:
-	if event_name == "petted" and _animal_nodes.has(int(data.uid)):
+	if event_name == "friendship_milestone" and _animal_nodes.has(int(data.uid)):
+		_animal_nodes[int(data.uid)].friendship_milestone()
+		GameState.fx.emit("collect", _animal_nodes[int(data.uid)].position, "Freundschaft!")
+	elif event_name == "petted" and _animal_nodes.has(int(data.uid)):
 		_animal_nodes[int(data.uid)].petted()
 		GameState.fx.emit("coin", _animal_nodes[int(data.uid)].position, "")
 	elif event_name == "played" and _animal_nodes.has(int(data.uid)):

@@ -199,6 +199,39 @@ const ANIMAL_ACTIVITIES := {
 	"cow": {"name": "Kraulzeit", "description": "Eine ruhige Massage hinter den Ohren."},
 }
 
+const FRIENDSHIP_THRESHOLDS := [5, 15, 40, 90]
+const FRIENDSHIP_STORIES := {
+	"rabbit": ["kommt beim Füttern schon ein Stück näher.", "stupst deine Hand an und bleibt noch einen Moment.", "hüpft freiwillig neben dich und döst entspannt.", "begrüßt dich mit einem mutigen Hüpfer."],
+	"chicken": ["pickt neugierig neben deinen Schuhen.", "antwortet auf deine Stimme mit leisem Gackern.", "läuft dir ein paar Schritte entgegen.", "begrüßt dich mit einem fröhlichen Flügelschütteln."],
+	"sheep": ["bleibt in deiner Nähe, während du leise sprichst.", "lehnt sich bei der Pflege vertrauensvoll an.", "sucht sich neben dir einen gemütlichen Platz.", "kommt dir entgegen und wartet auf eure ruhige Zeit."],
+	"pig": ["teilt sein Matschbad gern mit deiner Gesellschaft.", "bringt dir sein Lieblingsspielzeug.", "legt sich entspannt neben dich.", "grunzt schon fröhlich, wenn es dich kommen hört."],
+	"cow": ["nimmt Leckerbissen vorsichtig aus deiner Hand.", "genießt die vertraute Kraulrunde.", "ruht gelassen neben dir im Gras.", "begrüßt dich mit einem sanften Stupser."],
+}
+
+const DELIVERY_STORIES := {
+	"lena_cafe": {"title": "Lenas Gartencafé", "customer": "Lena", "level": 8,
+		"intro": "Lena richtet ein kleines Café für die Nachbarschaft her und möchte möglichst viel aus der Umgebung verwenden.",
+		"stages": [
+			{"text": "Für die ersten Gäste fehlen noch frische Karotten und Weizen. Lena schreibt: „Es soll nach Zuhause duften.“", "items": {"carrot": 4, "wheat": 4}, "coins": 52, "xp": 16},
+			{"text": "Das Café öffnet den Garten. Lena braucht Erdbeeren und Äpfel für einen bunten Obstteller.", "items": {"strawberry": 3, "apple": 2}, "coins": 92, "xp": 28},
+			{"text": "Beim Eröffnungsnachmittag sitzen alle unter den Bäumen. Lena bittet um Hafer und Sonnenblumen als kleine Tischdekoration.", "items": {"oat": 5, "sunflower": 3}, "coins": 125, "xp": 40},
+		], "bonus_coins": 120, "bonus_xp": 45},
+	"fatima_picnic": {"title": "Fatimas Picknick im Park", "customer": "Fatima", "level": 7,
+		"intro": "Fatima organisiert ein offenes Picknick, bei dem jede Person etwas teilen kann – ohne Anmeldung und ohne Eintritt.",
+		"stages": [
+			{"text": "Fatima stellt die ersten Körbe zusammen und fragt nach Tomaten und Mais für herzhafte Häppchen.", "items": {"tomato": 5, "corn": 4}, "coins": 82, "xp": 25},
+			{"text": "Mehr Nachbarinnen und Nachbarn kommen dazu. Erdbeeren und Sojabohnen ergänzen das gemeinsame Buffet.", "items": {"strawberry": 4, "soy": 4}, "coins": 112, "xp": 34},
+			{"text": "Zum Abschluss bleibt ein Korb für die Straßenküche übrig. Fatima sammelt Äpfel und Kartoffeln.", "items": {"apple": 5, "potato": 5}, "coins": 148, "xp": 46},
+		], "bonus_coins": 160, "bonus_xp": 55},
+	"jonas_autumn": {"title": "Jonas’ Herbsttafel", "customer": "Jonas", "level": 10,
+		"intro": "Jonas plant ein kostenloses Herbstessen im Gemeinschaftshaus. Jede Lieferung bringt die Nachbarschaft ein Stück näher zusammen.",
+		"stages": [
+			{"text": "Für die Suppe braucht Jonas Kürbisse und Rote Bete. Er schreibt: „Auch krumme Ernten sind willkommen.“", "items": {"pumpkin": 4, "beet": 4}, "coins": 118, "xp": 36},
+			{"text": "Die Tafel wird länger als gedacht. Kürbis und Mais helfen, alle satt zu bekommen.", "items": {"pumpkin": 4, "corn": 6}, "coins": 152, "xp": 46},
+			{"text": "Zum Dank teilen die Gäste Samen für das nächste Jahr. Jonas sammelt Kartoffeln und Sonnenblumen.", "items": {"potato": 5, "sunflower": 5}, "coins": 188, "xp": 58},
+		], "bonus_coins": 220, "bonus_xp": 70},
+}
+
 const CUSTOMERS := ["Lena", "Jonas", "Mira", "Oskar", "Fatima", "Ben", "Sofia", "Karim", "Hanna", "Leo", "Yuki", "Pia", "Tarek", "Ida"]
 
 ## Alle handelbaren Gegenstände (Feldfrüchte, Zutaten, Produkte).

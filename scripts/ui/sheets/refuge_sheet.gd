@@ -31,6 +31,9 @@ static func build(ui, _args: Dictionary) -> void:
 			row.add_child(UiKit.label("Gehege %d: %d/%d Tiere%s" % [int(o.uid), occupants.size(), cap, mood_text], 23, UiKit.earth_dark()))
 			summary.add_child(row)
 	c.add_child(shelter_summary)
+	var diary_button := UiKit.button("Refugiums-Tagebuch · %d Erinnerungen" % GameState.diary.size(), "warm", 27)
+	diary_button.pressed.connect(ui.act_open_diary)
+	c.add_child(diary_button)
 	if not GameState.rescue_case.is_empty():
 		var rescue: Dictionary = GameState.rescue_case
 		var species: String = rescue["species"]

@@ -13,6 +13,7 @@ var peck := 0.0
 var _target := Vector2.ZERO
 var _wait := 1.0
 var _heart_t := -1.0
+var _friendship_t := -1.0
 
 
 func setup(a: Dictionary, paddock: Dictionary) -> void:
@@ -48,6 +49,13 @@ func activity_played() -> void:
 	walking = false
 
 
+func friendship_milestone() -> void:
+	_heart_t = 0.0
+	_friendship_t = 0.0
+	_wait = maxf(_wait, 2.5)
+	walking = false
+
+
 func _speed() -> float:
 	match species:
 		"rabbit":
@@ -65,6 +73,10 @@ func _process(delta: float) -> void:
 		_heart_t += delta
 		if _heart_t > 1.4:
 			_heart_t = -1.0
+	if _friendship_t >= 0.0:
+		_friendship_t += delta
+		if _friendship_t > 2.0:
+			_friendship_t = -1.0
 	if walking:
 		var d := _target - position
 		var step := _speed() * delta
@@ -105,3 +117,7 @@ func _draw() -> void:
 			var k := clampf(_heart_t - float(i) * 0.15, 0.0, 1.2) / 1.2
 			var hp := Vector2(float(i - 1) * 24.0 + sin(k * 6.0 + float(i)) * 6.0, -130.0 - k * 70.0)
 			Painter.heart(self, hp, 11.0, Color(0.93, 0.35, 0.5, 1.0 - k))
+	if _friendship_t >= 0.0:
+		var pulse := 1.0 + sin(_friendship_t * 10.0) * 0.15
+		var halo_color := Color(1.0, 0.82, 0.35, clampf(1.0 - _friendship_t / 2.0, 0.0, 1.0))
+		draw_arc(Vector2(0, -62), 72.0 * pulse, 0.0, TAU, 36, halo_color, 5.0, true)

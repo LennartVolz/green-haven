@@ -47,6 +47,7 @@ func _initialize() -> void:
 	test_levels()
 	test_production()
 	test_orders()
+	test_delivery_stories()
 	test_quests()
 	test_animals()
 	test_animal_extensions()
@@ -239,6 +240,58 @@ func test_orders() -> void:
 	check(gs.orders.size() == gs.MAX_ORDERS, "nach der Wartezeit kommt der vierte Kunde")
 
 
+func test_delivery_stories() -> void:
+	begin("Erzählende Lieferaufträge")
+	level_to(8)
+	check(gs.available_delivery_stories().has("lena_cafe"), "Geschichte wird ab ihrem Freischaltlevel angeboten")
+	check(not gs.start_delivery_story("jonas_autumn"), "höherstufige Geschichte bleibt gesperrt")
+	check(gs.start_delivery_story("lena_cafe"), "optionale Liefergeschichte startet")
+	check(not gs.start_delivery_story("lena_cafe"), "keine parallele Geschichte startbar")
+	check(gs.orders.size() == gs.MAX_ORDERS, "Story verdrängt bei vollem Buch eine optionale Standardbestellung")
+	var story_to_skip := -1
+	for pending_order in gs.orders:
+		if pending_order.has("story_id"):
+			story_to_skip = int(pending_order.id)
+	check(story_to_skip > 0 and not gs.skip_order(story_to_skip), "Storyauftrag kann nicht versehentlich abgebrochen werden")
+	check(gs.orders.size() == 4, "erster Storyauftrag kommt ins volle Auftragsbuch")
+	var story_order: Dictionary = {}
+	for order in gs.orders:
+		if str(order.get("story_id", "")) == "lena_cafe":
+			story_order = order
+	check(not story_order.is_empty() and story_order.has("story_text"), "Storyauftrag enthält Abschnittserzählung")
+	var encoded: Dictionary = gs.serialize()
+	gs.new_game()
+	check(gs.deserialize(encoded), "Storyfortschritt speichern und laden")
+	check(gs.active_delivery_story == "lena_cafe" and gs.delivery_story_stage == 0, "aktive Reihe und Abschnitt bleiben erhalten")
+	story_order = {}
+	for order in gs.orders:
+		if str(order.get("story_id", "")) == "lena_cafe":
+			story_order = order
+	for i in range(3):
+		if story_order.is_empty():
+			gs._fill_orders()
+			for order in gs.orders:
+				if str(order.get("story_id", "")) == "lena_cafe":
+					story_order = order
+		check(not story_order.is_empty(), "nächster Storyabschnitt wird angeboten")
+		if story_order.is_empty():
+			break
+		for item in story_order.items:
+			gs.add_item(str(item), int(story_order.items[item]))
+		var story_order_id := int(story_order.id)
+		var coins_before: int = gs.coins
+		check(gs.fulfill_order(story_order_id), "Storyabschnitt %d erfüllen" % (i + 1))
+		check(gs.coins > coins_before, "Abschnitt gibt Belohnung")
+		story_order = {}
+		if i < 2:
+			gs._fill_orders()
+			for order in gs.orders:
+				if str(order.get("story_id", "")) == "lena_cafe":
+					story_order = order
+	check(gs.active_delivery_story.is_empty(), "abgeschlossene Reihe wird beendet")
+	check(gs.diary.size() >= 5 and String(gs.diary.back().text).contains("abgeschlossen"), "Abschluss und Abschnitte stehen im Refugiums-Tagebuch")
+
+
 func test_quests() -> void:
 	begin("Quests")
 	var q: Dictionary = gd.QUESTS[0]
@@ -275,10 +328,15 @@ func test_animals() -> void:
 	check(gs.item_count("carrot") == 4, "Futter verbraucht")
 	check(gs.animal_stat(a, "hunger") > h0, "Sattheit steigt")
 	check(gs.pet_animal(rab), "streicheln")
+	check(gs.diary.size() >= 2 and String(gs.diary.back().text).contains(a.name), "Rettung und gemeinsamer Moment landen im Tagebuch")
 	check(not gs.pet_animal(rab), "Streicheln hat Pause")
 	gs.time_offset += gs.PET_COOLDOWN + 1.0
 	check(gs.pet_animal(rab), "nach Pause wieder möglich")
 	check(int(a.hearts) >= 4, "Herzen sammeln sich")
+	check(gs.friendship_level(a) == 0, "Freundschaftsmeilenstein noch nicht voreilig erreicht")
+	gs.record_animal_moment(a, "ein besonderer Testmoment", 1)
+	check(gs.friendship_level(a) == 1, "Freundschaft schaltet erste Profilzeile frei")
+	check(String(gs.diary.back().text).contains("vertraut dir jetzt mehr"), "Meilenstein wird im Tagebuch festgehalten")
 	gs.time_offset += 48.0 * 3600.0
 	check(gs.animal_stat(a, "hunger") >= 0.0 and gs.animal_stat(a, "happy") >= 0.0, "Werte nie negativ")
 	check(gs.get_animal(rab).name == a.name, "Tier bleibt trotz Vernachlässigung erhalten")
@@ -349,7 +407,7 @@ func test_animal_extensions() -> void:
 	check(gs.equipped_cosmetics_of(animal).has("flower"), "Accessoire wird getragen")
 	check(not gs.set_animal_cosmetic(rescued, "unknown", true), "unbekanntes Accessoire ablehnen")
 	var encoded: Dictionary = gs.serialize()
-	check(int(encoded.version) == 2 and encoded.animals[0].has("traits") and encoded.animals[0].has("accessories"), "neue Profildaten werden gespeichert")
+	check(int(encoded.version) == 3 and encoded.animals[0].has("traits") and encoded.animals[0].has("accessories"), "neue Profildaten werden gespeichert")
 	gs.new_game()
 	check(gs.deserialize(encoded), "erweiterte Tierdaten laden")
 	var restored: Dictionary = gs.get_animal(rescued)
@@ -427,7 +485,7 @@ func test_save_roundtrip() -> void:
 	check(uid > 0 and gs.get_object(uid).uid != bak, "neue UIDs kollidieren nicht")
 	var d: Dictionary = gs.serialize()
 	check(int(d.version) == gs.SAVE_VERSION, "Version im Spielstand")
-	check(gs.SAVE_VERSION == 2, "neue Tierdaten verwenden Save-Version 2")
+	check(gs.SAVE_VERSION == 3, "Tagebuch und Geschichten verwenden Save-Version 3")
 
 
 func test_offline_progress() -> void:
@@ -482,7 +540,9 @@ func test_corrupt_and_migration() -> void:
 	check(not gs.inventory.has("ghost") and not gs.inventory.has("carrot"), "ungültige/negative Items verworfen")
 	check(gs.fields[Vector2i(8, 11)].crop == "", "unbekannte Pflanze verworfen")
 	check(gs.tutorial_step == 99, "Tutorial bei Altstand übersprungen")
-	check(int(ss.migrate({"version": 1, "animals": []}).version) == 2, "Version 1 migriert auf neue Tierdaten")
+	check(int(ss.migrate({"version": 1, "animals": []}).version) == 3, "Version 1 migriert schrittweise auf Version 3")
+	var v2_migrated: Dictionary = ss.migrate({"version": 2, "animals": []})
+	check(int(v2_migrated.version) == 3 and v2_migrated.diary.is_empty(), "Version 2 erhält leere Tagebuch- und Storyfelder")
 	var legacy_animal := {"uid": 10, "species": "rabbit", "name": "Alt-Tier", "hunger": 60, "happy": 55, "last": gs.now(), "paddock": 1}
 	var migrated: Dictionary = ss.migrate({"version": 1, "animals": [legacy_animal]})
 	check(legacy_animal.has("traits") and legacy_animal.has("accessories") and legacy_animal.has("activity_at"), "Tierfelder aus altem Spielstand ergänzt")

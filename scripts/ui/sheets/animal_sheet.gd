@@ -19,11 +19,15 @@ static func build(ui, args: Dictionary) -> void:
 	var v := UiKit.vbox(6)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_child(UiKit.label(String(d["name"]), 30, UiKit.earth_dark()))
-	v.add_child(UiKit.icon_text("heart", "%d Herzen" % int(a.hearts), 32))
+	v.add_child(UiKit.icon_text("heart", "%d Herzen · Freundschaft %d/4" % [int(a.hearts), GameState.friendship_level(a)], 32))
 	var stories: Array = d["stories"]
 	var story: String = stories[clampi(int(a.story), 0, stories.size() - 1)]
 	v.add_child(UiKit.label("Seine Geschichte", 24, UiKit.earth_dark()))
 	v.add_child(UiKit.wrap_label("%s %s" % [a.name, story], 26))
+	var friendship_level := GameState.friendship_level(a)
+	if friendship_level > 0:
+		var friendship_story: String = GameData.FRIENDSHIP_STORIES[a.species][friendship_level - 1]
+		v.add_child(UiKit.wrap_label("Euer Moment: %s %s" % [a.name, friendship_story], 23, UiKit.sage_dark()))
 	var traits: Array = a.get("traits", [])
 	var trait_names: Array = []
 	for trait_id in traits:

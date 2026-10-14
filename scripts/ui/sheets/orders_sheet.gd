@@ -5,6 +5,30 @@ extends RefCounted
 static func build(ui, _args: Dictionary) -> void:
 	ui.set_title("Auftragsbuch")
 	var c: VBoxContainer = ui.content
+	if not GameState.active_delivery_story.is_empty():
+		var campaign: Dictionary = GameData.DELIVERY_STORIES[GameState.active_delivery_story]
+		var stages: Array = campaign["stages"]
+		var story_card := UiKit.card(16)
+		var story_v := UiKit.vbox(8)
+		story_v.add_child(UiKit.label("Geschichtenreihe · %s" % campaign["title"], 30, UiKit.earth_dark()))
+		if GameState.delivery_story_stage < stages.size():
+			story_v.add_child(UiKit.wrap_label("Abschnitt %d von %d · %s" % [GameState.delivery_story_stage + 1, stages.size(), str(stages[GameState.delivery_story_stage]["text"])], 24, UiKit.earth_dark()))
+		story_v.add_child(UiKit.label("Fortschritt: %d/%d" % [GameState.delivery_story_stage, stages.size()], 22, UiKit.sage_dark()))
+		story_card.add_child(story_v)
+		c.add_child(story_card)
+	else:
+		c.add_child(UiKit.label("Kleine Geschichten aus der Nachbarschaft", 28, UiKit.earth_dark()))
+		for story_id in GameState.available_delivery_stories():
+			var campaign: Dictionary = GameData.DELIVERY_STORIES[story_id]
+			var story_card := UiKit.card(14)
+			var story_v := UiKit.vbox(8)
+			story_v.add_child(UiKit.label(String(campaign["title"]), 30))
+			story_v.add_child(UiKit.wrap_label(String(campaign["intro"]), 23, UiKit.earth_dark()))
+			var start := UiKit.button("Geschichte beginnen · %d Abschnitte" % campaign["stages"].size(), "warm", 26)
+			start.pressed.connect(ui.act_start_delivery_story.bind(story_id))
+			story_v.add_child(start)
+			story_card.add_child(story_v)
+			c.add_child(story_card)
 	if GameState.orders.is_empty():
 		c.add_child(UiKit.wrap_label("Gerade wartet niemand. Bald kommen neue Kundinnen und Kunden vorbei!", 32))
 	for o in GameState.orders:
@@ -25,6 +49,8 @@ static func build(ui, _args: Dictionary) -> void:
 		skip.pressed.connect(ui.act_skip_order.bind(int(o["id"])))
 		head.add_child(skip)
 		v.add_child(head)
+		if o.has("story_text"):
+			v.add_child(UiKit.wrap_label("Geschichte · %s" % String(o["story_text"]), 23, UiKit.earth_dark()))
 		var chips := HFlowContainer.new()
 		chips.mouse_filter = Control.MOUSE_FILTER_PASS
 		chips.add_theme_constant_override("h_separation", 22)

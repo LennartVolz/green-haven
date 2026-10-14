@@ -12,6 +12,16 @@ var shots := 0
 var log: Array = []
 
 
+func find_button_with_prefix(node: Node, prefix: String) -> Button:
+	for child in node.get_children():
+		if child is Button and String((child as Button).text).begins_with(prefix):
+			return child as Button
+		var found: Button = find_button_with_prefix(child, prefix)
+		if found != null:
+			return found
+	return null
+
+
 func frames(n: int) -> void:
 	for i in range(n):
 		await process_frame
@@ -256,6 +266,43 @@ func run() -> void:
 		await drag(start_scroll, end_scroll, 12)
 		assert(orders_scroll.scroll_vertical < down_scroll, "Touch-Wisch zurück nach oben funktioniert ebenfalls")
 		print("reverse order touch scroll passed: %d" % orders_scroll.scroll_vertical)
+		ui.act_open("refuge", {})
+		await frames(3)
+		var diary_button: Button
+		for child in ui.content.get_children():
+			if child is Button and String(child.text).begins_with("Refugiums-Tagebuch"):
+				diary_button = child
+				break
+		assert(diary_button != null, "Refugium zeigt den Einstieg ins Tagebuch")
+		diary_button.pressed.emit()
+		await frames(3)
+		assert(ui._sheet_name == "diary" and ui._title.text == "Refugiums-Tagebuch", "Tagebuch-Einstieg öffnet das richtige Sheet")
+		assert(ui.content.get_child_count() > 1, "Tagebuch zeigt Einträge")
+		ui.act_open("orders", {})
+		await frames(2)
+		var story_button := find_button_with_prefix(ui.content, "Geschichte beginnen")
+		if story_button == null:
+			printerr("FAIL: keine Story-Startschaltfläche; Level=%d verfügbar=%s active=%s title=%s children=%d" % [gs.level, str(gs.available_delivery_stories()), gs.active_delivery_story, ui._title.text, ui.content.get_child_count()])
+			ui.close_sheet()
+			quit(1)
+			return
+		story_button.pressed.emit()
+		await frames(3)
+		assert(not gs.active_delivery_story.is_empty(), "UI-Start aktiviert eine Liefergeschichte")
+		assert(ui._sheet_name == "orders", "Auftragsbuch bleibt nach dem Start geöffnet")
+		# Das Scroll-Fixture füllt alle vier Plätze; nach einem freigewordenen
+		# regulären Auftrag muss die Reihe ihren reservierten Platz erhalten.
+		for order in gs.orders:
+			if not order.has("story_text"):
+				gs.skip_order(int(order.id))
+				break
+		gs._fill_orders()
+		var has_story_order := false
+		for order in gs.orders:
+			if order.has("story_text"):
+				has_story_order = true
+				break
+		assert(has_story_order, "Storyauftrag wird im Auftragsbuch angezeigt")
 		ui.close_sheet()
 		quit()
 		return
@@ -275,6 +322,37 @@ func run() -> void:
 	await shot("sheet_inventory")
 	ui.act_open("refuge", {})
 	await shot("sheet_refuge")
+	var diary_button: Button
+	for child in ui.content.get_children():
+		if child is Button and String(child.text).begins_with("Refugiums-Tagebuch"):
+			diary_button = child
+			break
+	assert(diary_button != null, "Refugium zeigt den Einstieg ins Tagebuch")
+	diary_button.pressed.emit()
+	await frames(3)
+	assert(ui._sheet_name == "diary" and ui._title.text == "Refugiums-Tagebuch", "Tagebuch-Einstieg öffnet das richtige Sheet")
+	assert(ui.content.get_child_count() > 1, "Tagebuch zeigt Einträge")
+	await shot("sheet_diary")
+	ui.act_open("orders", {})
+	await frames(2)
+	var story_button := find_button_with_prefix(ui.content, "Geschichte beginnen")
+	assert(story_button != null, "Auftragsbuch bietet freigeschaltete Geschichten an")
+	story_button.pressed.emit()
+	await frames(3)
+	assert(not gs.active_delivery_story.is_empty(), "UI-Start aktiviert eine Liefergeschichte")
+	assert(ui._sheet_name == "orders", "Auftragsbuch bleibt nach dem Start geöffnet")
+	for order in gs.orders:
+		if not order.has("story_text"):
+			gs.skip_order(int(order.id))
+			break
+	gs._fill_orders()
+	var has_story_order := false
+	for order in gs.orders:
+		if order.has("story_text"):
+			has_story_order = true
+			break
+	assert(has_story_order, "Storyauftrag wird im Auftragsbuch angezeigt")
+	await shot("sheet_story_order")
 	ui.act_open("animal", {"uid": gs.animals[0].uid})
 	await shot("sheet_animal")
 	ui.act_open("quests", {})

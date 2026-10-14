@@ -111,6 +111,13 @@ func migrate(data: Dictionary) -> Dictionary:
 			animal["accessories"] = []
 			animal["activity_at"] = 0.0
 		data["version"] = 2
+		v = 2
+	if v < 3:
+		# Tagebuch und Story-Aufträge sind optionale, leere Ergänzungen für Altstände.
+		data["diary"] = []
+		data["active_delivery_story"] = ""
+		data["delivery_story_stage"] = 0
+		data["version"] = 3
 	return data
 
 

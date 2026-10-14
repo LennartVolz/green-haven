@@ -106,6 +106,22 @@ static func draw_crop(ci: CanvasItem, id: String, stage: int, center: Vector2, t
 				_sunflower(ci, stage, t)
 			"apple":
 				_apple_tree(ci, stage, t)
+			"pumpkin":
+				_pumpkin(ci, stage, t)
+			"beet":
+				_root_vegetable(ci, stage, t, "#A93659")
+			"lettuce":
+				_lettuce(ci, stage, t)
+			"cucumber":
+				_cucumber(ci, stage, t)
+			"pea":
+				_pea(ci, stage, t)
+			"blueberry":
+				_blueberry_bush(ci, stage, t)
+			"rice":
+				_rice(ci, stage, t)
+			"quinoa":
+				_quinoa(ci, stage, t)
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
@@ -233,6 +249,98 @@ static func _sunflower(ci: CanvasItem, stage: int, t: float) -> void:
 			ci.draw_circle(top, 9.0, col("#8CC05A"))
 
 
+static func _pumpkin(ci: CanvasItem, stage: int, t: float) -> void:
+	var h := 12.0 + float(stage) * 8.0
+	for i in range(4):
+		var x := -30.0 + float(i) * 20.0
+		ci.draw_line(Vector2(0, -4), Vector2(x, -h - float(i % 2) * 8.0), col("#5E9A45"), 4.0, true)
+		ellipse(ci, Vector2(x - 8, -h * 0.5), 11, 5, col("#6DAE58"))
+	if stage == 3:
+		var p := Vector2(0, -h - 3)
+		for dx in [-12.0, 0.0, 12.0]:
+			ellipse(ci, p + Vector2(dx, 0), 12, 16, col("#E8792F"), 14)
+		ci.draw_line(p + Vector2(0, -15), p + Vector2(2, -23), col("#547A3C"), 4.0, true)
+
+
+static func _root_vegetable(ci: CanvasItem, stage: int, t: float, color: String) -> void:
+	for i in range(4):
+		var x := -24.0 + float(i) * 16.0
+		ci.draw_line(Vector2(0, -4), Vector2(x + sway(t, i, 1.5), -18.0 - float(stage) * 7.0), col("#5FA84A"), 5.0, true)
+	if stage == 3:
+		ellipse(ci, Vector2(0, 5), 15, 20, col(color))
+		ci.draw_line(Vector2(0, -6), Vector2(0, 14), col("#7A2442"), 2.0, true)
+
+
+static func _lettuce(ci: CanvasItem, stage: int, t: float) -> void:
+	var r := 10.0 + float(stage) * 7.0
+	for i in range(7):
+		var a := TAU * float(i) / 7.0
+		var p := Vector2(cos(a), sin(a)) * r * 0.75
+		ellipse(ci, p + Vector2(sway(t, i, 1.0), -r * 0.35), r * 0.72, r * 0.52, col("#79B85A") if i % 2 == 0 else col("#91C96D"))
+	if stage == 3:
+		ellipse(ci, Vector2(0, -r * 0.45), 13, 17, col("#B8D98A"))
+
+
+static func _cucumber(ci: CanvasItem, stage: int, t: float) -> void:
+	var h := 14.0 + float(stage) * 11.0
+	for i in range(3):
+		var x := -28.0 + float(i) * 28.0
+		var y := -h - sway(t, i, 1.5)
+		ci.draw_line(Vector2(x, -3), Vector2(x + 12, y), col("#5FA050"), 4.0, true)
+		ellipse(ci, Vector2(x + 5, y * 0.65), 8, 4, col("#78B85B"))
+		if stage == 3:
+			ellipse(ci, Vector2(x + 13, y + 6), 6, 17, col("#4F9A55"))
+			for k in range(3):
+				ci.draw_circle(Vector2(x + 13 + float(k - 1) * 3, y + 3 + float(k) * 5), 1.4, col("#B8D779"))
+
+
+static func _pea(ci: CanvasItem, stage: int, t: float) -> void:
+	var h := 14.0 + float(stage) * 12.0
+	for i in range(3):
+		var x := -24.0 + float(i) * 24.0
+		var top := Vector2(x + sway(t, i, 2.0), -h - float(i % 2) * 5)
+		ci.draw_line(Vector2(x, -4), top, col("#679B48"), 4.0, true)
+		for side in [-1.0, 1.0]:
+			ellipse(ci, top + Vector2(side * 9, 8), 10, 5, col("#8BC56A"))
+		if stage == 3:
+			for j in range(2):
+				var p := top + Vector2(10, 7 + float(j) * 15)
+				ellipse(ci, p, 5, 4, col("#79A94B"))
+
+
+static func _blueberry_bush(ci: CanvasItem, stage: int, t: float) -> void:
+	for i in range(5):
+		var x := -32.0 + float(i) * 16.0
+		ellipse(ci, Vector2(x + sway(t, i, 1.0), -12.0 - float(i % 2) * float(stage) * 5.0), 14 + float(stage) * 3, 12 + float(stage) * 3, col("#5A9647") if i % 2 == 0 else col("#6DAE58"))
+	if stage == 3:
+		for p in [Vector2(-25, -16), Vector2(-5, -30), Vector2(18, -20), Vector2(30, -8), Vector2(4, -10)]:
+			ci.draw_circle(p, 6, col("#5365A8"))
+			ci.draw_circle(p + Vector2(-2, -2), 2, col("#8996D0"))
+
+
+static func _rice(ci: CanvasItem, stage: int, t: float) -> void:
+	for i in range(6):
+		var x := -36.0 + float(i) * 14.0
+		var top := Vector2(x + sway(t, i, 1.3), -12.0 - float(stage) * 12.0)
+		ci.draw_line(Vector2(x, -2), top, col("#72A652"), 3.5, true)
+		if stage == 3:
+			for k in range(3):
+				ellipse(ci, top + Vector2(float(k - 1) * 5, 7 + float(k % 2) * 5), 3.5, 6, col("#D5C98E"))
+
+
+static func _quinoa(ci: CanvasItem, stage: int, t: float) -> void:
+	for i in range(5):
+		var x := -32.0 + float(i) * 16.0
+		var top := Vector2(x + sway(t, i, 1.7), -16.0 - float(stage) * 13.0)
+		ci.draw_line(Vector2(x, -2), top, col("#789B4D"), 4.0, true)
+		for side in [-1.0, 1.0]:
+			ci.draw_line(top, top + Vector2(side * 13, 8), col("#89A95A"), 3.0, true)
+		if stage == 3:
+			for k in range(5):
+				var p := top + Vector2(float(k - 2) * 5, 9 + float(k % 2) * 4)
+				ci.draw_circle(p, 3, col("#B66D70"))
+
+
 static func _apple_tree(ci: CanvasItem, stage: int, t: float) -> void:
 	var g: float = [0.0, 0.35, 0.7, 1.0][stage]
 	rrect(ci, Rect2(-7, -58.0 * g - 2.0, 14, 58.0 * g + 4.0), col("#8A5A36"), 5)
@@ -294,6 +402,43 @@ static func draw_item(ci: CanvasItem, id: String, pos: Vector2, size: float) -> 
 				var a := TAU * float(k) / 12.0
 				ellipse(ci, Vector2(cos(a), sin(a)) * 19.0, 9, 5.5, base, 8)
 			ci.draw_circle(Vector2.ZERO, 12, col("#7A4A22"))
+		"pumpkin":
+			for dx in [-12.0, 0.0, 12.0]:
+				ellipse(ci, Vector2(dx, 3), 12, 20, base, 14)
+			ci.draw_line(Vector2(0, -14), Vector2(2, -24), col("#547A3C"), 4.0, true)
+		"beet":
+			ci.draw_circle(Vector2(0, 7), 20, base)
+			poly(ci, [Vector2(-3, 18), Vector2(4, 18), Vector2(0, 31)], col("#7A2442"))
+			poly(ci, [Vector2(0, -8), Vector2(-17, -28), Vector2(-2, -20), Vector2(2, -8)], col("#5FA84A"))
+			poly(ci, [Vector2(2, -8), Vector2(18, -27), Vector2(5, -18)], col("#79B85A"))
+		"lettuce":
+			for i in range(6):
+				var a := TAU * float(i) / 6.0
+				ellipse(ci, Vector2(cos(a), sin(a)) * 12, 15, 10, col("#79B85A") if i % 2 == 0 else col("#91C96D"))
+			ci.draw_circle(Vector2.ZERO, 11, col("#B8D98A"))
+		"cucumber":
+			ellipse(ci, Vector2(0, 2), 10, 27, base)
+			for y in [-14.0, -4.0, 6.0, 16.0]:
+				ci.draw_circle(Vector2(0, y), 2, col("#B8D779"))
+		"pea":
+			poly(ci, [Vector2(-22, 4), Vector2(-12, -12), Vector2(0, -17), Vector2(18, -7), Vector2(22, 10), Vector2(5, 20)], col("#8BC56A"))
+			for x in [-10.0, 0.0, 10.0]:
+				ci.draw_circle(Vector2(x, 3), 6, base)
+		"blueberry":
+			for p in [Vector2(-13, 8), Vector2(0, -5), Vector2(14, 8), Vector2(-4, 18)]:
+				ci.draw_circle(p, 11, base)
+				ci.draw_circle(p + Vector2(-3, -3), 3, col("#8996D0"))
+		"rice":
+			for i in range(3):
+				var x := -14.0 + float(i) * 14.0
+				ci.draw_line(Vector2(x, 26), Vector2(x, -4), col("#72A652"), 3.0, true)
+				for k in range(3):
+					ellipse(ci, Vector2(x + float(k - 1) * 5, -12 + float(k % 2) * 7), 3.5, 7, base)
+		"quinoa":
+			for i in range(5):
+				var a := TAU * float(i) / 5.0
+				ci.draw_circle(Vector2(cos(a), sin(a)) * 13, 6, base)
+			ci.draw_circle(Vector2.ZERO, 6, col("#89A95A"))
 		"almond":
 			ellipse(ci, Vector2(0, 0), 14, 22, base)
 			ci.draw_line(Vector2(0, -18), Vector2(0, 18), col("#A07C4E"), 2.0)
@@ -313,12 +458,32 @@ static func draw_item(ci: CanvasItem, id: String, pos: Vector2, size: float) -> 
 			ellipse(ci, Vector2(0, -8), 24, 18, base)
 			ci.draw_circle(Vector2(-6, -14), 3, col("#6FB052"))
 			ci.draw_circle(Vector2(8, -10), 3, col("#6FB052"))
-		"carrot_soup":
+		"carrot_soup", "pumpkin_soup":
 			ellipse(ci, Vector2(0, 0), 28, 9, col("#EAD9B0"))
 			poly(ci, [Vector2(-28, 0), Vector2(28, 0), Vector2(18, 22), Vector2(-18, 22)], col("#EAD9B0"))
 			ellipse(ci, Vector2(0, 0), 23, 6, base)
 			ci.draw_line(Vector2(-8, -10), Vector2(-4, -24), Color(1, 1, 1, 0.7), 3.0, true)
 			ci.draw_line(Vector2(8, -10), Vector2(12, -24), Color(1, 1, 1, 0.7), 3.0, true)
+		"beet_spread":
+			rrect(ci, Rect2(-21, -12, 42, 32), base, 8)
+			ellipse(ci, Vector2(0, -12), 21, 8, col("#D7A0AB"))
+			ci.draw_circle(Vector2(-8, -14), 3, col("#F4D7D9"))
+			ci.draw_circle(Vector2(7, -10), 3, col("#F4D7D9"))
+		"garden_salad":
+			ellipse(ci, Vector2(0, 5), 27, 17, col("#E9E1CC"))
+			for p in [Vector2(-12, 3), Vector2(0, -5), Vector2(12, 4), Vector2(-3, 12)]:
+				ci.draw_circle(p, 7, base)
+			ci.draw_circle(Vector2(8, -10), 5, col("#79B85A"))
+		"quinoa_bowl":
+			poly(ci, [Vector2(-26, 0), Vector2(26, 0), Vector2(18, 21), Vector2(-18, 21)], col("#EAD9B0"))
+			ellipse(ci, Vector2(0, 0), 26, 8, col("#B66D70"))
+			for p in [Vector2(-12, -1), Vector2(0, -4), Vector2(12, 0)]:
+				ci.draw_circle(p, 3, col("#F1D9A0"))
+		"rice_milk":
+			rrect(ci, Rect2(-14, -6, 28, 36), col("#F6F2E6"), 8)
+			rrect(ci, Rect2(-8, -20, 16, 16), col("#F6F2E6"), 4)
+			rrect(ci, Rect2(-9, -26, 18, 8), col("#6F9A63"), 3)
+			rrect(ci, Rect2(-11, 6, 22, 14), base, 4)
 		"tomato_sauce":
 			rrect(ci, Rect2(-17, -14, 34, 42), col("#DCEFEF"), 8)
 			rrect(ci, Rect2(-14, -4, 28, 30), base, 6)
@@ -336,7 +501,7 @@ static func draw_item(ci: CanvasItem, id: String, pos: Vector2, size: float) -> 
 			rrect(ci, Rect2(-8, -20, 16, 16), col("#F6F2E6"), 4)
 			rrect(ci, Rect2(-9, -26, 18, 8), col("#6F9A63"), 3)
 			rrect(ci, Rect2(-11, 6, 22, 14), base, 4)
-		"berry_smoothie", "apple_juice":
+		"berry_smoothie", "blueberry_smoothie", "apple_juice":
 			poly(ci, [Vector2(-18, -16), Vector2(18, -16), Vector2(13, 28), Vector2(-13, 28)], Color(0.9, 0.96, 0.97, 0.9))
 			poly(ci, [Vector2(-16, -4), Vector2(16, -4), Vector2(12, 26), Vector2(-12, 26)], base)
 			ci.draw_line(Vector2(6, -6), Vector2(14, -32), col("#E0783A"), 4.0, true)

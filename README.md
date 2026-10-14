@@ -9,8 +9,9 @@ animals a home. The animals produce nothing — they are simply cared for.
 
 ## Scope
 
-- 10 crops with multiple growth stages, tier-based progression, and unlock system
-- 5 production buildings, 14 recipes, queues, upgrades, and pickup functionality
+- 18 crops with multiple growth stages, tier-based progression, and unlock system
+- 5 production buildings, 20 recipes, queues, upgrades, and pickup functionality
+- New crops: pumpkin, beetroot, lettuce, cucumber, peas, perennial blueberries, rice, and quinoa
 - Customer orders, coins, XP, quests, shop, decoration, and land expansion
 - Animal sanctuary with 5 animal types, personal traits, optional species-specific activities, selectable cosmetic rewards, and no-pressure rescue offers
 - Per-paddock occupancy and wellbeing overview; animal profiles and rescue offers are included in versioned saves
@@ -20,7 +21,7 @@ animals a home. The animals produce nothing — they are simply cared for.
 ## Quick Start
 
 ```bash
-godot --headless --path . -s res://tests/run_tests.gd   # Logic tests (371 checks)
+godot --headless --path . -s res://tests/run_tests.gd   # Logic tests
 godot --path .                                          # Start the game on desktop
 ```
 

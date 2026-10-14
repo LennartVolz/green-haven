@@ -55,6 +55,7 @@ func _initialize() -> void:
 	test_offline_progress()
 	test_corrupt_and_migration()
 	test_economy()
+	test_new_crops()
 	ss.delete_save()
 	print("")
 	print("Ergebnis: %d bestanden, %d fehlgeschlagen" % [passed, failed])
@@ -489,7 +490,7 @@ func test_economy() -> void:
 	for id in gd.CROPS:
 		var c: Dictionary = gd.CROPS[id]
 		check(int(c["yield"]) * int(c.sell) > int(c.seed), "%s: Ernte lohnt sich" % id)
-	check(gd.CROPS.size() == 10, "zehn Pflanzen")
+	check(gd.CROPS.size() == 18, "achtzehn Pflanzen")
 	check(gd.RECIPES.size() >= 8, "mindestens acht Rezepte")
 	# Erste Minuten: Spieler erreicht Stufe 2 nach wenigen Ernten
 	gs.new_game()
@@ -513,3 +514,31 @@ func test_economy() -> void:
 			seen[u] = true
 	var total: int = gd.CROPS.size() + gd.RECIPES.size() + gd.ANIMALS.size()
 	check(seen.size() >= total, "jede Pflanze, jedes Rezept und jedes Tier hat ein Freischaltlevel")
+
+
+func test_new_crops() -> void:
+	begin("Neue Pflanzen")
+	gs.coins = 100000
+	var cell: Vector2i = gs.fields.keys()[0]
+	var new_crops := {
+		"pumpkin": 9, "beet": 10, "lettuce": 11, "cucumber": 12,
+		"pea": 13, "blueberry": 14, "rice": 16, "quinoa": 18,
+	}
+	for crop in new_crops:
+		var level: int = int(new_crops[crop])
+		level_to(level)
+		var definition: Dictionary = gd.CROPS[crop]
+		check(gs.plant(cell, crop), "%s auf Freischaltstufe pflanzbar" % crop)
+		gs.time_offset += float(definition["grow"])
+		check(gs.harvest(cell), "%s nach Wachstumszeit erntbar" % crop)
+		check(gs.item_count(crop) == int(definition["yield"]), "%s liefert Inventar-Ertrag" % crop)
+		if crop == "blueberry":
+			check(gs.fields[cell].crop == crop, "Blaubeere wächst nach Ernte weiter")
+			gs.time_offset += float(definition["grow"])
+			check(gs.harvest(cell), "Blaubeere kann erneut geerntet werden")
+		gs.fields[cell] = {"crop": "", "t": 0.0}
+	check(gd.RECIPES.size() == 20, "sechs passende neue Rezepte")
+	for recipe in ["pumpkin_soup", "beet_spread", "garden_salad", "blueberry_smoothie", "rice_milk", "quinoa_bowl"]:
+		check(gd.items.has(recipe), "%s ist als Produkt im Inventar registriert" % recipe)
+	check(gd.unlocks_at(18).has("Quinoa"), "Quinoa wird auf Stufe 18 freigeschaltet")
+	check(gd.items.has("pumpkin") and gd.items.has("blueberry"), "neue Ernten als handelbare Items registriert")

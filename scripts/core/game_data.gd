@@ -30,6 +30,14 @@ const CROPS := {
 	"strawberry": {"name": "Erdbeere", "grow": 420, "seed": 8, "yield": 5, "sell": 12, "xp": 9, "level": 6, "col": "#D9344F", "perennial": false},
 	"apple": {"name": "Apfel", "grow": 600, "seed": 10, "yield": 6, "sell": 14, "xp": 12, "level": 7, "col": "#C9362D", "perennial": true},
 	"sunflower": {"name": "Sonnenblume", "grow": 360, "seed": 6, "yield": 4, "sell": 11, "xp": 8, "level": 8, "col": "#F6C21C", "perennial": false},
+	"pumpkin": {"name": "Kürbis", "grow": 480, "seed": 8, "yield": 4, "sell": 13, "xp": 9, "level": 9, "col": "#E8792F", "perennial": false},
+	"beet": {"name": "Rote Bete", "grow": 540, "seed": 9, "yield": 4, "sell": 15, "xp": 10, "level": 10, "col": "#A93659", "perennial": false},
+	"lettuce": {"name": "Salat", "grow": 150, "seed": 4, "yield": 3, "sell": 7, "xp": 5, "level": 11, "col": "#79B85A", "perennial": false},
+	"cucumber": {"name": "Gurke", "grow": 210, "seed": 5, "yield": 4, "sell": 8, "xp": 6, "level": 12, "col": "#4F9A55", "perennial": false},
+	"pea": {"name": "Erbse", "grow": 270, "seed": 6, "yield": 4, "sell": 10, "xp": 7, "level": 13, "col": "#79A94B", "perennial": false},
+	"blueberry": {"name": "Blaubeere", "grow": 360, "seed": 7, "yield": 5, "sell": 12, "xp": 8, "level": 14, "col": "#5365A8", "perennial": true},
+	"rice": {"name": "Reis", "grow": 540, "seed": 10, "yield": 5, "sell": 15, "xp": 10, "level": 16, "col": "#D5C98E", "perennial": false},
+	"quinoa": {"name": "Quinoa", "grow": 720, "seed": 12, "yield": 5, "sell": 18, "xp": 13, "level": 18, "col": "#B66D70", "perennial": false},
 }
 
 ## Zutaten, die nicht angebaut, sondern im Shop gekauft werden.
@@ -61,6 +69,12 @@ const RECIPES := {
 	"tofu": {"name": "Naturtofu", "building": "tofu", "inputs": {"soy": 4}, "time": 150, "sell": 42, "xp": 14, "level": 6, "col": "#F3E7C4"},
 	"smoked_tofu": {"name": "Räuchertofu", "building": "tofu", "inputs": {"tofu": 1, "corn": 1}, "time": 180, "sell": 64, "xp": 18, "level": 7, "col": "#B08A5A"},
 	"marinated_tofu": {"name": "Marinierter Tofu", "building": "tofu", "inputs": {"tofu": 1, "tomato_sauce": 1}, "time": 180, "sell": 92, "xp": 22, "level": 8, "col": "#D87A4A"},
+	"pumpkin_soup": {"name": "Kürbissuppe", "building": "kitchen", "inputs": {"pumpkin": 3}, "time": 180, "sell": 56, "xp": 17, "level": 9, "col": "#E8792F"},
+	"beet_spread": {"name": "Rote-Bete-Aufstrich", "building": "kitchen", "inputs": {"beet": 3}, "time": 180, "sell": 62, "xp": 18, "level": 10, "col": "#A93659"},
+	"garden_salad": {"name": "Gartensalat", "building": "kitchen", "inputs": {"lettuce": 2, "cucumber": 1, "pea": 1}, "time": 150, "sell": 48, "xp": 15, "level": 13, "col": "#76A94D"},
+	"blueberry_smoothie": {"name": "Blaubeer-Smoothie", "building": "juicebar", "inputs": {"blueberry": 3}, "time": 120, "sell": 54, "xp": 16, "level": 14, "col": "#6572BB"},
+	"rice_milk": {"name": "Reismilch", "building": "milkery", "inputs": {"rice": 3}, "time": 150, "sell": 58, "xp": 17, "level": 16, "col": "#F1EAD3"},
+	"quinoa_bowl": {"name": "Quinoa-Bowl", "building": "kitchen", "inputs": {"quinoa": 3, "pea": 1}, "time": 210, "sell": 82, "xp": 23, "level": 18, "col": "#B66D70"},
 }
 
 const DECOS := {

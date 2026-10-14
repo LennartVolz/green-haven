@@ -42,6 +42,12 @@ func petted() -> void:
 	walking = false
 
 
+func activity_played() -> void:
+	_heart_t = 0.0
+	_wait = maxf(_wait, 2.0)
+	walking = false
+
+
 func _speed() -> float:
 	match species:
 		"rabbit":
@@ -82,7 +88,7 @@ func _draw() -> void:
 	var a := GameState.get_animal(uid)
 	if a.is_empty():
 		return
-	AnimalPainter.draw(self, species, t, flip, walking, GameState.cosmetics_of(a), peck, 1.0)
+	AnimalPainter.draw(self, species, t, flip, walking, GameState.equipped_cosmetics_of(a), peck, 1.0)
 	# Stimmungsblase
 	var hunger := GameState.animal_stat(a, "hunger")
 	var happy := GameState.animal_stat(a, "happy")

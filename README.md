@@ -12,14 +12,15 @@ animals a home. The animals produce nothing — they are simply cared for.
 - 10 crops with multiple growth stages, tier-based progression, and unlock system
 - 5 production buildings, 14 recipes, queues, upgrades, and pickup functionality
 - Customer orders, coins, XP, quests, shop, decoration, and land expansion
-- Animal sanctuary with 5 animal types, needs, petting/feeding, and cosmetic rewards
+- Animal sanctuary with 5 animal types, personal traits, optional species-specific activities, selectable cosmetic rewards, and no-pressure rescue offers
+- Per-paddock occupancy and wellbeing overview; animal profiles and rescue offers are included in versioned saves
 - Touch controls: tap, swipe to sow/harvest, camera pan with inertia, pinch-to-zoom, placement by drag
 - Local, versioned save system; crop growth and production continue offline
 
 ## Quick Start
 
 ```bash
-godot --headless --path . -s res://tests/run_tests.gd   # Logic tests (328 checks)
+godot --headless --path . -s res://tests/run_tests.gd   # Logic tests (371 checks)
 godot --path .                                          # Start the game on desktop
 ```
 

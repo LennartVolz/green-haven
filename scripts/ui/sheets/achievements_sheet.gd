@@ -16,7 +16,12 @@ static func build(ui, _args: Dictionary) -> void:
 		var target := int(achievement["target"])
 		var card := UiKit.card(14)
 		var v := UiKit.vbox(8)
-		v.add_child(UiKit.label(String(achievement["text"]), 30, UiKit.sage_dark() if claimed else UiKit.ink()))
+		var title_row := UiKit.hbox(10)
+		title_row.add_child(UiKit.icon("star" if GameState.achievement_unlocked(achievement) else "lock", 40))
+		var title := UiKit.label(String(achievement["text"]), 30, UiKit.sage_dark() if claimed else UiKit.ink())
+		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		title_row.add_child(title)
+		v.add_child(title_row)
 		v.add_child(UiKit.wrap_label(String(achievement["description"]), 22, UiKit.earth_dark()))
 		v.add_child(UiKit.progress(float(progress) / float(target), UiKit.sage(), 22))
 		var foot := UiKit.hbox(10)

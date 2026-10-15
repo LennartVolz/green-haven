@@ -54,6 +54,7 @@ func _initialize() -> void:
 	test_animals()
 	test_animal_extensions()
 	test_land_and_objects()
+	test_land_expansion_chain()
 	test_save_roundtrip()
 	test_offline_progress()
 	test_corrupt_and_migration()
@@ -590,9 +591,11 @@ func test_land_and_objects() -> void:
 	level_to(3)
 	check(not gs.expand_land(), "Erweiterung braucht Münzen")
 	gs.coins = 5000
+	var old_land: Rect2i = gs.land
 	var area: int = gs.land.get_area()
 	check(gs.expand_land(), "Land erweitern")
 	check(gs.land.get_area() > area, "mehr Fläche")
+	check(gs.land == old_land.grow(1), "Land wächst zusammenhängend in alle Richtungen")
 	check(gs.till(Vector2i(7, 10)), "neues Land nutzbar")
 	level_to(2)
 	var id: int = gs.place_object("flowers", Vector2i(9, 11))
@@ -604,6 +607,59 @@ func test_land_and_objects() -> void:
 	var c: int = gs.coins
 	check(gs.sell_object(id), "Dekoration verkaufen")
 	check(gs.coins == c + 12, "halber Preis")
+
+
+func test_land_expansion_chain() -> void:
+	begin("Zusammenhängende Farm bis 24×24")
+	check(gd.LAND_EXPANSIONS.size() == 8, "acht fortlaufende Erweiterungsstufen sind vorhanden")
+	check(gd.LAND_EXPANSIONS[4]["level"] < gd.LAND_EXPANSIONS[5]["level"] and gd.LAND_EXPANSIONS[5]["level"] < gd.LAND_EXPANSIONS[6]["level"] and gd.LAND_EXPANSIONS[6]["level"] < gd.LAND_EXPANSIONS[7]["level"], "zusätzliche Freischaltungen steigen sinnvoll an")
+	check(gs.land == Rect2i(8, 11, 8, 8), "Farm startet auf 8×8 Feldern")
+	gs.coins = 100000
+	for i in range(gd.LAND_EXPANSIONS.size()):
+		var expansion: Dictionary = gd.LAND_EXPANSIONS[i]
+		level_to(int(expansion["level"]))
+		var before: Rect2i = gs.land
+		var coins_before: int = gs.coins
+		check(gs.next_expansion() == expansion, "Stufe %d zeigt die passende Erweiterung" % (i + 1))
+		check(gs.expand_land(), "Erweiterung %d ist finanzierbar und verfügbar" % (i + 1))
+		check(gs.land == before.grow(1), "Erweiterung %d vergrößert alle vier Seiten zusammenhängend" % (i + 1))
+		check(gs.coins == coins_before - int(expansion["cost"]), "Erweiterung %d zieht genau die Kosten ab" % (i + 1))
+		check(int(gs.stats.get("expansions", 0)) == i + 1, "Erweiterungsstatistik bleibt fortlaufend")
+		var edge_cell := Vector2i(gs.land.end.x - 1, gs.land.end.y - 1)
+		check(gs.till(edge_cell), "neu erschlossener Rand %s ist direkt nutzbar" % edge_cell)
+		check(gs.fields.has(edge_cell) and gs.in_land(edge_cell), "neues Feld liegt im selben zusammenhängenden Land")
+	check(gs.land == Rect2i(0, 3, 24, 24), "Endausbau ergibt 24×24 Felder innerhalb der Einzelkarte")
+	gs.coins = 100000
+	level_to(30)
+	var before_world_limit: Rect2i = gs.land
+	var coins_before_world_limit: int = gs.coins
+	gs.land = Rect2i(1, 3, 24, 24)
+	gs.land_level = 7
+	check(not gs.expand_land(), "Erweiterung wird vor Überschreiten der Weltgrenze abgelehnt")
+	check(gs.land == Rect2i(1, 3, 24, 24) and gs.land_level == 7, "abgelehnte Erweiterung lässt Landstufe unverändert")
+	check(gs.coins == coins_before_world_limit, "abgelehnte Erweiterung erstattet Kosten vollständig")
+	gs.land = before_world_limit
+	gs.land_level = 8
+	check(gd.WORLD_ORIGIN == Vector2i.ZERO, "Einzelkarte verankert die Farm am Weltursprung")
+	check(gd.WORLD_COLS == 24 and gd.WORLD_ROWS >= 24, "Einzelkarte umfasst die volle Farm")
+	check(gs.land_level == 8 and gs.next_expansion().is_empty(), "nach acht Schritten gibt es keine weitere Farmseite")
+	check(not gs.expand_land(), "vollständige Farm kann nicht über die Kartenkante hinaus wachsen")
+	check(gd.WORLD_COLS >= gs.land.end.x and gd.WORLD_ROWS >= gs.land.end.y, "Vollausbau passt in die begehbare Einzelkarte")
+	check(gd.WORLD_ORIGIN.x <= gs.land.position.x and gd.WORLD_ORIGIN.y <= gs.land.position.y and gd.WORLD_ORIGIN.x + gd.WORLD_COLS >= gs.land.end.x and gd.WORLD_ORIGIN.y + gd.WORLD_ROWS >= gs.land.end.y, "die vollständige Farm bleibt innerhalb der Weltgrenzen")
+	var world_script_resource: GDScript = load("res://scripts/world/world.gd")
+	var viewport_size := Vector2(960, 540)
+	var zoom := 0.75
+	var camera_bounds: Rect2 = world_script_resource.camera_position_bounds(gs.land, viewport_size, zoom)
+	var camera_before_pan: Vector2 = (Vector2(gs.land.position) + Vector2(gs.land.size) * 0.5) * gd.TILE
+	var camera_move := minf(500.0, float(gs.land.size.x * gd.TILE) * 0.25)
+	var camera_after_pan: Vector2 = world_script_resource.clamp_camera_position(camera_before_pan + Vector2(camera_move, 0), camera_bounds)
+	check(camera_after_pan.x > camera_before_pan.x, "Kamera kann die einzelne Farmkarte horizontal erkunden")
+	var camera_at_world_edge: Vector2 = world_script_resource.clamp_camera_position(Vector2(-10000, -10000), camera_bounds)
+	check(camera_at_world_edge.x >= float(gs.land.position.x * gd.TILE) and camera_at_world_edge.y >= float(gs.land.position.y * gd.TILE), "Kamera bleibt auch am Kartenrand im Farmgebiet")
+	var saved_land: Dictionary = gs.serialize()
+	gs.new_game()
+	check(gs.deserialize(saved_land), "vollständig erweiterte Farm wird geladen")
+	check(gs.land == Rect2i(0, 3, 24, 24) and gs.land_level == 8, "24×24-Farm bleibt in einer Karte gespeichert")
 
 
 func _snapshot() -> Dictionary:
@@ -791,4 +847,5 @@ func test_new_crops() -> void:
 	for recipe in ["pumpkin_soup", "beet_spread", "garden_salad", "blueberry_smoothie", "rice_milk", "quinoa_bowl"]:
 		check(gd.items.has(recipe), "%s ist als Produkt im Inventar registriert" % recipe)
 	check(gd.unlocks_at(18).has("Quinoa"), "Quinoa wird auf Stufe 18 freigeschaltet")
+	check(gd.LAND_EXPANSIONS.size() == 8, "acht Landstufen erreichen gemeinsam den Vollausbau")
 	check(gd.items.has("pumpkin") and gd.items.has("blueberry"), "neue Ernten als handelbare Items registriert")

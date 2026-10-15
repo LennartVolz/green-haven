@@ -5,18 +5,26 @@ extends Node
 
 const TILE := 128
 const MAX_LEVEL := 30
+## Die sichtbare Einzelkarte passt die begehbare Wiese an die volle Farmgröße an.
 const WORLD_COLS := 24
 const WORLD_ROWS := 30
+const WORLD_MARGIN_CELLS := 2
+const WORLD_ORIGIN := Vector2i(0, 0)
 const START_LAND := Rect2i(8, 11, 8, 8)
 const TILL_COST := 10
 const START_COINS := 120
 
 ## Jede Erweiterung vergrößert das Land um 1 Zelle in alle Richtungen.
+## Acht Ausbauschritte wachsen von 8x8 bis 24x24 Felder und bleiben in der Karte.
 const LAND_EXPANSIONS := [
 	{"cost": 300, "level": 3},
 	{"cost": 800, "level": 6},
 	{"cost": 2000, "level": 10},
 	{"cost": 5000, "level": 15},
+	{"cost": 7000, "level": 18},
+	{"cost": 11000, "level": 21},
+	{"cost": 18000, "level": 25},
+	{"cost": 28000, "level": 30},
 ]
 
 const CROPS := {

@@ -134,10 +134,12 @@ static func _land(ui, c: VBoxContainer) -> void:
 	var card2 := UiKit.card(14)
 	var v2 := UiKit.vbox(8)
 	v2.add_child(UiKit.label("Farm erweitern", 34))
+	var land_size: Vector2i = GameState.land.size
+	v2.add_child(UiKit.wrap_label("Eine zusammenhängende Farm, die du durch Wischen erkundest. Aktuell %d × %d Felder." % [land_size.x, land_size.y], 26, UiKit.earth_dark()))
 	if ex.is_empty():
-		v2.add_child(UiKit.wrap_label("Deine Farm ist vollständig ausgebaut. Wunderschön!", 26, UiKit.earth_dark()))
+		v2.add_child(UiKit.wrap_label("Deine Farm ist vollständig auf 24 × 24 Felder ausgebaut. Wunderschön!", 26, UiKit.earth_dark()))
 	else:
-		v2.add_child(UiKit.wrap_label("Mehr Platz für Felder, Gebäude und Gehege.", 26, UiKit.earth_dark()))
+		v2.add_child(UiKit.wrap_label("Mehr Platz für Felder, Gebäude und Gehege · danach %d × %d Felder." % [land_size.x + 2, land_size.y + 2], 26, UiKit.earth_dark()))
 		var e := UiKit.button("Erweitern  ·  %d Münzen" % int(ex["cost"]), "warm", 30)
 		if GameState.level < int(ex["level"]):
 			e.text = "Ab Stufe %d" % int(ex["level"])

@@ -442,8 +442,15 @@ func expand_land() -> bool:
 	if not spend_coins(int(ex["cost"])):
 		last_error = "Nicht genug Münzen"
 		return false
+	var previous_land := land
 	land = land.grow(1)
 	land_level += 1
+	if land.position.x < GameData.WORLD_ORIGIN.x or land.position.y < GameData.WORLD_ORIGIN.y or land.end.x > GameData.WORLD_ORIGIN.x + GameData.WORLD_COLS or land.end.y > GameData.WORLD_ORIGIN.y + GameData.WORLD_ROWS:
+		land = previous_land
+		land_level -= 1
+		add_coins(int(ex["cost"]))
+		last_error = "Die Farm hat die Weltgrenze erreicht"
+		return false
 	bump("expansions")
 	world_changed.emit()
 	sound.emit("build")

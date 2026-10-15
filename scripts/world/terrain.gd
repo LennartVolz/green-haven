@@ -29,12 +29,14 @@ static func _hash(x: int, y: int, salt: int = 0) -> float:
 
 func _draw() -> void:
 	var T := GameData.TILE
-	var cols := GameData.WORLD_COLS
-	var rows := GameData.WORLD_ROWS
+	var margin := GameData.WORLD_MARGIN_CELLS
 	var land := GameState.land
-	draw_rect(Rect2(-400, -400, cols * T + 800, rows * T + 800), Painter.col("#6FA354"))
-	for y in range(rows):
-		for x in range(cols):
+	var world_bounds := Rect2i(GameData.WORLD_ORIGIN, Vector2i(GameData.WORLD_COLS, GameData.WORLD_ROWS))
+	var expanded_land := Rect2i(land.position - Vector2i(margin, margin), land.size + Vector2i(margin * 2, margin * 2))
+	var world_rect := expanded_land.intersection(world_bounds)
+	draw_rect(Rect2(world_rect.position * T, world_rect.size * T), Painter.col("#6FA354"))
+	for y in range(world_rect.position.y, world_rect.end.y):
+		for x in range(world_rect.position.x, world_rect.end.x):
 			var h := _hash(x, y)
 			var inside := land.has_point(Vector2i(x, y))
 			var c: Color
@@ -44,8 +46,8 @@ func _draw() -> void:
 			else:
 				c = Painter.col("#7BB367").darkened(0.06 + h * 0.08)
 			draw_rect(Rect2(x * T, y * T, T + 1, T + 1), c)
-	for y in range(rows):
-		for x in range(cols):
+	for y in range(world_rect.position.y, world_rect.end.y):
+		for x in range(world_rect.position.x, world_rect.end.x):
 			var cell := Vector2i(x, y)
 			if land.has_point(cell):
 				if _hash(x, y, 7) < 0.1:
@@ -53,7 +55,7 @@ func _draw() -> void:
 				continue
 			var base := Vector2(x * T + 30.0 + _hash(x, y, 1) * 68.0, y * T + 96.0 + _hash(x, y, 2) * 20.0)
 			var r := _hash(x, y, 3)
-			var edge := x < 2 or y < 2 or x >= cols - 2 or y >= rows - 2
+			var edge := x < world_rect.position.x + 2 or y < world_rect.position.y + 2 or x >= world_rect.end.x - 2 or y >= world_rect.end.y - 2
 			if edge and r < 0.75:
 				Painter.tree(self, base, 0.95 + _hash(x, y, 4) * 0.4, 0.0, 0.1)
 			elif r < 0.07:

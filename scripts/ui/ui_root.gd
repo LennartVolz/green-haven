@@ -42,6 +42,7 @@ var _side: VBoxContainer
 var _coins_label: Label
 var _day_label: Label
 var _weather_label: Label
+var _event_label: Label
 var _level_label: Label
 var _xp_bar: ProgressBar
 var _toast_panel: PanelContainer
@@ -56,6 +57,8 @@ var _sheet_name := ""
 var _sheet_args: Dictionary = {}
 var _refresh_queued := false
 var _scroll_restore_generation := 0
+var _pending_scroll_position := 0
+var _pending_scroll_restore := false
 var _tick_acc := 0.0
 var _coin_shown := -1.0
 var _displayed_coins := 0.0
@@ -160,6 +163,9 @@ func _build_top() -> void:
 	_day_label = UiKit.label("08:00 · Tag", 25, UiKit.cream())
 	_day_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	day_info.add_child(_day_label)
+	_event_label = UiKit.label("", 18, UiKit.yellow())
+	_event_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	day_info.add_child(_event_label)
 	_weather_label = UiKit.label("Wetter: Sonnig", 21, UiKit.cream())
 	_weather_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	day_info.add_child(_weather_label)
@@ -410,8 +416,15 @@ func refresh_sheet() -> void:
 	_rebuild()
 	_apply_layout()
 	_scroll_restore_generation += 1
-	var generation := _scroll_restore_generation
-	get_tree().process_frame.connect(_restore_scroll_position.bind(keep, generation), CONNECT_ONE_SHOT)
+	_pending_scroll_position = keep
+	if not _pending_scroll_restore:
+		_pending_scroll_restore = true
+		get_tree().process_frame.connect(_restore_latest_scroll_position, CONNECT_ONE_SHOT)
+
+
+func _restore_latest_scroll_position() -> void:
+	_pending_scroll_restore = false
+	_restore_scroll_position(_pending_scroll_position, _scroll_restore_generation)
 
 
 func _restore_scroll_position(keep: int, generation: int) -> void:
@@ -486,6 +499,10 @@ func _process(delta: float) -> void:
 		_day_label.text = world.day_clock_text()
 		_weather_label.text = GameData.weather_effect_text(world.current_weather)
 		_weather_label.tooltip_text = "Das Wetter beeinflusst das Wachstum aller Pflanzen."
+		if GameState.has_building("cafe"):
+			_event_label.text = "Gartentag!" if GameState.neighborhood_event_active() else "Gartentag in %s" % GameData.format_time(GameState.neighborhood_event_seconds_left())
+		else:
+			_event_label.text = ""
 		if _sheet_name != "":
 			_tick()
 	# Münzanzeige zählt sanft hoch

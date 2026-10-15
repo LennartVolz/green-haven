@@ -50,6 +50,7 @@ func _initialize() -> void:
 	test_orders()
 	test_delivery_stories()
 	test_cafe()
+	test_neighborhood_event()
 	test_achievements()
 	test_quests()
 	test_animals()
@@ -427,7 +428,7 @@ func test_cafe() -> void:
 	var v5_save: Dictionary = gs.serialize()
 	v5_save["version"] = 5
 	var migrated_v5: Dictionary = ss.migrate(v5_save)
-	check(int(migrated_v5["version"]) == 7 and migrated_v5.has("daily_cafe_special_id"), "Version 5 wird auf Tagesgericht- und Wetterschema migriert")
+	check(int(migrated_v5["version"]) == 8 and migrated_v5.has("daily_cafe_special_id"), "Version 5 wird auf Tagesgericht-, Wetter- und Eventschema migriert")
 	check(int(migrated_v5["stats"].get("cafe_special_orders", -1)) == int(gs.stats.get("cafe_special_orders", 0)), "Café-Tagesgericht-Statistik wird migriert")
 	var old_cafe_save: Dictionary = gs.serialize()
 	old_cafe_save["version"] = 5
@@ -436,7 +437,74 @@ func test_cafe() -> void:
 	check(int(migrated_old_cafe["stats"]["cafe_orders"]) == int(gs.stats.get("cafe_orders", 0)), "Café-Altstatistik bleibt erhalten")
 	check(int(migrated_old_cafe["stats"]["cafe_special_orders"]) == 0, "Tagesgericht-Statistik startet bei alten Ständen bei null")
 	var v6_migrated: Dictionary = ss.migrate({"version": 6, "settings": {"sound": false}, "animals": []})
-	check(int(v6_migrated["version"]) == 7 and bool(v6_migrated["settings"]["sound"]) == false, "Version 6 wird ohne Verlust vorhandener Einstellungen migriert")
+	check(int(v6_migrated["version"]) == 8 and bool(v6_migrated["settings"]["sound"]) == false, "Version 6 wird ohne Verlust vorhandener Einstellungen migriert")
+	var v7_migrated: Dictionary = ss.migrate({"version": 7, "settings": {"music": false}, "animals": []})
+	check(int(v7_migrated["version"]) == 8 and v7_migrated["neighborhood_event_order"].is_empty(), "Version 7 erhält leere Event-Migration")
+
+
+func test_neighborhood_event() -> void:
+	begin("Gartentag in der Nachbarschaft")
+	var cycle_length: float = gs.NEIGHBORHOOD_EVENT_CYCLE_SECONDS
+	var event_cycle := 2
+	gs.level = 14
+	gs.coins = 100000
+	check(not gs.neighborhood_event_active(float(event_cycle) * cycle_length + gs.NEIGHBORHOOD_EVENT_DURATION_SECONDS), "Gartentag ist außerhalb seines Zeitfensters geschlossen")
+	var cafe_uid: int = gs.place_object("cafe", Vector2i(8, 11))
+	check(cafe_uid > 0, "Gartentag setzt Café voraus")
+	var cycle_start: float = float(event_cycle) * cycle_length
+	gs.time_offset = cycle_start - Time.get_unix_time_from_system() + 10.0
+	check(gs.neighborhood_event_active(), "Gartentag öffnet am Beginn des Event-Zeitfensters")
+	check(gs.neighborhood_event_window_seconds_left() > 0.0, "aktives Event zeigt Restzeit")
+	gs.neighborhood_event_stage = 0
+	gs._fill_orders()
+	var previous_coins: int = gs.coins
+	var previous_xp: int = gs.xp
+	for expected_stage in range(gs.NEIGHBORHOOD_EVENT_SERIES_LENGTH):
+		var event_order: Dictionary = {}
+		for order in gs.orders:
+			if order.has("neighborhood_event_cycle"):
+				event_order = order
+				break
+		check(not event_order.is_empty(), "Event-Sonderbestellung für Etappe %d erscheint" % (expected_stage + 1))
+		if event_order.is_empty():
+			break
+		check(int(event_order.neighborhood_event_stage) == expected_stage, "Etappenfolge bleibt chronologisch")
+		check(int(event_order.coins) > 0 and int(event_order.xp) > 0 and int(event_order.items.size()) == 1, "Sonderauftrag bringt Ware, Münzen und XP")
+		check(not str(event_order.neighborhood_event_story).is_empty(), "Eventauftrag erzählt eine eigene Nachbarschaftsgeschichte")
+		for item_id in event_order.items:
+			gs.add_item(str(item_id), int(event_order.items[item_id]))
+		var reward_coins := int(event_order.coins)
+		var reward_xp := int(event_order.xp)
+		check(gs.fulfill_order(int(event_order.id)), "Gartentag-Etappe erfüllen")
+		check(gs.coins >= previous_coins + reward_coins, "Sonderbelohnung wird einmal gutgeschrieben")
+		check(gs.xp >= previous_xp + reward_xp, "Event-XP werden gutgeschrieben")
+		previous_coins = gs.coins
+		previous_xp = gs.xp
+		if expected_stage < gs.NEIGHBORHOOD_EVENT_SERIES_LENGTH - 1:
+			gs.time_offset += 1.0
+			gs._fill_orders()
+	check(gs.neighborhood_event_stage == 0, "Reihe startet nach drei Etappen wieder von vorn")
+	check(gs.neighborhood_event_completed_cycle == event_cycle, "Abschluss wird für den Event-Zyklus markiert")
+	check(int(gs.stats.get("neighborhood_events_completed", 0)) == 1, "Eventabschluss wird gezählt")
+	check(gs.diary.size() >= gs.NEIGHBORHOOD_EVENT_SERIES_LENGTH and String(gs.diary.back().text).contains("Gartentag"), "Erzählungen und Abschluss erscheinen im Tagebuch")
+	var saved: Dictionary = gs.serialize()
+	gs.new_game()
+	check(gs.deserialize(saved), "Eventfortschritt und Abschluss speichern/laden")
+	check(gs.neighborhood_event_completed_cycle == event_cycle and int(gs.stats.get("neighborhood_events_completed", 0)) == 1, "Abgeschlossener Event-Zyklus bleibt gespeichert")
+	var v7_event_migration: Dictionary = ss.migrate({"version": 7, "settings": {"music": false}, "animals": []})
+	check(int(v7_event_migration["version"]) == 8 and v7_event_migration["neighborhood_event_order"].is_empty(), "Version 7 erhält leere Event-Migration")
+	var order_save: Dictionary = saved.duplicate(true)
+	order_save["neighborhood_event_completed_cycle"] = -1
+	order_save["neighborhood_event_stage"] = 1
+	order_save["neighborhood_event_order"] = {"id": 9123, "cycle": event_cycle, "stage": 1, "customer": "Mira", "items": {"tomato": 2}, "coins": 88, "xp": 22, "story": "Ein Tomatenkorb für alle.", "cafe": false}
+	order_save["orders"] = []
+	gs.time_offset = cycle_start - Time.get_unix_time_from_system() + 20.0
+	check(gs.deserialize(order_save), "Offene Event-Etappe wiederherstellen")
+	check(gs.orders.any(func(order: Dictionary) -> bool: return order.has("neighborhood_event_cycle") and int(order["neighborhood_event_stage"]) == 1), "Offener Gartentag-Auftrag bleibt gespeichert")
+	var saved_order: Dictionary = gs.serialize()
+	gs.new_game()
+	check(gs.deserialize(saved_order), "offene Event-Bestellung erneut laden")
+	check(gs.orders.any(func(order: Dictionary) -> bool: return int(order.get("id", -1)) == 9123), "Sonderbestellungs-ID und Auftrag bleiben erhalten")
 
 
 func test_achievements() -> void:
@@ -471,7 +539,7 @@ func test_achievements() -> void:
 	check(gs.deserialize(encoded), "Erfolgs-Status laden")
 	check(gs.claimed_achievements.has("orders_2") and not gs.claim_achievement("orders_2"), "abgeholte Erfolge bleiben dauerhaft gespeichert")
 	check(gs.claimed_achievements.size() == 1, "unbekannte Erfolgs-IDs werden nicht gespeichert")
-	check(gs.SAVE_VERSION == 7, "Wetterwachstum verwendet Save-Version 7")
+	check(gs.SAVE_VERSION == 8, "Gartentage verwenden Save-Version 8")
 	var cafe_orders_achievement: Dictionary = {}
 	for achievement in gd.ACHIEVEMENTS:
 		if str(achievement["id"]) == "cafe_orders_10":
@@ -601,7 +669,7 @@ func test_animal_extensions() -> void:
 	check(gs.equipped_cosmetics_of(animal).has("flower"), "Accessoire wird getragen")
 	check(not gs.set_animal_cosmetic(rescued, "unknown", true), "unbekanntes Accessoire ablehnen")
 	var encoded: Dictionary = gs.serialize()
-	check(int(encoded.version) == 7 and encoded.animals[0].has("traits") and encoded.animals[0].has("accessories"), "neue Profildaten werden in Save-Version 7 gespeichert")
+	check(int(encoded.version) == 8 and encoded.animals[0].has("traits") and encoded.animals[0].has("accessories"), "neue Profildaten werden in Save-Version 8 gespeichert")
 	gs.new_game()
 	check(gs.deserialize(encoded), "erweiterte Tierdaten laden")
 	var restored: Dictionary = gs.get_animal(rescued)
@@ -737,7 +805,7 @@ func test_save_roundtrip() -> void:
 	check(uid > 0 and gs.get_object(uid).uid != bak, "neue UIDs kollidieren nicht")
 	var d: Dictionary = gs.serialize()
 	check(int(d.version) == gs.SAVE_VERSION, "Version im Spielstand")
-	check(gs.SAVE_VERSION == 7, "Wetterwachstum verwendet Save-Version 7")
+	check(gs.SAVE_VERSION == 8, "Gartentage verwenden Save-Version 8")
 
 
 func test_offline_progress() -> void:
@@ -793,12 +861,12 @@ func test_corrupt_and_migration() -> void:
 	check(gs.fields[Vector2i(8, 11)].crop == "", "unbekannte Pflanze verworfen")
 	check(gs.tutorial_step == 99, "Tutorial bei Altstand übersprungen")
 	var v1_migrated: Dictionary = ss.migrate({"version": 1, "animals": []})
-	check(int(v1_migrated.version) == 7, "Version 1 migriert schrittweise auf Version 7")
+	check(int(v1_migrated.version) == 8, "Version 1 migriert schrittweise auf Version 8")
 	check(v1_migrated.stats.get("cafe_orders", -1) == 0, "Café-Fortschritt alter Spielstände startet bei null")
 	var v2_migrated: Dictionary = ss.migrate({"version": 2, "animals": []})
-	check(int(v2_migrated.version) == 7 and v2_migrated.diary.is_empty() and v2_migrated.claimed_achievements.is_empty(), "Version 2 erhält Story-, Erfolgs-, Café- und Wetter-Migration")
+	check(int(v2_migrated.version) == 8 and v2_migrated.diary.is_empty() and v2_migrated.claimed_achievements.is_empty(), "Version 2 erhält Story-, Erfolgs-, Café-, Wetter- und Event-Migration")
 	var v3_migrated: Dictionary = ss.migrate({"version": 3, "animals": []})
-	check(int(v3_migrated.version) == 7 and v3_migrated.claimed_achievements.is_empty(), "Version 3 erhält leere Erfolgs-, Café- und Wetter-Historie")
+	check(int(v3_migrated.version) == 8 and v3_migrated.claimed_achievements.is_empty(), "Version 3 erhält leere Erfolgs-, Café-, Wetter- und Event-Historie")
 	var legacy_animal := {"uid": 10, "species": "rabbit", "name": "Alt-Tier", "hunger": 60, "happy": 55, "last": gs.now(), "paddock": 1}
 	var migrated: Dictionary = ss.migrate({"version": 1, "animals": [legacy_animal]})
 	check(legacy_animal.has("traits") and legacy_animal.has("accessories") and legacy_animal.has("activity_at"), "Tierfelder aus altem Spielstand ergänzt")

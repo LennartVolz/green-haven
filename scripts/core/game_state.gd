@@ -20,8 +20,11 @@ signal game_event(event_name: String, data: Dictionary)
 signal fx(kind: String, world_pos: Vector2, text: String)
 signal sound(sound_name: String)
 
-const SAVE_VERSION := 7
+const SAVE_VERSION := 8
 const MAX_ORDERS := 4
+const NEIGHBORHOOD_EVENT_CYCLE_SECONDS := 3.0 * 60.0 * 60.0
+const NEIGHBORHOOD_EVENT_DURATION_SECONDS := 30.0 * 60.0
+const NEIGHBORHOOD_EVENT_SERIES_LENGTH := 3
 const CAFE_SPECIAL_DURATION := 24.0 * 60.0 * 60.0
 const CAFE_SPECIAL_ORDER_CHANCE := 0.7
 const CAFE_SPECIAL_COIN_BONUS := 0.5
@@ -55,6 +58,9 @@ var active_delivery_story := ""
 var delivery_story_stage := 0
 var daily_cafe_special_id := ""
 var daily_cafe_special_at := 0.0
+var neighborhood_event_stage := 0
+var neighborhood_event_order: Dictionary = {}
+var neighborhood_event_completed_cycle := -1
 var diary: Array = []
 var stats: Dictionary = {}
 var claimed_quests: Array = []
@@ -103,6 +109,9 @@ func reset_state() -> void:
 	delivery_story_stage = 0
 	daily_cafe_special_id = ""
 	daily_cafe_special_at = 0.0
+	neighborhood_event_stage = 0
+	neighborhood_event_order = {}
+	neighborhood_event_completed_cycle = -1
 	diary = []
 	stats = {}
 	claimed_quests = []
@@ -742,12 +751,106 @@ func generate_order() -> Dictionary:
 	}
 
 
+func neighborhood_event_cycle_at(timestamp: float) -> int:
+	return floori(timestamp / NEIGHBORHOOD_EVENT_CYCLE_SECONDS)
+
+
+func neighborhood_event_seconds_left(timestamp: float = -1.0) -> float:
+	var current_time := now() if timestamp < 0.0 else timestamp
+	return maxf(0.0, float(neighborhood_event_cycle_at(current_time) + 1) * NEIGHBORHOOD_EVENT_CYCLE_SECONDS - current_time)
+
+
+func neighborhood_event_active(timestamp: float = -1.0) -> bool:
+	var current_time := now() if timestamp < 0.0 else timestamp
+	return fposmod(current_time, NEIGHBORHOOD_EVENT_CYCLE_SECONDS) < NEIGHBORHOOD_EVENT_DURATION_SECONDS
+
+
+func neighborhood_event_window_seconds_left(timestamp: float = -1.0) -> float:
+	var current_time := now() if timestamp < 0.0 else timestamp
+	var elapsed := fposmod(current_time, NEIGHBORHOOD_EVENT_CYCLE_SECONDS)
+	return NEIGHBORHOOD_EVENT_DURATION_SECONDS - elapsed if elapsed < NEIGHBORHOOD_EVENT_DURATION_SECONDS else NEIGHBORHOOD_EVENT_CYCLE_SECONDS - elapsed
+
+
+func _neighborhood_event_candidates(stage_index: int) -> Array[String]:
+	var definition: Dictionary = GameData.NEIGHBORHOOD_EVENT_STAGES[stage_index]
+	var candidates: Array[String] = []
+	for crop_id in definition.get("crops", []):
+		if GameData.CROPS.has(str(crop_id)) and int(GameData.CROPS[str(crop_id)]["level"]) <= level:
+			candidates.append(str(crop_id))
+	if bool(definition.get("cafe_only", false)) and not has_building("cafe"):
+		return candidates
+	for recipe_id in definition.get("cafe_recipes", []):
+		if GameData.RECIPES.has(str(recipe_id)) and int(GameData.RECIPES[str(recipe_id)]["level"]) <= level and has_building("cafe"):
+			candidates.append(str(recipe_id))
+	return candidates
+
+
+func _ensure_neighborhood_event_order(cycle: int) -> bool:
+	if neighborhood_event_order.has("cycle") and int(neighborhood_event_order.cycle) == cycle:
+		return false
+	if neighborhood_event_completed_cycle == cycle:
+		return false
+	if not neighborhood_event_active(float(cycle) * NEIGHBORHOOD_EVENT_CYCLE_SECONDS) or not has_building("cafe"):
+		return false
+	var stage_index := posmod(neighborhood_event_stage, NEIGHBORHOOD_EVENT_SERIES_LENGTH)
+	var candidates := _neighborhood_event_candidates(stage_index)
+	if candidates.is_empty():
+		return false
+	var item_id: String = candidates[rng.randi_range(0, candidates.size() - 1)]
+	var quantity := rng.randi_range(2, 4) if GameData.CROPS.has(item_id) else 1
+	var stage: Dictionary = GameData.NEIGHBORHOOD_EVENT_STAGES[stage_index]
+	var base_reward := int(GameData.items[item_id]["sell"]) * quantity + 16
+	var event_order := {"id": _new_uid(), "cycle": cycle, "stage": stage_index,
+		"customer": GameData.CUSTOMERS[rng.randi_range(0, GameData.CUSTOMERS.size() - 1)],
+		"items": {item_id: quantity}, "coins": base_reward + int(stage["bonus_coins"]),
+		"xp": maxi(5, int(round(float(base_reward) * 0.25))) + int(stage["bonus_xp"]),
+		"story": String(GameData.NEIGHBORHOOD_EVENT_STORIES[stage_index]), "cafe": stage_index == 2 and has_building("cafe")}
+	neighborhood_event_order = event_order
+	return true
+
+
 func _fill_orders() -> void:
 	var changed := _refresh_daily_cafe_special()
+	var event_cycle := neighborhood_event_cycle_at(now())
+	var event_active := neighborhood_event_active(now()) and has_building("cafe")
+	if event_active and neighborhood_event_completed_cycle != event_cycle:
+		changed = _ensure_neighborhood_event_order(event_cycle) or changed
+	if not neighborhood_event_order.is_empty() and (int(neighborhood_event_order.get("cycle", -1)) != event_cycle or not event_active):
+		neighborhood_event_order = {}
+		changed = true
+	for stale_index in range(orders.size() - 1, -1, -1):
+		if orders[stale_index].has("neighborhood_event_cycle") and (int(orders[stale_index].neighborhood_event_cycle) != event_cycle or not event_active):
+			orders.remove_at(stale_index)
+			changed = true
 	var reserve_story_slot := not active_delivery_story.is_empty() and not _has_story_order()
-	while orders.size() < MAX_ORDERS - (1 if reserve_story_slot else 0) and now() >= next_order_at:
+	var reserve_event_slot := event_active and neighborhood_event_order.has("cycle") and not _has_neighborhood_event_order(event_cycle)
+	if event_active and neighborhood_event_order.has("cycle") and bool(neighborhood_event_order.get("cafe", false)) != has_building("cafe"):
+		neighborhood_event_order["cafe"] = has_building("cafe")
+		changed = true
+	while orders.size() < MAX_ORDERS - (1 if reserve_story_slot else 0) - (1 if reserve_event_slot else 0) and now() >= next_order_at:
 		orders.append(generate_order())
 		next_order_at = now() + (0.0 if orders.size() < 3 else ORDER_COOLDOWN)
+		changed = true
+	for existing_index in range(orders.size() - 1, -1, -1):
+		if int(orders[existing_index].get("neighborhood_event_cycle", -1)) == event_cycle:
+			orders[existing_index]["neighborhood_event_cafe"] = has_building("cafe")
+	if reserve_event_slot and orders.size() >= MAX_ORDERS:
+		var evicted_order := false
+		for overflow_index in range(orders.size() - 1, -1, -1):
+			if not orders[overflow_index].has("story_id") and not orders[overflow_index].has("visitor_story"):
+				orders.remove_at(overflow_index)
+				evicted_order = true
+				break
+		changed = evicted_order
+		if not evicted_order:
+			reserve_event_slot = false
+	if reserve_event_slot and orders.size() < MAX_ORDERS and not _has_neighborhood_event_order(event_cycle):
+		var event_order := neighborhood_event_order.duplicate(true)
+		event_order["neighborhood_event_cycle"] = event_cycle
+		event_order["neighborhood_event_stage"] = int(neighborhood_event_order.stage)
+		event_order["neighborhood_event_story"] = str(neighborhood_event_order.story)
+		event_order["neighborhood_event_cafe"] = bool(neighborhood_event_order.cafe)
+		orders.append(event_order)
 		changed = true
 	if not active_delivery_story.is_empty() and orders.size() < MAX_ORDERS and not _has_story_order():
 		var campaign: Dictionary = GameData.DELIVERY_STORIES.get(active_delivery_story, {})
@@ -765,6 +868,13 @@ func _fill_orders() -> void:
 func _has_story_order() -> bool:
 	for order in orders:
 		if str(order.get("story_id", "")) == active_delivery_story:
+			return true
+	return false
+
+
+func _has_neighborhood_event_order(cycle: int) -> bool:
+	for order in orders:
+		if int(order.get("neighborhood_event_cycle", -1)) == cycle:
 			return true
 	return false
 
@@ -830,7 +940,9 @@ func fulfill_order(order_id: int) -> bool:
 	next_order_at = now() + ORDER_COOLDOWN
 	var cafe_story_id := str(o.get("story_id", ""))
 	var is_cafe_story := cafe_story_id == active_delivery_story and GameData.DELIVERY_STORIES.has(cafe_story_id) and str(GameData.DELIVERY_STORIES[cafe_story_id].get("feature", "")) == "cafe"
-	if bool(o.get("cafe_order", false)) or is_cafe_story:
+	var neighborhood_event := int(o.get("neighborhood_event_cycle", -1)) >= 0
+	var event_cafe_guest := neighborhood_event and bool(o.get("neighborhood_event_cafe", false)) and neighborhood_event_active()
+	if bool(o.get("cafe_order", false)) or is_cafe_story or event_cafe_guest:
 		bump("cafe_orders")
 		if bool(o.get("cafe_daily_special", false)):
 			bump("cafe_special_orders")
@@ -838,6 +950,25 @@ func fulfill_order(order_id: int) -> bool:
 		if not shared_story.is_empty():
 			bump("cafe_stories_shared")
 			add_diary_entry("%s erzählte im Gartencafé: %s" % [str(o.get("customer", "Ein Gast")), shared_story])
+	var event_completed_now := false
+	if neighborhood_event:
+		var neighborhood_cycle := int(o.get("neighborhood_event_cycle", -1))
+		if neighborhood_event_order.has("cycle") and neighborhood_cycle == int(neighborhood_event_order.get("cycle", -2)) and neighborhood_event_active():
+			var event_stage := clampi(int(o.get("neighborhood_event_stage", 0)), 0, NEIGHBORHOOD_EVENT_SERIES_LENGTH - 1)
+			var event_def: Dictionary = GameData.NEIGHBORHOOD_EVENT_STAGES[event_stage]
+			neighborhood_event_stage = (event_stage + 1) % NEIGHBORHOOD_EVENT_SERIES_LENGTH
+			var event_story := str(o.get("neighborhood_event_story", ""))
+			add_diary_entry("Gartentag · %s: %s" % [String(event_def["name"]), event_story])
+			if event_cafe_guest:
+				bump("cafe_stories_shared")
+			if event_stage == NEIGHBORHOOD_EVENT_SERIES_LENGTH - 1:
+				add_coins(90)
+				add_xp(30)
+				bump("neighborhood_events_completed")
+				add_diary_entry("Der Gartentag endet mit einem langen Café-Nachmittag. Gemeinsam habt ihr drei Geschichten geteilt!")
+				neighborhood_event_completed_cycle = neighborhood_cycle
+				event_completed_now = true
+			neighborhood_event_order = {}
 	if o.has("story_id") and str(o["story_id"]) == active_delivery_story and GameData.DELIVERY_STORIES.has(active_delivery_story):
 		var campaign: Dictionary = GameData.DELIVERY_STORIES[active_delivery_story]
 		var completed_stage := delivery_story_stage
@@ -858,7 +989,11 @@ func fulfill_order(order_id: int) -> bool:
 	bump("orders")
 	orders_changed.emit()
 	quests_changed.emit()
-	sound.emit("coin")
+	if event_completed_now:
+		toast.emit("Der Gartentag ist ein voller Erfolg! +90 Münzen · +30 XP", "good")
+		sound.emit("level")
+	else:
+		sound.emit("coin")
 	event("order_done", {"id": order_id})
 	return true
 
@@ -1245,6 +1380,9 @@ func serialize() -> Dictionary:
 		"delivery_story_stage": delivery_story_stage,
 		"daily_cafe_special_id": daily_cafe_special_id,
 		"daily_cafe_special_at": daily_cafe_special_at,
+		"neighborhood_event_stage": neighborhood_event_stage,
+		"neighborhood_event_order": neighborhood_event_order.duplicate(true),
+		"neighborhood_event_completed_cycle": neighborhood_event_completed_cycle,
 		"diary": diary.duplicate(true),
 		"stats": stats.duplicate(),
 		"claimed_quests": claimed_quests.duplicate(),
@@ -1332,8 +1470,13 @@ func deserialize(d: Dictionary) -> bool:
 			if bool(e.get("cafe_order", false)):
 				order["cafe_order"] = true
 				order["visitor_story"] = str(e.get("visitor_story", ""))
-				if bool(e.get("cafe_daily_special", false)):
-					order["cafe_daily_special"] = true
+			if bool(e.get("cafe_daily_special", false)):
+				order["cafe_daily_special"] = true
+			if int(e.get("neighborhood_event_cycle", -1)) >= 0:
+				order["neighborhood_event_cycle"] = int(e["neighborhood_event_cycle"])
+				order["neighborhood_event_stage"] = clampi(int(e.get("neighborhood_event_stage", 0)), 0, NEIGHBORHOOD_EVENT_SERIES_LENGTH - 1)
+				order["neighborhood_event_story"] = str(e.get("neighborhood_event_story", ""))
+				order["neighborhood_event_cafe"] = bool(e.get("neighborhood_event_cafe", false))
 			orders.append(order)
 	var st: Dictionary = d.get("stats", {})
 	for k in st:
@@ -1346,6 +1489,20 @@ func deserialize(d: Dictionary) -> bool:
 	if not GameData.CAFE_MENU.has(daily_cafe_special_id):
 		daily_cafe_special_id = ""
 		daily_cafe_special_at = 0.0
+	neighborhood_event_stage = posmod(int(d.get("neighborhood_event_stage", 0)), NEIGHBORHOOD_EVENT_SERIES_LENGTH)
+	neighborhood_event_completed_cycle = int(d.get("neighborhood_event_completed_cycle", -1))
+	var saved_event: Dictionary = d.get("neighborhood_event_order", {})
+	if saved_event.has("cycle") and typeof(saved_event.get("items", {})) == TYPE_DICTIONARY:
+		var valid_event_items: Dictionary = {}
+		for event_item in saved_event.get("items", {}):
+			if GameData.items.has(str(event_item)) and int(saved_event.items[event_item]) > 0:
+				valid_event_items[str(event_item)] = int(saved_event.items[event_item])
+		if not valid_event_items.is_empty():
+			neighborhood_event_order = {"id": maxi(1, int(saved_event.get("id", 0))),
+				"cycle": int(saved_event.cycle), "stage": clampi(int(saved_event.get("stage", 0)), 0, NEIGHBORHOOD_EVENT_SERIES_LENGTH - 1),
+				"customer": str(saved_event.get("customer", "Ein Nachbar")), "items": valid_event_items,
+				"coins": maxi(0, int(saved_event.get("coins", 0))), "xp": maxi(0, int(saved_event.get("xp", 0))),
+				"story": str(saved_event.get("story", "")), "cafe": bool(saved_event.get("cafe", false))}
 	var story_stage_count := int(GameData.DELIVERY_STORIES.get(active_delivery_story, {}).get("stages", []).size())
 	delivery_story_stage = clampi(int(d.get("delivery_story_stage", 0)), 0, maxi(0, story_stage_count - 1)) if not active_delivery_story.is_empty() else 0
 	for entry in d.get("diary", []):

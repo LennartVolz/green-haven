@@ -5,6 +5,25 @@ extends RefCounted
 static func build(ui, _args: Dictionary) -> void:
 	ui.set_title("Auftragsbuch")
 	var c: VBoxContainer = ui.content
+	if GameState.has_building("cafe"):
+		var event_card := UiKit.card(14)
+		var event_v := UiKit.vbox(6)
+		var event_stage := clampi(GameState.neighborhood_event_stage, 0, GameState.NEIGHBORHOOD_EVENT_SERIES_LENGTH - 1)
+		var event_def: Dictionary = GameData.NEIGHBORHOOD_EVENT_STAGES[event_stage]
+		event_v.add_child(UiKit.label("Gartentag · %s" % String(event_def["name"]), 30, UiKit.earth_dark()))
+		event_v.add_child(UiKit.wrap_label(String(event_def["description"]), 23, UiKit.earth_dark()))
+		var event_progress := "Etappe %d/%d · %d Gartentage abgeschlossen" % [event_stage + 1, GameState.NEIGHBORHOOD_EVENT_SERIES_LENGTH, int(GameState.stats.get("neighborhood_events_completed", 0))]
+		event_v.add_child(UiKit.label(event_progress, 21, UiKit.sage_dark()))
+		var event_timer := UiKit.label("", 22, UiKit.earth_dark())
+		event_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		event_v.add_child(event_timer)
+		event_card.add_child(event_v)
+		c.add_child(event_card)
+		ui.ticker.append(func() -> void:
+			if GameState.neighborhood_event_active():
+				event_timer.text = "Gartentag läuft · noch %s" % GameData.format_time(GameState.neighborhood_event_window_seconds_left())
+			else:
+				event_timer.text = "Nächster Gartentag in %s" % GameData.format_time(GameState.neighborhood_event_seconds_left()))
 	var daily_special := GameState.daily_cafe_special()
 	if not daily_special.is_empty():
 		var special_card := UiKit.card(14)
@@ -67,13 +86,15 @@ static func build(ui, _args: Dictionary) -> void:
 		head.add_child(nm)
 		var skip := UiKit.button("✕", "ghost", 30)
 		skip.custom_minimum_size = Vector2(80, 80)
-		if o.has("story_id") or o.has("visitor_story"):
+		if o.has("story_id") or o.has("visitor_story") or o.has("neighborhood_event_cycle"):
 			skip.disabled = true
-			skip.tooltip_text = "Geschichtengäste bleiben, bis du ihre Bestellung annimmst."
+			skip.tooltip_text = "Geschichts- und Gartentag-Gäste bleiben, bis du ihre Bestellung annimmst."
 		else:
 			skip.pressed.connect(ui.act_skip_order.bind(int(o["id"])))
 		head.add_child(skip)
 		v.add_child(head)
+		if o.has("neighborhood_event_cycle"):
+			v.add_child(UiKit.wrap_label("Gartentag · Etappe %d/%d\n%s" % [int(o["neighborhood_event_stage"]) + 1, GameState.NEIGHBORHOOD_EVENT_SERIES_LENGTH, String(o.get("neighborhood_event_story", ""))], 23, UiKit.sage_dark()))
 		if o.has("story_text"):
 			v.add_child(UiKit.wrap_label("Geschichte · %s" % String(o["story_text"]), 23, UiKit.earth_dark()))
 		if o.has("visitor_story"):

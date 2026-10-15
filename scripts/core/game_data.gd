@@ -282,6 +282,17 @@ const DELIVERY_STORIES := {
 		], "bonus_coins": 220, "bonus_xp": 70},
 }
 
+const NEIGHBORHOOD_EVENT_STAGES := [
+	{"name": "Samen & Geschichten", "description": "Die Nachbarschaft tauscht Saatgut und erzählt von den ersten Ernten.", "crops": ["wheat", "carrot", "oat", "potato"], "bonus_coins": 20, "bonus_xp": 8},
+	{"name": "Buntes Gartenbuffet", "description": "Alle bringen etwas mit – auf dem Gartentisch ist Platz für jede Ernte.", "crops": ["tomato", "corn", "soy", "strawberry", "pumpkin", "lettuce", "cucumber", "pea"], "bonus_coins": 35, "bonus_xp": 12},
+	{"name": "Langer Café-Nachmittag", "description": "Das Gartencafé bleibt offen: Lieblingsrezepte und kleine Geschichten werden geteilt.", "cafe_recipes": ["filter_coffee", "oat_latte", "coffee_cookie_plate", "pumpkin_spice_latte", "blueberry_coffee_cake"], "crops": ["apple", "sunflower", "blueberry", "rice", "quinoa"], "bonus_coins": 55, "bonus_xp": 18},
+]
+const NEIGHBORHOOD_EVENT_STORIES := [
+	"Ich habe die ersten Samen von meiner Nachbarin bekommen. Jetzt kann ich ihr endlich eigene zurückgeben.",
+	"Wir haben alle etwas anderes mitgebracht – und am Ende hat jede Person von allem probiert.",
+	"Zwischen Kaffeetassen und Gartenstühlen erzählen wir uns, was dieses Jahr gewachsen ist – nicht nur im Beet.",
+]
+
 const CAFE_MENU := ["filter_coffee", "oat_latte", "coffee_cookie_plate", "pumpkin_spice_latte", "blueberry_coffee_cake"]
 const CAFE_VISITOR_STORIES := [
 	"Der Duft erinnert mich an die Sonntage, an denen wir gemeinsam gebacken haben.",

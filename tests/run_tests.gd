@@ -299,7 +299,7 @@ func test_delivery_stories() -> void:
 					story_order = order
 	check(gs.active_delivery_story.is_empty(), "abgeschlossene Reihe wird beendet")
 	check(gs.diary.size() >= 5 and String(gs.diary.back().text).contains("abgeschlossen"), "Abschluss und Abschnitte stehen im Refugiums-Tagebuch")
-	check(gd.RECIPES.size() == 24, "Café ergänzt vier neue Rezepte")
+	check(gd.RECIPES.size() == 26, "Café und Tageskarte enthalten sechs neue Rezepte")
 
 
 func test_cafe() -> void:
@@ -307,6 +307,8 @@ func test_cafe() -> void:
 	check(gd.BUILDINGS.has("cafe") and int(gd.BUILDINGS["cafe"]["level"]) == 8, "Café ab Stufe 8 freigeschaltet")
 	check(gd.CROPS.has("coffee") and bool(gd.CROPS["coffee"]["perennial"]), "Kaffee wächst als mehrjährige Pflanze")
 	check(gd.RECIPES.has("roasted_coffee") and gd.RECIPES.has("filter_coffee") and gd.RECIPES.has("oat_latte"), "Kaffeekette mit Hafer-Latte")
+	check(gd.RECIPES.has("pumpkin_spice_latte") and gd.RECIPES.has("blueberry_coffee_cake"), "Tageskarte erhält spätere Café-Rezepte")
+	check(gs.daily_cafe_special().is_empty(), "Tagesgericht ohne Café noch nicht verfügbar")
 	level_to(8)
 	gs.coins = 10000
 	var cafe_uid: int = gs.place_object("cafe", Vector2i(8, 11))
@@ -342,9 +344,66 @@ func test_cafe() -> void:
 	check(int(gs.stats.get("cafe_stories_completed", 0)) == 1, "abgeschlossene Café-Reihe zählt für Ziele")
 	check(int(gs.stats.get("cafe_stories_shared", 0)) == 3, "Gästeerzählungen landen in der Langzeitstatistik")
 	check(gs.diary.size() >= 4, "Café-Geschichten werden im Tagebuch festgehalten")
-	var v4_save: Dictionary = gs.serialize()
-	v4_save["version"] = 4
-	check(int(ss.migrate(v4_save)["version"]) == 5, "ältere Spielstände werden auf Café-Schema migriert")
+	check(not gs.daily_cafe_special().is_empty(), "Tagesgericht wird für Café ausgewählt")
+	var special_id: String = gs.daily_cafe_special()
+	var special_started_at: float = gs.daily_cafe_special_at
+	check(is_equal_approx(gs.daily_cafe_special_seconds_left(), gs.CAFE_SPECIAL_DURATION), "Tagesgericht bleibt 24 echte Stunden bestehen")
+	var saved_special_state: Dictionary = gs.serialize()
+	gs.time_offset += gs.CAFE_SPECIAL_DURATION - 1.0
+	gs._fill_orders()
+	check(gs.daily_cafe_special() == special_id and gs.daily_cafe_special_at == special_started_at, "Tagesgericht bleibt bis zum vollen 24-Stunden-Wechsel unverändert")
+	gs.time_offset += 2.0
+	gs._fill_orders()
+	check(gs.daily_cafe_special() != special_id and is_equal_approx(gs.daily_cafe_special_at, special_started_at + gs.CAFE_SPECIAL_DURATION), "Tagesgericht wechselt nach 24 Stunden echter Zeit")
+	var special_order: Dictionary = {}
+	for attempt in range(300):
+		var generated: Dictionary = gs.generate_order()
+		if bool(generated.get("cafe_daily_special", false)):
+			special_order = generated
+			break
+	check(not special_order.is_empty(), "Gäste bestellen das Tagesgericht häufiger")
+	if not special_order.is_empty():
+		var special_recipe: Dictionary = gd.RECIPES[str(special_order.items.keys()[0])]
+		var special_qty := int(special_order.items.values()[0])
+		var regular_reward := int(special_recipe["sell"]) * special_qty + 8
+		check(int(special_order.coins) == int(ceil(float(regular_reward) * 1.5)), "Tagesgericht gibt 50 Prozent Münzbonus")
+		check(int(special_order.xp) == int(special_recipe["xp"]) + gs.CAFE_SPECIAL_XP_BONUS, "Tagesgericht gibt fünf Bonus-XP")
+		gs.orders.append(special_order)
+		for item in special_order.items:
+			gs.add_item(str(item), int(special_order.items[item]))
+		check(gs.fulfill_order(int(special_order.id)), "Tagesgericht-Bestellung erfüllen")
+		check(int(gs.stats.get("cafe_special_orders", 0)) == 1, "serviertes Tagesgericht zählt für das Café-Ziel")
+		var special_order_save: Dictionary = saved_special_state.duplicate(true)
+		special_order_save["orders"] = [special_order.duplicate(true)]
+		special_order_save["stats"] = gs.stats.duplicate()
+		gs.time_offset = 0.0
+		check(gs.deserialize(special_order_save), "Tagesgericht-Spielstand wird geladen")
+		check(bool(gs.orders[0].get("cafe_daily_special", false)), "besonderer Gastauftrag bleibt im Spielstand markiert")
+	else:
+		gs.time_offset = 0.0
+		check(gs.deserialize(saved_special_state), "Tagesgericht-Spielstand wird geladen")
+	var persisted_special: String = str(saved_special_state["daily_cafe_special_id"])
+	check(gs.daily_cafe_special_id == persisted_special and is_equal_approx(gs.daily_cafe_special_at, float(saved_special_state["daily_cafe_special_at"])), "Tagesgericht und Wechselzeit werden gespeichert und geladen")
+	var special_quest: Dictionary = {}
+	for quest in gd.QUESTS:
+		if str(quest["id"]) == "q_cafe_specials":
+			special_quest = quest
+	gs.bump("cafe_special_orders", 5)
+	check(not special_quest.is_empty() and gs.quest_done(special_quest), "Tagesgerichte zählen auf Café-Ziel")
+	gs.daily_cafe_special_at = gs.now() - gs.CAFE_SPECIAL_DURATION * 3.0 - 12.0
+	gs._refresh_daily_cafe_special()
+	check(is_equal_approx(gs.daily_cafe_special_at, gs.now() - 12.0), "versäumte tägliche Wechsel laufen ohne Zeitdrift nach")
+	var v5_save: Dictionary = gs.serialize()
+	v5_save["version"] = 5
+	var migrated_v5: Dictionary = ss.migrate(v5_save)
+	check(int(migrated_v5["version"]) == 6 and migrated_v5.has("daily_cafe_special_id"), "Version 5 wird auf Tagesgericht-Schema migriert")
+	check(int(migrated_v5["stats"].get("cafe_special_orders", -1)) == int(gs.stats.get("cafe_special_orders", 0)), "Café-Tagesgericht-Statistik wird migriert")
+	var old_cafe_save: Dictionary = gs.serialize()
+	old_cafe_save["version"] = 5
+	old_cafe_save["stats"].erase("cafe_special_orders")
+	var migrated_old_cafe: Dictionary = ss.migrate(old_cafe_save)
+	check(int(migrated_old_cafe["stats"]["cafe_orders"]) == int(gs.stats.get("cafe_orders", 0)), "Café-Altstatistik bleibt erhalten")
+	check(int(migrated_old_cafe["stats"]["cafe_special_orders"]) == 0, "Tagesgericht-Statistik startet bei alten Ständen bei null")
 
 
 func test_achievements() -> void:
@@ -379,7 +438,7 @@ func test_achievements() -> void:
 	check(gs.deserialize(encoded), "Erfolgs-Status laden")
 	check(gs.claimed_achievements.has("orders_2") and not gs.claim_achievement("orders_2"), "abgeholte Erfolge bleiben dauerhaft gespeichert")
 	check(gs.claimed_achievements.size() == 1, "unbekannte Erfolgs-IDs werden nicht gespeichert")
-	check(gs.SAVE_VERSION == 5, "Café-Fortschritt verwendet Save-Version 5")
+	check(gs.SAVE_VERSION == 6, "Tagesgericht verwendet Save-Version 6")
 	var cafe_orders_achievement: Dictionary = {}
 	for achievement in gd.ACHIEVEMENTS:
 		if str(achievement["id"]) == "cafe_orders_10":
@@ -509,7 +568,7 @@ func test_animal_extensions() -> void:
 	check(gs.equipped_cosmetics_of(animal).has("flower"), "Accessoire wird getragen")
 	check(not gs.set_animal_cosmetic(rescued, "unknown", true), "unbekanntes Accessoire ablehnen")
 	var encoded: Dictionary = gs.serialize()
-	check(int(encoded.version) == 5 and encoded.animals[0].has("traits") and encoded.animals[0].has("accessories"), "neue Profildaten werden gespeichert")
+	check(int(encoded.version) == 6 and encoded.animals[0].has("traits") and encoded.animals[0].has("accessories"), "neue Profildaten werden gespeichert")
 	gs.new_game()
 	check(gs.deserialize(encoded), "erweiterte Tierdaten laden")
 	var restored: Dictionary = gs.get_animal(rescued)
@@ -589,7 +648,7 @@ func test_save_roundtrip() -> void:
 	check(uid > 0 and gs.get_object(uid).uid != bak, "neue UIDs kollidieren nicht")
 	var d: Dictionary = gs.serialize()
 	check(int(d.version) == gs.SAVE_VERSION, "Version im Spielstand")
-	check(gs.SAVE_VERSION == 5, "Café-Fortschritt verwendet Save-Version 5")
+	check(gs.SAVE_VERSION == 6, "Tagesgericht verwendet Save-Version 6")
 
 
 func test_offline_progress() -> void:
@@ -645,12 +704,12 @@ func test_corrupt_and_migration() -> void:
 	check(gs.fields[Vector2i(8, 11)].crop == "", "unbekannte Pflanze verworfen")
 	check(gs.tutorial_step == 99, "Tutorial bei Altstand übersprungen")
 	var v1_migrated: Dictionary = ss.migrate({"version": 1, "animals": []})
-	check(int(v1_migrated.version) == 5, "Version 1 migriert schrittweise auf Version 5")
+	check(int(v1_migrated.version) == 6, "Version 1 migriert schrittweise auf Version 6")
 	check(v1_migrated.stats.get("cafe_orders", -1) == 0, "Café-Fortschritt alter Spielstände startet bei null")
 	var v2_migrated: Dictionary = ss.migrate({"version": 2, "animals": []})
-	check(int(v2_migrated.version) == 5 and v2_migrated.diary.is_empty() and v2_migrated.claimed_achievements.is_empty(), "Version 2 erhält Story-, Erfolgs- und Café-Migration")
+	check(int(v2_migrated.version) == 6 and v2_migrated.diary.is_empty() and v2_migrated.claimed_achievements.is_empty(), "Version 2 erhält Story-, Erfolgs- und Café-Migration")
 	var v3_migrated: Dictionary = ss.migrate({"version": 3, "animals": []})
-	check(int(v3_migrated.version) == 5 and v3_migrated.claimed_achievements.is_empty(), "Version 3 erhält leere Erfolgs- und Café-Historie")
+	check(int(v3_migrated.version) == 6 and v3_migrated.claimed_achievements.is_empty(), "Version 3 erhält leere Erfolgs- und Café-Historie")
 	var legacy_animal := {"uid": 10, "species": "rabbit", "name": "Alt-Tier", "hunger": 60, "happy": 55, "last": gs.now(), "paddock": 1}
 	var migrated: Dictionary = ss.migrate({"version": 1, "animals": [legacy_animal]})
 	check(legacy_animal.has("traits") and legacy_animal.has("accessories") and legacy_animal.has("activity_at"), "Tierfelder aus altem Spielstand ergänzt")
@@ -726,7 +785,9 @@ func test_new_crops() -> void:
 			gs.time_offset += float(definition["grow"])
 			check(gs.harvest(cell), "%s kann erneut geerntet werden" % crop)
 		gs.fields[cell] = {"crop": "", "t": 0.0}
-	check(gd.RECIPES.size() == 24, "Café ergänzt vier neue Rezepte")
+	check(gd.RECIPES.size() == 26, "Café und Tageskarte enthalten sechs neue Rezepte")
+	for recipe in ["pumpkin_spice_latte", "blueberry_coffee_cake"]:
+		check(gd.items.has(recipe), "%s ist als Tagesgericht-Produkt registriert" % recipe)
 	for recipe in ["pumpkin_soup", "beet_spread", "garden_salad", "blueberry_smoothie", "rice_milk", "quinoa_bowl"]:
 		check(gd.items.has(recipe), "%s ist als Produkt im Inventar registriert" % recipe)
 	check(gd.unlocks_at(18).has("Quinoa"), "Quinoa wird auf Stufe 18 freigeschaltet")

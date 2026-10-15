@@ -145,6 +145,13 @@ func migrate(data: Dictionary) -> Dictionary:
 	if v < 7:
 		# Wettereffekte verwenden ausschließlich vorhandene Zeitstempel und benötigen keine neuen Save-Felder.
 		data["version"] = 7
+		v = 7
+	if v < 8:
+		# Nachbarschaftsevents beginnen für bestehende Spielstände ohne alte Event-Bestellung.
+		data["neighborhood_event_stage"] = 0
+		data["neighborhood_event_order"] = {}
+		data["neighborhood_event_completed_cycle"] = -1
+		data["version"] = 8
 	return data
 
 

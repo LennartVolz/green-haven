@@ -93,6 +93,22 @@ func run() -> void:
 			music_button.pressed.emit()
 		await frames()
 
+	# Der Gartentag bekommt im HUD und Auftragsbuch echte Sichtbarkeit.
+	gs.new_game()
+	gs.level = 10
+	gs.coins = 5000
+	var event_cafe_uid: int = gs.place_object("cafe", Vector2i(8, 11))
+	check(event_cafe_uid > 0, "Café kann für Gartentag-UI-Test gebaut werden")
+	gs.time_offset = float(gs.neighborhood_event_cycle_at(gs.now())) * gs.NEIGHBORHOOD_EVENT_CYCLE_SECONDS - Time.get_unix_time_from_system() + 10.0
+	gs.neighborhood_event_stage = 0
+	gs._fill_orders()
+	ui.act_open("orders", {})
+	await frames()
+	check(contains_label(ui.content, "Gartentag · Samen & Geschichten"), "Gartentag-Abschnitt erscheint im Auftragsbuch")
+	check(contains_label(ui.content, "Gartentag läuft"), "laufendes Event zeigt Restzeit im Auftragsbuch")
+	var event_order_card := find_button(ui.content, "Liefern")
+	check(event_order_card != null, "Eventbestellung wird mit echter Lieferaktion angezeigt")
+
 	# Café-Besuchsgeschichte erscheint im Auftragsbuch an der echten Oberfläche.
 	gs.new_game()
 	gs.level = 8

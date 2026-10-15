@@ -123,6 +123,15 @@ func migrate(data: Dictionary) -> Dictionary:
 		# Erfolge nutzen bestehende Statistiken, neue Belohnungs-IDs starten ungeclaimt.
 		data["claimed_achievements"] = []
 		data["version"] = 4
+		v = 4
+	if v < 5:
+		# Café-Fortschritt startet für alte Spielstände bei null.
+		var stats: Dictionary = data.get("stats", {})
+		stats["cafe_orders"] = int(stats.get("cafe_orders", 0))
+		stats["cafe_stories_shared"] = int(stats.get("cafe_stories_shared", 0))
+		stats["cafe_stories_completed"] = int(stats.get("cafe_stories_completed", 0))
+		data["stats"] = stats
+		data["version"] = 5
 	return data
 
 

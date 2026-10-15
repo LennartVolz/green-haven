@@ -91,6 +91,8 @@ static func _object_card(ui, c: VBoxContainer, id: String) -> void:
 	match String(d["kind"]):
 		"production":
 			info = "%d Produktionsplätze" % int(d["slots"])
+			if id == "cafe":
+				info = "Veganer Kaffee, Hafer-Latte und Geschichten aus der Nachbarschaft"
 		"paddock":
 			info = "Platz für %d gerettete Tiere" % int(d["capacity"])
 		_:

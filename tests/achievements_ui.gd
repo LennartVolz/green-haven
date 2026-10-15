@@ -29,6 +29,15 @@ func find_button(node: Node, prefix: String) -> Button:
 	return null
 
 
+func contains_label(node: Node, text: String) -> bool:
+	if node is Label and String((node as Label).text).contains(text):
+		return true
+	for child in node.get_children():
+		if contains_label(child, text):
+			return true
+	return false
+
+
 func run() -> void:
 	var save_system: Node = root.get_node("SaveSystem")
 	save_system.path_override = "user://achievements_ui_save.json"
@@ -67,10 +76,27 @@ func run() -> void:
 		check(has_story_order, "Reihe erzeugt Story-Auftrag")
 		print("delivery story UI checked")
 
+	# Café-Besuchsgeschichte erscheint im Auftragsbuch an der echten Oberfläche.
+	gs.new_game()
+	gs.level = 8
+	gs.coins = 5000
+	var cafe_uid: int = gs.place_object("cafe", Vector2i(8, 11))
+	check(cafe_uid > 0, "Café kann für UI-Test gebaut werden")
+	gs.orders.clear()
+	gs.orders.append({"id": 9876, "customer": "Mira", "items": {"filter_coffee": 1}, "coins": 55, "xp": 16, "cafe_order": true, "visitor_story": "Ich mag die ruhige Gartenecke."})
+	ui.act_open("orders", {})
+	await frames()
+	check(contains_label(ui.content, "Ich mag die ruhige Gartenecke."), "Besuchergeschichte ist im Auftragsbuch sichtbar")
+	check(contains_label(ui.content, "Mira wünscht sich:"), "Café-Bestellung wird im Auftragsbuch gezeigt")
+	var cafe_skip := find_button(ui.content, "✕")
+	if check(cafe_skip != null, "optionale Café-Bestellung hat Abbrechen-Schaltfläche"):
+		check(cafe_skip.disabled, "Bestellungen mit Besuchergeschichte können nicht versehentlich übersprungen werden")
+
 	ui.act_open("achievements", {})
 	await frames()
 	check(ui._sheet_name == "achievements" and ui._title.text == "Erfolge", "Erfolge öffnen über die Navigation")
-	check(ui.content.get_child_count() == GameData.ACHIEVEMENTS.size() + 1, "alle zehn Erfolge werden angezeigt")
+	check(ui.content.get_child_count() == GameData.ACHIEVEMENTS.size() + 1, "alle Erfolge werden angezeigt")
+	check(contains_label(ui.content, "Geschichten am Kaffeetisch"), "Café-Meilenstein erscheint in der echten Erfolge-UI")
 	print("achievements UI checked")
 	save_system.delete_save()
 	quit(1 if failures > 0 else 0)

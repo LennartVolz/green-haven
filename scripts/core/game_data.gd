@@ -30,6 +30,7 @@ const CROPS := {
 	"strawberry": {"name": "Erdbeere", "grow": 420, "seed": 8, "yield": 5, "sell": 12, "xp": 9, "level": 6, "col": "#D9344F", "perennial": false},
 	"apple": {"name": "Apfel", "grow": 600, "seed": 10, "yield": 6, "sell": 14, "xp": 12, "level": 7, "col": "#C9362D", "perennial": true},
 	"sunflower": {"name": "Sonnenblume", "grow": 360, "seed": 6, "yield": 4, "sell": 11, "xp": 8, "level": 8, "col": "#F6C21C", "perennial": false},
+	"coffee": {"name": "Kaffeekirsche", "grow": 720, "seed": 10, "yield": 3, "sell": 14, "xp": 10, "level": 8, "col": "#A9463D", "perennial": true},
 	"pumpkin": {"name": "Kürbis", "grow": 480, "seed": 8, "yield": 4, "sell": 13, "xp": 9, "level": 9, "col": "#E8792F", "perennial": false},
 	"beet": {"name": "Rote Bete", "grow": 540, "seed": 9, "yield": 4, "sell": 15, "xp": 10, "level": 10, "col": "#A93659", "perennial": false},
 	"lettuce": {"name": "Salat", "grow": 150, "seed": 4, "yield": 3, "sell": 7, "xp": 5, "level": 11, "col": "#79B85A", "perennial": false},
@@ -51,6 +52,7 @@ const BUILDINGS := {
 	"milkery": {"name": "Pflanzenmilch-Manufaktur", "kind": "production", "cost": 700, "level": 4, "size": [2, 2], "slots": 2, "max": 1, "col": "#E8EEF0", "roof": "#6D9AB0"},
 	"juicebar": {"name": "Saftbar", "kind": "production", "cost": 900, "level": 6, "size": [2, 2], "slots": 2, "max": 1, "col": "#F6E3B4", "roof": "#E0783A"},
 	"tofu": {"name": "Tofu-Werkstatt", "kind": "production", "cost": 1100, "level": 6, "size": [2, 2], "slots": 2, "max": 1, "col": "#F1E6C8", "roof": "#D6A93A"},
+	"cafe": {"name": "Veganes Gartencafé", "kind": "production", "cost": 1800, "level": 8, "size": [2, 2], "slots": 2, "max": 1, "col": "#F2E4C9", "roof": "#6F9A63"},
 	"paddock": {"name": "Gehege", "kind": "paddock", "cost": 250, "level": 3, "size": [4, 3], "capacity": 3, "max": 4, "col": "#9CC47A", "roof": "#8E6240"},
 }
 
@@ -75,6 +77,10 @@ const RECIPES := {
 	"blueberry_smoothie": {"name": "Blaubeer-Smoothie", "building": "juicebar", "inputs": {"blueberry": 3}, "time": 120, "sell": 54, "xp": 16, "level": 14, "col": "#6572BB"},
 	"rice_milk": {"name": "Reismilch", "building": "milkery", "inputs": {"rice": 3}, "time": 150, "sell": 58, "xp": 17, "level": 16, "col": "#F1EAD3"},
 	"quinoa_bowl": {"name": "Quinoa-Bowl", "building": "kitchen", "inputs": {"quinoa": 3, "pea": 1}, "time": 210, "sell": 82, "xp": 23, "level": 18, "col": "#B66D70"},
+	"roasted_coffee": {"name": "Gerösteter Kaffee", "building": "cafe", "inputs": {"coffee": 3}, "time": 180, "sell": 52, "xp": 12, "level": 8, "col": "#805437"},
+	"filter_coffee": {"name": "Filterkaffee", "building": "cafe", "inputs": {"roasted_coffee": 1}, "time": 90, "sell": 55, "xp": 16, "level": 8, "col": "#9B6540"},
+	"oat_latte": {"name": "Hafer-Latte", "building": "cafe", "inputs": {"roasted_coffee": 1, "oat_milk": 1}, "time": 120, "sell": 90, "xp": 21, "level": 9, "col": "#C69B6D"},
+	"coffee_cookie_plate": {"name": "Kaffee & Haferkekse", "building": "cafe", "inputs": {"filter_coffee": 1, "oat_cookies": 1}, "time": 120, "sell": 82, "xp": 24, "level": 9, "col": "#B88050"},
 }
 
 const DECOS := {
@@ -179,6 +185,9 @@ const QUESTS := [
 	{"id": "q_harvest100", "text": "Ernte 100 Felder", "type": "stat", "key": "harvested", "target": 100, "coins": 250, "xp": 80},
 	{"id": "q_order15", "text": "Erfülle 15 Aufträge", "type": "stat", "key": "orders", "target": 15, "coins": 400, "xp": 120},
 	{"id": "q_animals3", "text": "Rette 3 Tiere", "type": "animals", "target": 3, "coins": 300, "xp": 100},
+	{"id": "q_cafe_build", "text": "Eröffne das Gartencafé", "type": "building", "building": "cafe", "target": 1, "coins": 220, "xp": 70},
+	{"id": "q_cafe_orders", "text": "Bediene 5 Café-Gäste", "type": "stat", "key": "cafe_orders", "target": 5, "coins": 180, "xp": 60},
+	{"id": "q_cafe_story", "text": "Teile eine Café-Geschichte", "type": "stat", "key": "cafe_stories_completed", "target": 1, "coins": 260, "xp": 90},
 ]
 
 ## Dauerhafte Erfolge: Kriterium + einmalige Münz-/XP-Belohnung.
@@ -193,6 +202,9 @@ const ACHIEVEMENTS := [
 	{"id": "friendship_15", "text": "Vertrauen wächst", "description": "Erreiche 15 Freundschaftsherzen mit einem Tier.", "type": "friendship", "target": 15, "coins": 180, "xp": 65},
 	{"id": "story_complete", "text": "Gute Geschichten teilen", "description": "Schließe eine Liefergeschichte ab.", "type": "stat", "key": "stories_completed", "target": 1, "coins": 200, "xp": 80},
 	{"id": "land_expansion", "text": "Platz zum Wachsen", "description": "Erweitere deine Farm zum ersten Mal.", "type": "stat", "key": "expansions", "target": 1, "coins": 100, "xp": 35},
+	{"id": "cafe_open", "text": "Ein Platz für alle", "description": "Eröffne dein veganes Gartencafé.", "type": "building", "key": "cafe", "target": 1, "coins": 180, "xp": 65},
+	{"id": "cafe_orders_10", "text": "Stammgäste im Café", "description": "Bediene 10 Café-Gäste.", "type": "stat", "key": "cafe_orders", "target": 10, "coins": 300, "xp": 110},
+	{"id": "cafe_stories_3", "text": "Geschichten am Kaffeetisch", "description": "Höre drei Geschichten von Café-Gästen.", "type": "stat", "key": "cafe_stories_shared", "target": 3, "coins": 260, "xp": 95},
 ]
 
 
@@ -238,6 +250,13 @@ const DELIVERY_STORIES := {
 			{"text": "Mehr Nachbarinnen und Nachbarn kommen dazu. Erdbeeren und Sojabohnen ergänzen das gemeinsame Buffet.", "items": {"strawberry": 4, "soy": 4}, "coins": 112, "xp": 34},
 			{"text": "Zum Abschluss bleibt ein Korb für die Straßenküche übrig. Fatima sammelt Äpfel und Kartoffeln.", "items": {"apple": 5, "potato": 5}, "coins": 148, "xp": 46},
 		], "bonus_coins": 160, "bonus_xp": 55},
+	"cafe_opening": {"title": "Geschichten aus dem Gartencafé", "customer": "Mira", "level": 8, "requires_building": "cafe", "feature": "cafe",
+		"intro": "Das Gartencafé ist eröffnet. Die ersten Gäste bringen ihre Lieblingsgeschichten mit – und Lust auf etwas Warmes.",
+		"stages": [
+			{"text": "Mira erinnert sich an den ersten Kaffee, den sie mit ihrer Großmutter selbst gemahlen hat. Für den Auftakt wünscht sie sich frisch geröstete Bohnen.", "items": {"roasted_coffee": 2}, "coins": 72, "xp": 22},
+			{"text": "Sam erzählt, wie Hafermilch aus dem Nachbarschaftsgarten sein Lieblingsgetränk wurde. Zwei Hafer-Lattes würden den Nachmittag abrunden.", "items": {"oat_latte": 2}, "coins": 118, "xp": 36},
+			{"text": "Lena bringt ein altes Rezeptbuch mit: Kaffee und Haferkekse waren immer ihre liebste Gesprächspause. Sie möchte den Moment mit allen teilen.", "items": {"coffee_cookie_plate": 2}, "coins": 160, "xp": 50},
+		], "bonus_coins": 220, "bonus_xp": 75},
 	"jonas_autumn": {"title": "Jonas’ Herbsttafel", "customer": "Jonas", "level": 10,
 		"intro": "Jonas plant ein kostenloses Herbstessen im Gemeinschaftshaus. Jede Lieferung bringt die Nachbarschaft ein Stück näher zusammen.",
 		"stages": [
@@ -247,7 +266,16 @@ const DELIVERY_STORIES := {
 		], "bonus_coins": 220, "bonus_xp": 70},
 }
 
-const CUSTOMERS := ["Lena", "Jonas", "Mira", "Oskar", "Fatima", "Ben", "Sofia", "Karim", "Hanna", "Leo", "Yuki", "Pia", "Tarek", "Ida"]
+const CAFE_MENU := ["filter_coffee", "oat_latte", "coffee_cookie_plate"]
+const CAFE_VISITOR_STORIES := [
+	"Der Duft erinnert mich an die Sonntage, an denen wir gemeinsam gebacken haben.",
+	"Ich wollte schon lange einen ruhigen Ort, an dem man einfach sitzen und erzählen darf.",
+	"Meine Freundin hat mir gezeigt, wie gut Hafermilch im Kaffee schmeckt.",
+	"Ich sammle besondere Tassen. Diese hier war ein Geschenk von meinem Bruder.",
+	"Nach dem Spaziergang durch den Garten ist eine warme Tasse genau richtig.",
+	"Ich lerne gerade für eine Prüfung – kleine Kaffeepausen helfen mir dabei.",
+]
+const CUSTOMERS := ["Lena", "Jonas", "Mira", "Oskar", "Fatima", "Ben", "Sofia", "Karim", "Hanna", "Leo", "Yuki", "Pia", "Tarek", "Ida", "Sam"]
 
 ## Alle handelbaren Gegenstände (Feldfrüchte, Zutaten, Produkte).
 var items := {}

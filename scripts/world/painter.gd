@@ -118,6 +118,8 @@ static func draw_crop(ci: CanvasItem, id: String, stage: int, center: Vector2, t
 				_pea(ci, stage, t)
 			"blueberry":
 				_blueberry_bush(ci, stage, t)
+			"coffee":
+				_coffee_bush(ci, stage, t)
 			"rice":
 				_rice(ci, stage, t)
 			"quinoa":
@@ -308,6 +310,19 @@ static func _pea(ci: CanvasItem, stage: int, t: float) -> void:
 				ellipse(ci, p, 5, 4, col("#79A94B"))
 
 
+static func _coffee_bush(ci: CanvasItem, stage: int, t: float) -> void:
+	var height := 16.0 + float(stage) * 13.0
+	for i in range(5):
+		var x := -30.0 + float(i) * 15.0
+		var top := Vector2(x + sway(t, i, 1.5), -height - float(i % 2) * 7.0)
+		ci.draw_line(Vector2(0, -3), top, col("#648D4D"), 4.0, true)
+		ellipse(ci, top + Vector2(-7, 4), 12, 7, col("#4F8F4C"))
+		ellipse(ci, top + Vector2(6, 1), 11, 7, col("#65A256"))
+		if stage == 3:
+			for k in range(2):
+				ci.draw_circle(top + Vector2(float(k) * 8.0 - 4.0, 10), 5.0, col("#A9463D"))
+
+
 static func _blueberry_bush(ci: CanvasItem, stage: int, t: float) -> void:
 	for i in range(5):
 		var x := -32.0 + float(i) * 16.0
@@ -424,6 +439,34 @@ static func draw_item(ci: CanvasItem, id: String, pos: Vector2, size: float) -> 
 			poly(ci, [Vector2(-22, 4), Vector2(-12, -12), Vector2(0, -17), Vector2(18, -7), Vector2(22, 10), Vector2(5, 20)], col("#8BC56A"))
 			for x in [-10.0, 0.0, 10.0]:
 				ci.draw_circle(Vector2(x, 3), 6, base)
+		"coffee":
+			for p in [Vector2(-13, 8), Vector2(0, -5), Vector2(14, 8), Vector2(-4, 18)]:
+				ci.draw_circle(p, 11, base)
+				ci.draw_circle(p + Vector2(-3, -3), 3, col("#E89469"))
+		"roasted_coffee":
+			for p in [Vector2(-13, 8), Vector2(0, -5), Vector2(14, 8), Vector2(-4, 18)]:
+				ellipse(ci, p, 8, 12, base)
+				ci.draw_line(p + Vector2(-4, 0), p + Vector2(4, 0), col("#D6B184"), 2.0)
+		"filter_coffee":
+			ci.draw_circle(Vector2(0, 3), 23, col("#8E6240"))
+			ci.draw_circle(Vector2(0, 0), 18, col("#FFF6E0"))
+			ellipse(ci, Vector2(0, 0), 14, 8, base)
+			ci.draw_line(Vector2(-10, 25), Vector2(10, 25), col("#8E6240"), 4.0, true)
+			ci.draw_line(Vector2(-5, -25), Vector2(-8, -34), Color(1, 1, 1, 0.75), 2.0, true)
+			ci.draw_line(Vector2(6, -25), Vector2(9, -34), Color(1, 1, 1, 0.75), 2.0, true)
+		"oat_latte":
+			rrect(ci, Rect2(-16, -20, 32, 48), col("#FFF6E0"), 7)
+			rrect(ci, Rect2(-12, -7, 24, 26), base, 5)
+			ci.draw_circle(Vector2(0, -8), 9, col("#F2E4C9"))
+			ci.draw_circle(Vector2(-3, -8), 3, col("#9B6540"))
+			ci.draw_line(Vector2(8, -18), Vector2(18, -31), col("#8E6240"), 3.0, true)
+		"coffee_cookie_plate":
+			ellipse(ci, Vector2(0, 9), 29, 12, col("#FFF6E0"))
+			ci.draw_circle(Vector2(-10, 3), 12, col("#D2A765"))
+			ci.draw_circle(Vector2(-10, 3), 2, col("#805437"))
+			ci.draw_circle(Vector2(-3, 1), 2, col("#805437"))
+			ci.draw_circle(Vector2(17, -5), 11, col("#8E6240"))
+			ci.draw_circle(Vector2(17, -6), 7, col("#9B6540"))
 		"blueberry":
 			for p in [Vector2(-13, 8), Vector2(0, -5), Vector2(14, 8), Vector2(-4, 18)]:
 				ci.draw_circle(p, 11, base)
@@ -620,7 +663,7 @@ static func draw_deco(ci: CanvasItem, type: String, t: float) -> void:
 
 # ------------------------------------------------------------- Gebäude
 
-const BUILDING_ICON := {"bakery": "bread", "kitchen": "carrot_soup", "milkery": "oat_milk", "juicebar": "apple_juice", "tofu": "tofu"}
+const BUILDING_ICON := {"bakery": "bread", "kitchen": "carrot_soup", "milkery": "oat_milk", "juicebar": "apple_juice", "tofu": "tofu", "cafe": "filter_coffee"}
 
 
 ## Ursprung = Mitte der Unterkante; Grundfläche 2x2 Zellen (256 px).
@@ -652,12 +695,20 @@ static func draw_building(ci: CanvasItem, type: String, t: float, working: bool)
 		ci.draw_line(Vector2(x, -83), Vector2(x + 36, -83), col("#8E6240"), 3.0)
 	# Schild mit Produktsymbol
 	rrect(ci, Rect2(-34, -150, 68, 52), col("#FFF6E0"), 14)
-	rrect(ci, Rect2(-34, -150, 68, 52), col("#FFF6E0"), 14)
 	draw_item(ci, BUILDING_ICON.get(type, "bread"), Vector2(0, -124), 42.0)
 	if type == "juicebar":
 		for i in range(8):
 			var c1: Color = roof if i % 2 == 0 else col("#FFF6E0")
 			poly(ci, [Vector2(-104.0 + float(i) * 26.0, -112), Vector2(-78.0 + float(i) * 26.0, -112), Vector2(-82.0 + float(i) * 26.0, -90), Vector2(-100.0 + float(i) * 26.0, -90)], c1)
+	elif type == "cafe":
+		for i in range(8):
+			var stripe: Color = roof if i % 2 == 0 else col("#FFF6E0")
+			poly(ci, [Vector2(-104.0 + float(i) * 26.0, -112), Vector2(-78.0 + float(i) * 26.0, -112), Vector2(-82.0 + float(i) * 26.0, -90), Vector2(-100.0 + float(i) * 26.0, -90)], stripe)
+		# Kleines Gartenschild und Blumenkübel im bestehenden warmen Stil.
+		rrect(ci, Rect2(-102, -176, 46, 30), col("#FFF6E0"), 5)
+		ci.draw_string(ThemeDB.fallback_font, Vector2(-96, -155), "CAFE", HORIZONTAL_ALIGNMENT_LEFT, 36, 12, col("#6F6248"))
+		ellipse(ci, Vector2(-84, -87), 14, 8, col("#9CC47A"))
+		ellipse(ci, Vector2(82, -87), 14, 8, col("#9CC47A"))
 
 
 static func draw_paddock_back(ci: CanvasItem, rect: Rect2) -> void:

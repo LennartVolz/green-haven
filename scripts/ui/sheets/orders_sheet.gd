@@ -14,6 +14,8 @@ static func build(ui, _args: Dictionary) -> void:
 		if GameState.delivery_story_stage < stages.size():
 			story_v.add_child(UiKit.wrap_label("Abschnitt %d von %d · %s" % [GameState.delivery_story_stage + 1, stages.size(), str(stages[GameState.delivery_story_stage]["text"])], 24, UiKit.earth_dark()))
 		story_v.add_child(UiKit.label("Fortschritt: %d/%d" % [GameState.delivery_story_stage, stages.size()], 22, UiKit.sage_dark()))
+		if str(campaign.get("feature", "")) == "cafe":
+			story_v.add_child(UiKit.wrap_label("Café-Geschichten abgeschlossen: %d · Gäste bedient: %d" % [int(GameState.stats.get("cafe_stories_completed", 0)), int(GameState.stats.get("cafe_orders", 0))], 22, UiKit.sage_dark()))
 		story_card.add_child(story_v)
 		c.add_child(story_card)
 	else:
@@ -46,11 +48,17 @@ static func build(ui, _args: Dictionary) -> void:
 		head.add_child(nm)
 		var skip := UiKit.button("✕", "ghost", 30)
 		skip.custom_minimum_size = Vector2(80, 80)
-		skip.pressed.connect(ui.act_skip_order.bind(int(o["id"])))
+		if o.has("story_id") or o.has("visitor_story"):
+			skip.disabled = true
+			skip.tooltip_text = "Geschichtengäste bleiben, bis du ihre Bestellung annimmst."
+		else:
+			skip.pressed.connect(ui.act_skip_order.bind(int(o["id"])))
 		head.add_child(skip)
 		v.add_child(head)
 		if o.has("story_text"):
 			v.add_child(UiKit.wrap_label("Geschichte · %s" % String(o["story_text"]), 23, UiKit.earth_dark()))
+		if o.has("visitor_story"):
+			v.add_child(UiKit.wrap_label("Zu Besuch im Café · %s" % String(o["visitor_story"]), 23, UiKit.earth_dark()))
 		var chips := HFlowContainer.new()
 		chips.mouse_filter = Control.MOUSE_FILTER_PASS
 		chips.add_theme_constant_override("h_separation", 22)

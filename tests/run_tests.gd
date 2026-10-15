@@ -48,6 +48,7 @@ func _initialize() -> void:
 	test_production()
 	test_orders()
 	test_delivery_stories()
+	test_cafe()
 	test_achievements()
 	test_quests()
 	test_animals()
@@ -229,9 +230,16 @@ func test_orders() -> void:
 	check(gs.level > lvl or gs.xp == xp + int(order.xp), "Belohnung XP")
 	check(not gs.fulfill_order(order.id), "keine doppelte Belohnung")
 	check(gs.coins == c + int(order.coins), "Münzen unverändert nach Doppelversuch")
+	var cafe_order := {"id": 7654, "customer": "Mira", "items": {"filter_coffee": 1}, "coins": 55, "xp": 16, "cafe_order": true, "visitor_story": "Ein ruhiger Ort zum Erzählen."}
+	gs.orders.append(cafe_order)
+	check(not gs.skip_order(7654), "Besucherbestellung mit Geschichte lässt sich nicht wegklicken")
+	gs.add_item("filter_coffee", 1)
+	check(gs.fulfill_order(7654), "Café-Besuch bedienen")
+	check(int(gs.stats.get("cafe_orders", 0)) == 1 and int(gs.stats.get("cafe_stories_shared", 0)) == 1, "Café-Gäste und Geschichten zählen")
+	check(String(gs.diary.back().text).contains("Ein ruhiger Ort zum Erzählen."), "Gästegeschichte ist im Tagebuch")
 	for id in order.items:
 		check(gs.item_count(id) == 1, "genau die benötigte Menge abgezogen")
-	check(gs.stats.get("orders", 0) == 1, "Statistik")
+	check(gs.stats.get("orders", 0) == 2, "Statistik enthält Standard- und Café-Auftrag")
 	# Nachfüllen
 	gs.time_offset += 200.0
 	gs._fill_orders()
@@ -291,6 +299,52 @@ func test_delivery_stories() -> void:
 					story_order = order
 	check(gs.active_delivery_story.is_empty(), "abgeschlossene Reihe wird beendet")
 	check(gs.diary.size() >= 5 and String(gs.diary.back().text).contains("abgeschlossen"), "Abschluss und Abschnitte stehen im Refugiums-Tagebuch")
+	check(gd.RECIPES.size() == 24, "Café ergänzt vier neue Rezepte")
+
+
+func test_cafe() -> void:
+	begin("Veganes Gartencafé")
+	check(gd.BUILDINGS.has("cafe") and int(gd.BUILDINGS["cafe"]["level"]) == 8, "Café ab Stufe 8 freigeschaltet")
+	check(gd.CROPS.has("coffee") and bool(gd.CROPS["coffee"]["perennial"]), "Kaffee wächst als mehrjährige Pflanze")
+	check(gd.RECIPES.has("roasted_coffee") and gd.RECIPES.has("filter_coffee") and gd.RECIPES.has("oat_latte"), "Kaffeekette mit Hafer-Latte")
+	level_to(8)
+	gs.coins = 10000
+	var cafe_uid: int = gs.place_object("cafe", Vector2i(8, 11))
+	check(cafe_uid > 0, "Gartencafé bauen")
+	check(gs.quest_progress({"type": "building", "building": "cafe", "target": 1}) == 1, "Café-Ziel nimmt Baufortschritt auf")
+	var cafe_achievement: Dictionary = {}
+	for achievement in gd.ACHIEVEMENTS:
+		if str(achievement["id"]) == "cafe_open":
+			cafe_achievement = achievement
+	check(not cafe_achievement.is_empty() and gs.achievement_unlocked(cafe_achievement), "Café-Erfolg erkennt das Gebäude")
+	check(gs.available_delivery_stories().has("cafe_opening"), "Café-Geschichte wird mit Gebäude angeboten")
+	check(gs.start_delivery_story("cafe_opening"), "Café-Geschichte starten")
+	var cafe_story_order: Dictionary = {}
+	for order in gs.orders:
+		if str(order.get("story_id", "")) == "cafe_opening":
+			cafe_story_order = order
+	check(not cafe_story_order.is_empty(), "Café-Geschichte erzeugt Besuchsauftrag")
+	for i in range(3):
+		if cafe_story_order.is_empty():
+			gs._fill_orders()
+			for order in gs.orders:
+				if str(order.get("story_id", "")) == "cafe_opening":
+					cafe_story_order = order
+		for item in cafe_story_order.get("items", {}):
+			gs.add_item(str(item), int(cafe_story_order.items[item]))
+		check(gs.fulfill_order(int(cafe_story_order.get("id", -1))), "Café-Storyabschnitt wird geliefert")
+		cafe_story_order = {}
+		gs._fill_orders()
+		for order in gs.orders:
+			if str(order.get("story_id", "")) == "cafe_opening":
+				cafe_story_order = order
+	check(int(gs.stats.get("cafe_orders", 0)) == 3, "Story-Gäste zählen als Café-Besuche")
+	check(int(gs.stats.get("cafe_stories_completed", 0)) == 1, "abgeschlossene Café-Reihe zählt für Ziele")
+	check(int(gs.stats.get("cafe_stories_shared", 0)) == 3, "Gästeerzählungen landen in der Langzeitstatistik")
+	check(gs.diary.size() >= 4, "Café-Geschichten werden im Tagebuch festgehalten")
+	var v4_save: Dictionary = gs.serialize()
+	v4_save["version"] = 4
+	check(int(ss.migrate(v4_save)["version"]) == 5, "ältere Spielstände werden auf Café-Schema migriert")
 
 
 func test_achievements() -> void:
@@ -325,6 +379,19 @@ func test_achievements() -> void:
 	check(gs.deserialize(encoded), "Erfolgs-Status laden")
 	check(gs.claimed_achievements.has("orders_2") and not gs.claim_achievement("orders_2"), "abgeholte Erfolge bleiben dauerhaft gespeichert")
 	check(gs.claimed_achievements.size() == 1, "unbekannte Erfolgs-IDs werden nicht gespeichert")
+	check(gs.SAVE_VERSION == 5, "Café-Fortschritt verwendet Save-Version 5")
+	var cafe_orders_achievement: Dictionary = {}
+	for achievement in gd.ACHIEVEMENTS:
+		if str(achievement["id"]) == "cafe_orders_10":
+			cafe_orders_achievement = achievement
+	gs.bump("cafe_orders", 10)
+	check(gs.achievement_unlocked(cafe_orders_achievement), "Café-Gäste schalten eigenen Erfolg frei")
+	var cafe_open_achievement: Dictionary = {}
+	for achievement in gd.ACHIEVEMENTS:
+		if str(achievement["id"]) == "cafe_open":
+			cafe_open_achievement = achievement
+	gs.objects.append({"type": "cafe"})
+	check(gs.achievement_unlocked(cafe_open_achievement), "Café-Erfolg zählt platziertes Gebäude")
 
 
 func test_quests() -> void:
@@ -442,7 +509,7 @@ func test_animal_extensions() -> void:
 	check(gs.equipped_cosmetics_of(animal).has("flower"), "Accessoire wird getragen")
 	check(not gs.set_animal_cosmetic(rescued, "unknown", true), "unbekanntes Accessoire ablehnen")
 	var encoded: Dictionary = gs.serialize()
-	check(int(encoded.version) == 4 and encoded.animals[0].has("traits") and encoded.animals[0].has("accessories"), "neue Profildaten werden gespeichert")
+	check(int(encoded.version) == 5 and encoded.animals[0].has("traits") and encoded.animals[0].has("accessories"), "neue Profildaten werden gespeichert")
 	gs.new_game()
 	check(gs.deserialize(encoded), "erweiterte Tierdaten laden")
 	var restored: Dictionary = gs.get_animal(rescued)
@@ -522,7 +589,7 @@ func test_save_roundtrip() -> void:
 	check(uid > 0 and gs.get_object(uid).uid != bak, "neue UIDs kollidieren nicht")
 	var d: Dictionary = gs.serialize()
 	check(int(d.version) == gs.SAVE_VERSION, "Version im Spielstand")
-	check(gs.SAVE_VERSION == 4, "Erfolge verwenden Save-Version 4")
+	check(gs.SAVE_VERSION == 5, "Café-Fortschritt verwendet Save-Version 5")
 
 
 func test_offline_progress() -> void:
@@ -577,11 +644,13 @@ func test_corrupt_and_migration() -> void:
 	check(not gs.inventory.has("ghost") and not gs.inventory.has("carrot"), "ungültige/negative Items verworfen")
 	check(gs.fields[Vector2i(8, 11)].crop == "", "unbekannte Pflanze verworfen")
 	check(gs.tutorial_step == 99, "Tutorial bei Altstand übersprungen")
-	check(int(ss.migrate({"version": 1, "animals": []}).version) == 4, "Version 1 migriert schrittweise auf Version 4")
+	var v1_migrated: Dictionary = ss.migrate({"version": 1, "animals": []})
+	check(int(v1_migrated.version) == 5, "Version 1 migriert schrittweise auf Version 5")
+	check(v1_migrated.stats.get("cafe_orders", -1) == 0, "Café-Fortschritt alter Spielstände startet bei null")
 	var v2_migrated: Dictionary = ss.migrate({"version": 2, "animals": []})
-	check(int(v2_migrated.version) == 4 and v2_migrated.diary.is_empty() and v2_migrated.claimed_achievements.is_empty(), "Version 2 erhält Story- und Erfolgsmigration")
+	check(int(v2_migrated.version) == 5 and v2_migrated.diary.is_empty() and v2_migrated.claimed_achievements.is_empty(), "Version 2 erhält Story-, Erfolgs- und Café-Migration")
 	var v3_migrated: Dictionary = ss.migrate({"version": 3, "animals": []})
-	check(int(v3_migrated.version) == 4 and v3_migrated.claimed_achievements.is_empty(), "Version 3 erhält leere Erfolgshistorie")
+	check(int(v3_migrated.version) == 5 and v3_migrated.claimed_achievements.is_empty(), "Version 3 erhält leere Erfolgs- und Café-Historie")
 	var legacy_animal := {"uid": 10, "species": "rabbit", "name": "Alt-Tier", "hunger": 60, "happy": 55, "last": gs.now(), "paddock": 1}
 	var migrated: Dictionary = ss.migrate({"version": 1, "animals": [legacy_animal]})
 	check(legacy_animal.has("traits") and legacy_animal.has("accessories") and legacy_animal.has("activity_at"), "Tierfelder aus altem Spielstand ergänzt")
@@ -610,7 +679,7 @@ func test_economy() -> void:
 	for id in gd.CROPS:
 		var c: Dictionary = gd.CROPS[id]
 		check(int(c["yield"]) * int(c.sell) > int(c.seed), "%s: Ernte lohnt sich" % id)
-	check(gd.CROPS.size() == 18, "achtzehn Pflanzen")
+	check(gd.CROPS.size() == 19, "neunzehn Pflanzen einschließlich Kaffeepflanze")
 	check(gd.RECIPES.size() >= 8, "mindestens acht Rezepte")
 	# Erste Minuten: Spieler erreicht Stufe 2 nach wenigen Ernten
 	gs.new_game()
@@ -641,7 +710,7 @@ func test_new_crops() -> void:
 	gs.coins = 100000
 	var cell: Vector2i = gs.fields.keys()[0]
 	var new_crops := {
-		"pumpkin": 9, "beet": 10, "lettuce": 11, "cucumber": 12,
+		"coffee": 8, "pumpkin": 9, "beet": 10, "lettuce": 11, "cucumber": 12,
 		"pea": 13, "blueberry": 14, "rice": 16, "quinoa": 18,
 	}
 	for crop in new_crops:
@@ -652,12 +721,12 @@ func test_new_crops() -> void:
 		gs.time_offset += float(definition["grow"])
 		check(gs.harvest(cell), "%s nach Wachstumszeit erntbar" % crop)
 		check(gs.item_count(crop) == int(definition["yield"]), "%s liefert Inventar-Ertrag" % crop)
-		if crop == "blueberry":
-			check(gs.fields[cell].crop == crop, "Blaubeere wächst nach Ernte weiter")
+		if crop == "coffee" or crop == "blueberry":
+			check(gs.fields[cell].crop == crop, "%s wächst nach Ernte weiter" % crop)
 			gs.time_offset += float(definition["grow"])
-			check(gs.harvest(cell), "Blaubeere kann erneut geerntet werden")
+			check(gs.harvest(cell), "%s kann erneut geerntet werden" % crop)
 		gs.fields[cell] = {"crop": "", "t": 0.0}
-	check(gd.RECIPES.size() == 20, "sechs passende neue Rezepte")
+	check(gd.RECIPES.size() == 24, "Café ergänzt vier neue Rezepte")
 	for recipe in ["pumpkin_soup", "beet_spread", "garden_salad", "blueberry_smoothie", "rice_milk", "quinoa_bowl"]:
 		check(gd.items.has(recipe), "%s ist als Produkt im Inventar registriert" % recipe)
 	check(gd.unlocks_at(18).has("Quinoa"), "Quinoa wird auf Stufe 18 freigeschaltet")

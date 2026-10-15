@@ -20,7 +20,7 @@ signal game_event(event_name: String, data: Dictionary)
 signal fx(kind: String, world_pos: Vector2, text: String)
 signal sound(sound_name: String)
 
-const SAVE_VERSION := 4
+const SAVE_VERSION := 5
 const MAX_ORDERS := 4
 const ORDER_COOLDOWN := 25.0
 const PET_COOLDOWN := 12.0
@@ -630,6 +630,19 @@ func _order_candidates() -> Array:
 
 
 func generate_order() -> Dictionary:
+	if has_building("cafe") and rng.randf() < 0.25:
+		var cafe_menu: Array = []
+		for recipe_id in GameData.CAFE_MENU:
+			if GameData.RECIPES.has(recipe_id) and int(GameData.RECIPES[recipe_id]["level"]) <= level:
+				cafe_menu.append(recipe_id)
+		if not cafe_menu.is_empty():
+			var cafe_item: String = cafe_menu[rng.randi_range(0, cafe_menu.size() - 1)]
+			var cafe_recipe: Dictionary = GameData.RECIPES[cafe_item]
+			var visitor_story: String = GameData.CAFE_VISITOR_STORIES[rng.randi_range(0, GameData.CAFE_VISITOR_STORIES.size() - 1)]
+			var cafe_quantity := rng.randi_range(1, 2)
+			return {"id": _new_uid(), "customer": GameData.CUSTOMERS[rng.randi_range(0, GameData.CUSTOMERS.size() - 1)],
+				"items": {cafe_item: cafe_quantity}, "coins": int(cafe_recipe["sell"]) * cafe_quantity + 8,
+				"xp": maxi(4, int(cafe_recipe["xp"])), "cafe_order": true, "visitor_story": visitor_story}
 	var cand := _order_candidates()
 	var crops: Array = cand[0]
 	var products: Array = cand[1]
@@ -693,6 +706,9 @@ func start_delivery_story(story_id: String) -> bool:
 	var campaign: Dictionary = GameData.DELIVERY_STORIES[story_id]
 	if level < int(campaign["level"]):
 		return false
+	if campaign.has("requires_building") and not has_building(str(campaign["requires_building"])):
+		last_error = "Baue zuerst das Gartencafé"
+		return false
 	active_delivery_story = story_id
 	delivery_story_stage = 0
 	if orders.size() >= MAX_ORDERS:
@@ -707,7 +723,9 @@ func start_delivery_story(story_id: String) -> bool:
 func available_delivery_stories() -> Array:
 	var result: Array = []
 	for story_id in GameData.DELIVERY_STORIES:
-		if level >= int(GameData.DELIVERY_STORIES[story_id]["level"]):
+		var story: Dictionary = GameData.DELIVERY_STORIES[story_id]
+		var building_ready := not story.has("requires_building") or has_building(str(story["requires_building"]))
+		if level >= int(story["level"]) and building_ready:
 			result.append(story_id)
 	return result
 
@@ -741,6 +759,14 @@ func fulfill_order(order_id: int) -> bool:
 		return false
 	orders.remove_at(idx)   # zuerst entfernen: keine doppelte Belohnung möglich
 	next_order_at = now() + ORDER_COOLDOWN
+	var cafe_story_id := str(o.get("story_id", ""))
+	var is_cafe_story := cafe_story_id == active_delivery_story and GameData.DELIVERY_STORIES.has(cafe_story_id) and str(GameData.DELIVERY_STORIES[cafe_story_id].get("feature", "")) == "cafe"
+	if bool(o.get("cafe_order", false)) or is_cafe_story:
+		bump("cafe_orders")
+		var shared_story := str(o.get("visitor_story", o.get("story_text", "")))
+		if not shared_story.is_empty():
+			bump("cafe_stories_shared")
+			add_diary_entry("%s erzählte im Gartencafé: %s" % [str(o.get("customer", "Ein Gast")), shared_story])
 	if o.has("story_id") and str(o["story_id"]) == active_delivery_story and GameData.DELIVERY_STORIES.has(active_delivery_story):
 		var campaign: Dictionary = GameData.DELIVERY_STORIES[active_delivery_story]
 		var completed_stage := delivery_story_stage
@@ -748,6 +774,8 @@ func fulfill_order(order_id: int) -> bool:
 		add_diary_entry("%s · Abschnitt %d abgeschlossen: %s" % [campaign["title"], completed_stage + 1, str(o.get("story_text", ""))])
 		var stages: Array = campaign["stages"]
 		if delivery_story_stage >= stages.size():
+			if str(campaign.get("feature", "")) == "cafe":
+				bump("cafe_stories_completed")
 			add_coins(int(campaign["bonus_coins"]))
 			add_xp(int(campaign["bonus_xp"]))
 			bump("stories_completed")
@@ -766,7 +794,7 @@ func fulfill_order(order_id: int) -> bool:
 
 func skip_order(order_id: int) -> bool:
 	var idx := find_order(order_id)
-	if idx < 0 or orders[idx].has("story_id"):
+	if idx < 0 or orders[idx].has("story_id") or orders[idx].has("visitor_story"):
 		return false
 	orders.remove_at(idx)
 	next_order_at = now() + ORDER_COOLDOWN
@@ -1039,6 +1067,8 @@ func achievement_progress(achievement: Dictionary) -> int:
 			return int(stats.get(str(achievement["key"]), 0))
 		"animals":
 			return animals.size()
+		"building":
+			return count_type(str(achievement.get("key", achievement.get("building", ""))))
 		"friendship":
 			var best := 0
 			for animal in animals:
@@ -1226,6 +1256,9 @@ func deserialize(d: Dictionary) -> bool:
 				order["story_id"] = str(e.story_id)
 				order["story_stage"] = int(e.get("story_stage", 0))
 				order["story_text"] = str(e.get("story_text", ""))
+			if bool(e.get("cafe_order", false)):
+				order["cafe_order"] = true
+				order["visitor_story"] = str(e.get("visitor_story", ""))
 			orders.append(order)
 	var st: Dictionary = d.get("stats", {})
 	for k in st:

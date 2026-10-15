@@ -47,6 +47,7 @@ var selected_uid := -1
 
 var _entity_nodes: Dictionary = {}
 var _animal_nodes: Dictionary = {}
+var _camera_land := Rect2i()
 var _touches: Dictionary = {}
 var _start: Dictionary = {}
 var _ui_touches: Dictionary = {}
@@ -85,7 +86,9 @@ func _ready() -> void:
 	cam.zoom = Vector2(0.75, 0.75)
 	add_child(cam)
 	cam.make_current()
+	_camera_land = GameState.land
 	GameState.world_changed.connect(_sync)
+	GameState.world_changed.connect(_on_land_changed)
 	GameState.animals_changed.connect(_sync)
 	GameState.fx.connect(_on_fx)
 	GameState.game_event.connect(_on_event)
@@ -102,6 +105,12 @@ func reset_camera() -> void:
 
 
 # ----------------------------------------------------------- Synchronisation
+
+func _on_land_changed() -> void:
+	if GameState.land != _camera_land:
+		_camera_land = GameState.land
+		_clamp_camera()
+
 
 func _sync() -> void:
 	var seen := {}
@@ -230,11 +239,30 @@ func world_to_cell(w: Vector2) -> Vector2i:
 	return Vector2i(floori(w.x / GameData.TILE), floori(w.y / GameData.TILE))
 
 
+static func camera_position_bounds(land_rect: Rect2i, viewport_size: Vector2, zoom: float) -> Rect2:
+	var half := viewport_size / zoom * 0.5
+	var margin := float(GameData.WORLD_MARGIN_CELLS * GameData.TILE)
+	var world_min := Vector2(GameData.WORLD_ORIGIN) * float(GameData.TILE)
+	var world_max := Vector2(GameData.WORLD_ORIGIN + Vector2i(GameData.WORLD_COLS, GameData.WORLD_ROWS)) * float(GameData.TILE)
+	var land_min := Vector2(land_rect.position) * float(GameData.TILE)
+	var land_max := Vector2(land_rect.end) * float(GameData.TILE)
+	var min_camera := Vector2(maxf(world_min.x, land_min.x - margin), maxf(world_min.y, land_min.y - margin)) + half
+	var max_camera := Vector2(minf(world_max.x, land_max.x + margin), minf(world_max.y, land_max.y + margin)) - half
+	if min_camera.x > max_camera.x:
+		min_camera.x = (min_camera.x + max_camera.x) * 0.5
+		max_camera.x = min_camera.x
+	if min_camera.y > max_camera.y:
+		min_camera.y = (min_camera.y + max_camera.y) * 0.5
+		max_camera.y = min_camera.y
+	return Rect2(min_camera, max_camera - min_camera)
+
+
+static func clamp_camera_position(position: Vector2, bounds: Rect2) -> Vector2:
+	return Vector2(clampf(position.x, bounds.position.x, bounds.end.x), clampf(position.y, bounds.position.y, bounds.end.y))
+
+
 func _clamp_camera() -> void:
-	var half := _vp_size() / cam.zoom.x * 0.5
-	var world := Vector2(GameData.WORLD_COLS, GameData.WORLD_ROWS) * float(GameData.TILE)
-	cam.position.x = clampf(cam.position.x, half.x, world.x - half.x) if world.x > half.x * 2.0 else world.x * 0.5
-	cam.position.y = clampf(cam.position.y, half.y, world.y - half.y) if world.y > half.y * 2.0 else world.y * 0.5
+	cam.position = clamp_camera_position(cam.position, camera_position_bounds(GameState.land, _vp_size(), cam.zoom.x))
 
 
 func focus_on(world_pos: Vector2) -> void:

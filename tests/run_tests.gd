@@ -23,7 +23,7 @@ func check(cond: bool, msg: String) -> void:
 func begin(name: String) -> void:
 	section = name
 	print("• ", name)
-	gs.time_offset = 0.0
+	gs.time_offset = -fposmod(Time.get_unix_time_from_system(), gd.WEATHER_DURATION_SECONDS * float(gd.WEATHER_TYPES.size()))
 	gs.new_game()
 	gs.rng.seed = 12345
 
@@ -42,6 +42,7 @@ func _initialize() -> void:
 	ss.delete_save()
 	test_new_game()
 	test_day_night()
+	test_weather_growth()
 	test_farming()
 	test_inventory()
 	test_levels()
@@ -80,6 +81,35 @@ func test_day_night() -> void:
 	check(world_script.weather_at(360.0) == "Nebel", "Wetter wechselt zu Nebel")
 	check(world_script.weather_at(480.0) == "Sonnig", "Wetterzyklus wiederholt sich")
 	check(world_script.weather_tint_at("Regen") != Color.WHITE, "Regen verändert die Lichtfarbe")
+	check(gd.weather_effect_text("Regen").contains("+25%") and gd.weather_growth_rate("Regen") == 1.25, "Regen zeigt seinen Wachstumseffekt klar an")
+	check(gd.weather_effect_text("Bewölkt").contains("−10%") and gd.weather_growth_rate("Bewölkt") == 0.9, "Bewölkung zeigt langsameres Wachstum an")
+	check(gd.weather_growth_rate("Nebel") == 1.0 and gd.weather_growth_rate("Sonnig") == 1.0, "Nebel und Sonne behalten normales Wachstum")
+
+
+func test_weather_growth() -> void:
+	begin("Wetterabhängiges Pflanzenwachstum")
+	var cycle: float = gd.WEATHER_DURATION_SECONDS * float(gd.WEATHER_TYPES.size())
+	var rain_start: float = 2.0 * gd.WEATHER_DURATION_SECONDS + 30.0
+	check(gd.crop_growth_seconds_between(rain_start, rain_start + 60.0) == 75.0, "60 Sekunden Regen liefern 75 Sekunden effektives Wachstum")
+	var cloudy_start: float = gd.WEATHER_DURATION_SECONDS + 30.0
+	check(gd.crop_growth_seconds_between(cloudy_start, cloudy_start + 60.0) == 54.0, "60 Sekunden Wolken liefern 54 Sekunden effektives Wachstum")
+	var expected_cycle: float = gd.WEATHER_DURATION_SECONDS * (1.0 + 0.9 + 1.25 + 1.0)
+	check(is_equal_approx(gd.crop_growth_seconds_between(0.0, cycle), expected_cycle), "vollständiger Wetterzyklus summiert alle Effekte")
+	check(is_equal_approx(gd.crop_growth_seconds_between(0.0, cycle * 100000.0), expected_cycle * 100000.0), "lange Offline-Zeiten werden effizient über ganze Wetterzyklen berechnet")
+	var cell: Vector2i = gs.fields.keys()[0]
+	gs.coins = 100
+	gs.level = 1
+	gs.time_offset = rain_start - Time.get_unix_time_from_system()
+	check(gs.plant(cell, "wheat"), "Pflanze kann vor Regenbeginn gesät werden")
+	gs.time_offset += 20.0
+	check(gs.crop_progress(cell) > 0.0 and gs.crop_remaining(cell) < 30.0, "Wachstum und Restzeit berücksichtigen laufenden Regen")
+	var rain_remaining: float = gs.crop_remaining(cell)
+	gs.time_offset += 10.0
+	check(gs.crop_remaining(cell) < rain_remaining, "Regen verkürzt die verbleibende Erntezeit")
+	var encoded: Dictionary = gs.serialize()
+	check(gs.deserialize(encoded) and gs.crop_remaining(cell) <= rain_remaining, "Wetterwachstum funktioniert nach dem Speichern und Laden weiter")
+	gs.time_offset = cycle * 2.0 - Time.get_unix_time_from_system()
+	check(gd.weather_at(gs.now()) == "Sonnig", "reale Spielzeit bestimmt den Wetterzustand")
 
 
 func test_new_game() -> void:
@@ -397,7 +427,7 @@ func test_cafe() -> void:
 	var v5_save: Dictionary = gs.serialize()
 	v5_save["version"] = 5
 	var migrated_v5: Dictionary = ss.migrate(v5_save)
-	check(int(migrated_v5["version"]) == 6 and migrated_v5.has("daily_cafe_special_id"), "Version 5 wird auf Tagesgericht-Schema migriert")
+	check(int(migrated_v5["version"]) == 7 and migrated_v5.has("daily_cafe_special_id"), "Version 5 wird auf Tagesgericht- und Wetterschema migriert")
 	check(int(migrated_v5["stats"].get("cafe_special_orders", -1)) == int(gs.stats.get("cafe_special_orders", 0)), "Café-Tagesgericht-Statistik wird migriert")
 	var old_cafe_save: Dictionary = gs.serialize()
 	old_cafe_save["version"] = 5
@@ -405,6 +435,8 @@ func test_cafe() -> void:
 	var migrated_old_cafe: Dictionary = ss.migrate(old_cafe_save)
 	check(int(migrated_old_cafe["stats"]["cafe_orders"]) == int(gs.stats.get("cafe_orders", 0)), "Café-Altstatistik bleibt erhalten")
 	check(int(migrated_old_cafe["stats"]["cafe_special_orders"]) == 0, "Tagesgericht-Statistik startet bei alten Ständen bei null")
+	var v6_migrated: Dictionary = ss.migrate({"version": 6, "settings": {"sound": false}, "animals": []})
+	check(int(v6_migrated["version"]) == 7 and bool(v6_migrated["settings"]["sound"]) == false, "Version 6 wird ohne Verlust vorhandener Einstellungen migriert")
 
 
 func test_achievements() -> void:
@@ -439,7 +471,7 @@ func test_achievements() -> void:
 	check(gs.deserialize(encoded), "Erfolgs-Status laden")
 	check(gs.claimed_achievements.has("orders_2") and not gs.claim_achievement("orders_2"), "abgeholte Erfolge bleiben dauerhaft gespeichert")
 	check(gs.claimed_achievements.size() == 1, "unbekannte Erfolgs-IDs werden nicht gespeichert")
-	check(gs.SAVE_VERSION == 6, "Tagesgericht verwendet Save-Version 6")
+	check(gs.SAVE_VERSION == 7, "Wetterwachstum verwendet Save-Version 7")
 	var cafe_orders_achievement: Dictionary = {}
 	for achievement in gd.ACHIEVEMENTS:
 		if str(achievement["id"]) == "cafe_orders_10":
@@ -569,7 +601,7 @@ func test_animal_extensions() -> void:
 	check(gs.equipped_cosmetics_of(animal).has("flower"), "Accessoire wird getragen")
 	check(not gs.set_animal_cosmetic(rescued, "unknown", true), "unbekanntes Accessoire ablehnen")
 	var encoded: Dictionary = gs.serialize()
-	check(int(encoded.version) == 6 and encoded.animals[0].has("traits") and encoded.animals[0].has("accessories"), "neue Profildaten werden gespeichert")
+	check(int(encoded.version) == 7 and encoded.animals[0].has("traits") and encoded.animals[0].has("accessories"), "neue Profildaten werden in Save-Version 7 gespeichert")
 	gs.new_game()
 	check(gs.deserialize(encoded), "erweiterte Tierdaten laden")
 	var restored: Dictionary = gs.get_animal(rescued)
@@ -684,6 +716,7 @@ func test_save_roundtrip() -> void:
 	gs.claimed_quests.append("q_plant5")
 	gs.claimed_achievements.append("orders_2")
 	gs.settings["sound"] = false
+	gs.settings["music"] = false
 	var before := _snapshot()
 	check(ss.save_game(), "speichern")
 	check(FileAccess.file_exists("user://test_save.json"), "Datei existiert")
@@ -697,14 +730,14 @@ func test_save_roundtrip() -> void:
 	check(gs.animals.size() == 1 and int(gs.animals[0].paddock) == pad, "Tier im Gehege erhalten")
 	check(gs.claimed_quests.has("q_plant5"), "Quest-Status erhalten")
 	check(gs.claimed_achievements.has("orders_2"), "Erfolgs-Status erhalten")
-	check(gs.settings["sound"] == false, "Einstellungen erhalten")
+	check(gs.settings["sound"] == false and gs.settings["music"] == false, "Ton- und Musikeinstellung bleiben erhalten")
 	check(not gs.object_at(Vector2i(8, 11)).is_empty(), "Belegung neu aufgebaut")
 	check(not gs.can_place("tree", Vector2i(8, 11)), "belegte Fläche bleibt belegt")
 	var uid: int = gs.place_object("tree", Vector2i(14, 16))
 	check(uid > 0 and gs.get_object(uid).uid != bak, "neue UIDs kollidieren nicht")
 	var d: Dictionary = gs.serialize()
 	check(int(d.version) == gs.SAVE_VERSION, "Version im Spielstand")
-	check(gs.SAVE_VERSION == 6, "Tagesgericht verwendet Save-Version 6")
+	check(gs.SAVE_VERSION == 7, "Wetterwachstum verwendet Save-Version 7")
 
 
 func test_offline_progress() -> void:
@@ -760,12 +793,12 @@ func test_corrupt_and_migration() -> void:
 	check(gs.fields[Vector2i(8, 11)].crop == "", "unbekannte Pflanze verworfen")
 	check(gs.tutorial_step == 99, "Tutorial bei Altstand übersprungen")
 	var v1_migrated: Dictionary = ss.migrate({"version": 1, "animals": []})
-	check(int(v1_migrated.version) == 6, "Version 1 migriert schrittweise auf Version 6")
+	check(int(v1_migrated.version) == 7, "Version 1 migriert schrittweise auf Version 7")
 	check(v1_migrated.stats.get("cafe_orders", -1) == 0, "Café-Fortschritt alter Spielstände startet bei null")
 	var v2_migrated: Dictionary = ss.migrate({"version": 2, "animals": []})
-	check(int(v2_migrated.version) == 6 and v2_migrated.diary.is_empty() and v2_migrated.claimed_achievements.is_empty(), "Version 2 erhält Story-, Erfolgs- und Café-Migration")
+	check(int(v2_migrated.version) == 7 and v2_migrated.diary.is_empty() and v2_migrated.claimed_achievements.is_empty(), "Version 2 erhält Story-, Erfolgs-, Café- und Wetter-Migration")
 	var v3_migrated: Dictionary = ss.migrate({"version": 3, "animals": []})
-	check(int(v3_migrated.version) == 6 and v3_migrated.claimed_achievements.is_empty(), "Version 3 erhält leere Erfolgs- und Café-Historie")
+	check(int(v3_migrated.version) == 7 and v3_migrated.claimed_achievements.is_empty(), "Version 3 erhält leere Erfolgs-, Café- und Wetter-Historie")
 	var legacy_animal := {"uid": 10, "species": "rabbit", "name": "Alt-Tier", "hunger": 60, "happy": 55, "last": gs.now(), "paddock": 1}
 	var migrated: Dictionary = ss.migrate({"version": 1, "animals": [legacy_animal]})
 	check(legacy_animal.has("traits") and legacy_animal.has("accessories") and legacy_animal.has("activity_at"), "Tierfelder aus altem Spielstand ergänzt")
@@ -805,12 +838,12 @@ func test_economy() -> void:
 		for cell in gs.fields.keys():
 			if gs.fields[cell].crop == "":
 				gs.plant(cell, "wheat")
-		gs.time_offset += 31.0
+		gs.time_offset += gd.real_seconds_for_crop_growth(gs.now(), float(gd.CROPS["wheat"]["grow"])) + 1.0
 		for cell in gs.fields.keys():
 			if gs.harvest(cell):
 				harvests += 1
 	check(gs.level == 2 and harvests <= 25, "Stufe 2 nach %d Ernten" % harvests)
-	print("   Stufe 2 nach %d Ernten (~%d s)" % [harvests, int(gs.time_offset)])
+	print("   Stufe 2 nach %d Ernten" % harvests)
 	# Alle Level-Freischaltungen sind erreichbar
 	var seen := {}
 	for l in range(1, gd.MAX_LEVEL + 1):
@@ -833,13 +866,13 @@ func test_new_crops() -> void:
 		level_to(level)
 		var definition: Dictionary = gd.CROPS[crop]
 		check(gs.plant(cell, crop), "%s auf Freischaltstufe pflanzbar" % crop)
-		gs.time_offset += float(definition["grow"])
-		check(gs.harvest(cell), "%s nach Wachstumszeit erntbar" % crop)
+		gs.time_offset += gd.real_seconds_for_crop_growth(gs.now(), float(definition["grow"])) + 0.01
+		check(gs.harvest(cell), "%s nach effektiver Wetter-Wachstumszeit erntbar" % crop)
 		check(gs.item_count(crop) == int(definition["yield"]), "%s liefert Inventar-Ertrag" % crop)
 		if crop == "coffee" or crop == "blueberry":
 			check(gs.fields[cell].crop == crop, "%s wächst nach Ernte weiter" % crop)
-			gs.time_offset += float(definition["grow"])
-			check(gs.harvest(cell), "%s kann erneut geerntet werden" % crop)
+			gs.time_offset += gd.real_seconds_for_crop_growth(gs.now(), float(definition["grow"])) + 0.01
+			check(gs.harvest(cell), "%s kann nach effektiver Wetter-Wachstumszeit erneut geerntet werden" % crop)
 		gs.fields[cell] = {"crop": "", "t": 0.0}
 	check(gd.RECIPES.size() == 26, "Café und Tageskarte enthalten sechs neue Rezepte")
 	for recipe in ["pumpkin_spice_latte", "blueberry_coffee_cake"]:

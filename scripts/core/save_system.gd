@@ -141,6 +141,10 @@ func migrate(data: Dictionary) -> Dictionary:
 		cafe_stats["cafe_special_orders"] = int(cafe_stats.get("cafe_special_orders", 0))
 		data["stats"] = cafe_stats
 		data["version"] = 6
+		v = 6
+	if v < 7:
+		# Wettereffekte verwenden ausschließlich vorhandene Zeitstempel und benötigen keine neuen Save-Felder.
+		data["version"] = 7
 	return data
 
 

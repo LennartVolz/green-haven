@@ -76,6 +76,23 @@ func run() -> void:
 		check(has_story_order, "Reihe erzeugt Story-Auftrag")
 		print("delivery story UI checked")
 
+	# Wetterhinweis und Musikschalter erscheinen in den echten Einstellungen.
+	ui.act_open("settings", {})
+	await frames()
+	var music_available: bool = load("res://scripts/core/background_music.gd").track_available()
+	check(find_button(ui.content, "Hintergrundmusik: Datei fehlt") != null if not music_available else find_button(ui.content, "Hintergrundmusik: An") != null, "Musikoption zeigt Trackstatus in den Einstellungen")
+	var music_button := find_button(ui.content, "Hintergrundmusik:")
+	if music_available and check(music_button != null, "Musik lässt sich über die Einstellungen umschalten"):
+		music_button.pressed.emit()
+		await frames()
+		check(find_button(ui.content, "Hintergrundmusik: Aus") != null and not bool(gs.settings.get("music", true)), "Musikschalter aktualisiert Einstellung und Anzeige")
+		ui.act_open("settings", {})
+		await frames()
+		music_button = find_button(ui.content, "Hintergrundmusik:")
+		if music_button != null:
+			music_button.pressed.emit()
+		await frames()
+
 	# Café-Besuchsgeschichte erscheint im Auftragsbuch an der echten Oberfläche.
 	gs.new_game()
 	gs.level = 8

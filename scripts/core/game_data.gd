@@ -14,6 +14,11 @@ const START_LAND := Rect2i(8, 11, 8, 8)
 const TILL_COST := 10
 const START_COINS := 120
 
+## Gemeinsamer Wetterzyklus für Anzeige und Erntezeit: Sonne, Wolken, Regen, Nebel.
+const WEATHER_DURATION_SECONDS := 120.0
+const WEATHER_TYPES := ["Sonnig", "Bewölkt", "Regen", "Nebel"]
+const WEATHER_GROWTH_RATES := {"Sonnig": 1.0, "Bewölkt": 0.9, "Regen": 1.25, "Nebel": 1.0}
+
 ## Jede Erweiterung vergrößert das Land um 1 Zelle in alle Richtungen.
 ## Acht Ausbauschritte wachsen von 8x8 bis 24x24 Felder und bleiben in der Karte.
 const LAND_EXPANSIONS := [
@@ -294,6 +299,86 @@ const CUSTOMERS := ["Lena", "Jonas", "Mira", "Oskar", "Fatima", "Ben", "Sofia", 
 
 ## Alle handelbaren Gegenstände (Feldfrüchte, Zutaten, Produkte).
 var items := {}
+
+
+func weather_index_at(seconds: float) -> int:
+	var cycle_length := WEATHER_DURATION_SECONDS * float(WEATHER_TYPES.size())
+	return int(floor(fposmod(seconds, cycle_length) / WEATHER_DURATION_SECONDS))
+
+
+func weather_at(seconds: float) -> String:
+	return WEATHER_TYPES[weather_index_at(seconds)]
+
+
+func weather_growth_rate(weather: String) -> float:
+	return float(WEATHER_GROWTH_RATES.get(weather, 1.0))
+
+
+func weather_effect_text(weather: String) -> String:
+	match weather:
+		"Bewölkt":
+			return "Wetter: Bewölkt · Wachstum −10%"
+		"Regen":
+			return "Wetter: Regen · Wachstum +25%"
+		"Nebel":
+			return "Wetter: Nebel · Wachstum normal"
+	return "Wetter: Sonnig · Wachstum normal"
+
+
+func _crop_growth_seconds_in_partial_cycle(start_time: float, end_time: float) -> float:
+	var growth := 0.0
+	var cursor := start_time
+	while cursor < end_time - 0.000001:
+		var phase := floori(cursor / WEATHER_DURATION_SECONDS)
+		var phase_end := (float(phase) + 1.0) * WEATHER_DURATION_SECONDS
+		var segment_end := minf(end_time, phase_end)
+		var weather_index := posmod(phase, WEATHER_TYPES.size())
+		growth += (segment_end - cursor) * weather_growth_rate(WEATHER_TYPES[weather_index])
+		cursor = segment_end
+	return growth
+
+
+## Effektive Wachstumszeit für einen Zeitraum, effizient auch bei langen Offline-Abwesenheiten.
+func crop_growth_seconds_between(start_time: float, end_time: float) -> float:
+	if end_time <= start_time:
+		return 0.0
+	var cycle_length := WEATHER_DURATION_SECONDS * float(WEATHER_TYPES.size())
+	var cursor := start_time
+	var growth := 0.0
+	var first_cycle_end: float = (floor(cursor / cycle_length) + 1.0) * cycle_length
+	var first_end := minf(end_time, first_cycle_end)
+	growth += _crop_growth_seconds_in_partial_cycle(cursor, first_end)
+	cursor = first_end
+	if cursor >= end_time:
+		return growth
+	var average_growth_per_cycle := 0.0
+	for weather in WEATHER_TYPES:
+		average_growth_per_cycle += weather_growth_rate(weather) * WEATHER_DURATION_SECONDS
+	var full_cycles := floori((end_time - cursor) / cycle_length)
+	growth += float(full_cycles) * average_growth_per_cycle
+	cursor += float(full_cycles) * cycle_length
+	if cursor < end_time:
+		growth += _crop_growth_seconds_in_partial_cycle(cursor, end_time)
+	return growth
+
+
+## Reale Wartezeit bis zur verbleibenden effektiven Wachstumszeit; maximal wenige Wetterphasen.
+func real_seconds_for_crop_growth(start_time: float, growth_needed: float) -> float:
+	var remaining := maxf(0.0, growth_needed)
+	var cursor := start_time
+	var elapsed := 0.0
+	while remaining > 0.000001:
+		var phase := floori(cursor / WEATHER_DURATION_SECONDS)
+		var phase_end := (float(phase) + 1.0) * WEATHER_DURATION_SECONDS
+		var rate := weather_growth_rate(WEATHER_TYPES[posmod(phase, WEATHER_TYPES.size())])
+		var segment_duration := phase_end - cursor
+		var growth_available := segment_duration * rate
+		if remaining <= growth_available:
+			return elapsed + remaining / rate
+		remaining -= growth_available
+		elapsed += segment_duration
+		cursor = phase_end
+	return elapsed
 
 
 func _init() -> void:

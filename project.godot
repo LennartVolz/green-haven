@@ -20,6 +20,7 @@ GameData="*res://scripts/core/game_data.gd"
 GameState="*res://scripts/core/game_state.gd"
 SaveSystem="*res://scripts/core/save_system.gd"
 Sfx="*res://scripts/core/sfx.gd"
+BackgroundMusic="*res://scripts/core/background_music.gd"
 
 [display]
 

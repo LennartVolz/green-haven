@@ -19,8 +19,7 @@ const DRAG_THRESHOLD := 16.0
 const PLACE_FINGER_OFFSET := 96.0
 const DAY_LENGTH_SECONDS := 24.0 * 60.0 * 60.0
 const REAL_DAY_LENGTH_SECONDS := 8.0 * 60.0
-const WEATHER_DURATION_SECONDS := 2.0 * 60.0
-const WEATHER_TYPES := ["Sonnig", "Bewölkt", "Regen", "Nebel"]
+
 
 ## Wird von der UI gesetzt: gibt true zurück, wenn ein Bildschirmpunkt auf UI liegt.
 var ui_blocker := Callable()
@@ -31,6 +30,7 @@ var day_time_seconds := 8.0 * 60.0 * 60.0
 var weather_elapsed_seconds := 0.0
 var current_weather := "Sonnig"
 var _weather_index := 0
+var _weather_accumulator := 0.0
 var terrain: Node2D
 var fields_layer: Node2D
 var entities: Node2D
@@ -65,6 +65,10 @@ var _focus_tween: Tween
 
 
 func _ready() -> void:
+	var weather_cycle := GameData.WEATHER_DURATION_SECONDS * float(GameData.WEATHER_TYPES.size())
+	weather_elapsed_seconds = fposmod(GameState.now(), weather_cycle)
+	_weather_index = GameData.weather_index_at(weather_elapsed_seconds)
+	current_weather = GameData.WEATHER_TYPES[_weather_index]
 	day_modulate = CanvasModulate.new()
 	day_modulate.color = day_color_at(day_time_seconds)
 	add_child(day_modulate)
@@ -208,12 +212,11 @@ func day_clock_text() -> String:
 
 
 static func weather_index_at(seconds: float) -> int:
-	var cycle_length := WEATHER_DURATION_SECONDS * float(WEATHER_TYPES.size())
-	return int(floor(fposmod(seconds, cycle_length) / WEATHER_DURATION_SECONDS))
+	return GameData.weather_index_at(seconds)
 
 
 static func weather_at(seconds: float) -> String:
-	return WEATHER_TYPES[weather_index_at(seconds)]
+	return GameData.weather_at(seconds)
 
 
 static func weather_tint_at(weather: String) -> Color:
@@ -293,12 +296,15 @@ func _process(delta: float) -> void:
 		"Nebel":
 			weather_strength = 0.12
 	day_modulate.color = daylight_color.lerp(daylight_color * weather_tint_at(current_weather), weather_strength)
-	weather_elapsed_seconds = fposmod(weather_elapsed_seconds + delta, REAL_DAY_LENGTH_SECONDS)
-	var next_weather_index := weather_index_at(weather_elapsed_seconds)
-	if next_weather_index != _weather_index:
-		_weather_index = next_weather_index
-		current_weather = WEATHER_TYPES[_weather_index]
-		overlay.set_weather(current_weather)
+	_weather_accumulator += delta
+	if _weather_accumulator >= 1.0:
+		weather_elapsed_seconds = fposmod(weather_elapsed_seconds + _weather_accumulator, GameData.WEATHER_DURATION_SECONDS * float(GameData.WEATHER_TYPES.size()))
+		_weather_accumulator = fposmod(_weather_accumulator, 1.0)
+		var next_weather_index := GameData.weather_index_at(weather_elapsed_seconds)
+		if next_weather_index != _weather_index:
+			_weather_index = next_weather_index
+			current_weather = GameData.WEATHER_TYPES[_weather_index]
+			overlay.set_weather(current_weather)
 	if _touches.is_empty() and _pan_vel.length() > 25.0:
 		cam.position -= _pan_vel * delta / cam.zoom.x
 		_pan_vel *= pow(0.004, delta)

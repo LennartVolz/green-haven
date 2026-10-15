@@ -5,11 +5,20 @@ extends RefCounted
 static func build(ui, _args: Dictionary) -> void:
 	ui.set_title("Einstellungen")
 	var c: VBoxContainer = ui.content
+	var MusicScript := load("res://scripts/core/background_music.gd")
 	var snd: bool = GameState.settings.get("sound", true)
 	var vib: bool = GameState.settings.get("vibration", true)
+	var music: bool = GameState.settings.get("music", true)
 	var b1 := UiKit.button("Ton: %s" % ("An" if snd else "Aus"), "primary" if snd else "light", 32)
 	b1.pressed.connect(ui.act_toggle.bind("sound"))
 	c.add_child(b1)
+	var music_available: bool = MusicScript.track_available()
+	var music_button := UiKit.button("Hintergrundmusik: %s" % (("An" if music else "Aus") if music_available else "Datei fehlt"), "primary" if music and music_available else "light", 32)
+	music_button.disabled = not music_available
+	music_button.tooltip_text = "Track: res://audio/Sunlight_on_the_Path.mp3" if music_available else "Lege den MP3-Track unter res://audio/Sunlight_on_the_Path.mp3 ab."
+	if music_available:
+		music_button.pressed.connect(ui.act_toggle.bind("music"))
+	c.add_child(music_button)
 	var b2 := UiKit.button("Vibration: %s" % ("An" if vib else "Aus"), "primary" if vib else "light", 32)
 	b2.pressed.connect(ui.act_toggle.bind("vibration"))
 	c.add_child(b2)

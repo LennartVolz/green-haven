@@ -484,7 +484,8 @@ func _process(delta: float) -> void:
 	if _tick_acc >= 0.25:
 		_tick_acc = 0.0
 		_day_label.text = world.day_clock_text()
-		_weather_label.text = "Wetter: %s" % world.current_weather
+		_weather_label.text = GameData.weather_effect_text(world.current_weather)
+		_weather_label.tooltip_text = "Das Wetter beeinflusst das Wachstum aller Pflanzen."
 		if _sheet_name != "":
 			_tick()
 	# Münzanzeige zählt sanft hoch
@@ -806,7 +807,10 @@ func act_pet(uid: int) -> void:
 
 func act_toggle(key: String) -> void:
 	GameState.settings[key] = not bool(GameState.settings.get(key, true))
-	GameState.sound.emit("tap")
+	if key == "music":
+		BackgroundMusic.refresh()
+	else:
+		GameState.sound.emit("tap")
 	refresh_sheet()
 
 

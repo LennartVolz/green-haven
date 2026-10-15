@@ -20,7 +20,7 @@ signal game_event(event_name: String, data: Dictionary)
 signal fx(kind: String, world_pos: Vector2, text: String)
 signal sound(sound_name: String)
 
-const SAVE_VERSION := 6
+const SAVE_VERSION := 7
 const MAX_ORDERS := 4
 const CAFE_SPECIAL_DURATION := 24.0 * 60.0 * 60.0
 const CAFE_SPECIAL_ORDER_CHANCE := 0.7
@@ -59,7 +59,7 @@ var diary: Array = []
 var stats: Dictionary = {}
 var claimed_quests: Array = []
 var claimed_achievements: Array = []
-var settings: Dictionary = {"sound": true, "vibration": true}
+var settings: Dictionary = {"sound": true, "music": true, "vibration": true}
 var tutorial_step := 0
 var next_uid := 1
 var next_order_at := 0.0
@@ -467,14 +467,17 @@ func crop_progress(cell: Vector2i) -> float:
 	if f.crop == "":
 		return 0.0
 	var grow: float = float(GameData.CROPS[f.crop]["grow"])
-	return clampf((now() - float(f.t)) / grow, 0.0, 1.0)
+	var effective_growth := GameData.crop_growth_seconds_between(float(f.t), now())
+	return clampf(effective_growth / grow, 0.0, 1.0)
 
 
 func crop_remaining(cell: Vector2i) -> float:
 	if not fields.has(cell) or fields[cell].crop == "":
 		return 0.0
-	var grow: float = float(GameData.CROPS[fields[cell].crop]["grow"])
-	return maxf(0.0, grow - (now() - float(fields[cell].t)))
+	var f: Dictionary = fields[cell]
+	var grow: float = float(GameData.CROPS[f.crop]["grow"])
+	var effective_growth := GameData.crop_growth_seconds_between(float(f.t), now())
+	return GameData.real_seconds_for_crop_growth(now(), maxf(0.0, grow - effective_growth))
 
 
 func is_ready(cell: Vector2i) -> bool:
@@ -1360,6 +1363,7 @@ func deserialize(d: Dictionary) -> bool:
 				break
 	var s: Dictionary = d.get("settings", {})
 	settings["sound"] = bool(s.get("sound", true))
+	settings["music"] = bool(s.get("music", true))
 	settings["vibration"] = bool(s.get("vibration", true))
 	tutorial_step = int(d.get("tutorial_step", 0))
 	next_uid = maxi(int(d.get("next_uid", 1)), 1)

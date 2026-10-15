@@ -81,6 +81,8 @@ const RECIPES := {
 	"filter_coffee": {"name": "Filterkaffee", "building": "cafe", "inputs": {"roasted_coffee": 1}, "time": 90, "sell": 55, "xp": 16, "level": 8, "col": "#9B6540"},
 	"oat_latte": {"name": "Hafer-Latte", "building": "cafe", "inputs": {"roasted_coffee": 1, "oat_milk": 1}, "time": 120, "sell": 90, "xp": 21, "level": 9, "col": "#C69B6D"},
 	"coffee_cookie_plate": {"name": "Kaffee & Haferkekse", "building": "cafe", "inputs": {"filter_coffee": 1, "oat_cookies": 1}, "time": 120, "sell": 82, "xp": 24, "level": 9, "col": "#B88050"},
+	"pumpkin_spice_latte": {"name": "Kürbisgewürz-Latte", "building": "cafe", "inputs": {"roasted_coffee": 1, "oat_milk": 1, "pumpkin": 1}, "time": 150, "sell": 145, "xp": 27, "level": 12, "col": "#D98B4F"},
+	"blueberry_coffee_cake": {"name": "Blaubeer-Kaffeekuchen", "building": "cafe", "inputs": {"oat_cookies": 1, "blueberry": 2}, "time": 210, "sell": 110, "xp": 30, "level": 14, "col": "#8474A6"},
 }
 
 const DECOS := {
@@ -188,6 +190,7 @@ const QUESTS := [
 	{"id": "q_cafe_build", "text": "Eröffne das Gartencafé", "type": "building", "building": "cafe", "target": 1, "coins": 220, "xp": 70},
 	{"id": "q_cafe_orders", "text": "Bediene 5 Café-Gäste", "type": "stat", "key": "cafe_orders", "target": 5, "coins": 180, "xp": 60},
 	{"id": "q_cafe_story", "text": "Teile eine Café-Geschichte", "type": "stat", "key": "cafe_stories_completed", "target": 1, "coins": 260, "xp": 90},
+	{"id": "q_cafe_specials", "text": "Serviere 5 Tagesgerichte", "type": "stat", "key": "cafe_special_orders", "target": 5, "coins": 240, "xp": 80},
 ]
 
 ## Dauerhafte Erfolge: Kriterium + einmalige Münz-/XP-Belohnung.
@@ -266,7 +269,7 @@ const DELIVERY_STORIES := {
 		], "bonus_coins": 220, "bonus_xp": 70},
 }
 
-const CAFE_MENU := ["filter_coffee", "oat_latte", "coffee_cookie_plate"]
+const CAFE_MENU := ["filter_coffee", "oat_latte", "coffee_cookie_plate", "pumpkin_spice_latte", "blueberry_coffee_cake"]
 const CAFE_VISITOR_STORIES := [
 	"Der Duft erinnert mich an die Sonntage, an denen wir gemeinsam gebacken haben.",
 	"Ich wollte schon lange einen ruhigen Ort, an dem man einfach sitzen und erzählen darf.",
@@ -274,6 +277,10 @@ const CAFE_VISITOR_STORIES := [
 	"Ich sammle besondere Tassen. Diese hier war ein Geschenk von meinem Bruder.",
 	"Nach dem Spaziergang durch den Garten ist eine warme Tasse genau richtig.",
 	"Ich lerne gerade für eine Prüfung – kleine Kaffeepausen helfen mir dabei.",
+	"Der Kürbisduft erinnert mich an einen goldenen Herbstnachmittag mit meiner Schwester.",
+	"Blaubeeren und Kaffee? Das klingt nach genau der gemütlichen Pause, die ich heute brauche.",
+	"Ich habe das Rezept meiner Nachbarin mitgebracht – sie sagt, ein guter Kuchen schmeckt gemeinsam am besten.",
+	"Heute gönne ich mir etwas Besonderes. Der Garten ist mein liebster Ort für eine kleine Feier.",
 ]
 const CUSTOMERS := ["Lena", "Jonas", "Mira", "Oskar", "Fatima", "Ben", "Sofia", "Karim", "Hanna", "Leo", "Yuki", "Pia", "Tarek", "Ida", "Sam"]
 

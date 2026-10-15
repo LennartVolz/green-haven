@@ -467,6 +467,19 @@ static func draw_item(ci: CanvasItem, id: String, pos: Vector2, size: float) -> 
 			ci.draw_circle(Vector2(-3, 1), 2, col("#805437"))
 			ci.draw_circle(Vector2(17, -5), 11, col("#8E6240"))
 			ci.draw_circle(Vector2(17, -6), 7, col("#9B6540"))
+		"pumpkin_spice_latte":
+			rrect(ci, Rect2(-16, -20, 32, 48), col("#FFF6E0"), 7)
+			rrect(ci, Rect2(-12, -7, 24, 26), base, 5)
+			ci.draw_circle(Vector2(0, -8), 9, col("#F2E4C9"))
+			ci.draw_circle(Vector2(-3, -8), 3, col("#D98B4F"))
+			for i in range(3):
+				ci.draw_circle(Vector2(-8.0 + float(i) * 8.0, 4.0 + float(i % 2) * 5.0), 1.8, col("#805437"))
+		"blueberry_coffee_cake":
+			poly(ci, [Vector2(-24, -8), Vector2(20, -8), Vector2(10, 20), Vector2(-16, 20)], base)
+			poly(ci, [Vector2(-24, -8), Vector2(-12, -20), Vector2(30, -20), Vector2(20, -8)], col("#E8D8BC"))
+			for p in [Vector2(-8, -13), Vector2(3, -15), Vector2(13, -11)]:
+				ci.draw_circle(p, 4, col("#5365A8"))
+				ci.draw_circle(p + Vector2(-1, -1), 1.2, col("#8996D0"))
 		"blueberry":
 			for p in [Vector2(-13, 8), Vector2(0, -5), Vector2(14, 8), Vector2(-4, 18)]:
 				ci.draw_circle(p, 11, base)

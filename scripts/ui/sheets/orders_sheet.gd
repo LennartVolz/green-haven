@@ -5,6 +5,25 @@ extends RefCounted
 static func build(ui, _args: Dictionary) -> void:
 	ui.set_title("Auftragsbuch")
 	var c: VBoxContainer = ui.content
+	var daily_special := GameState.daily_cafe_special()
+	if not daily_special.is_empty():
+		var special_card := UiKit.card(14)
+		var special_v := UiKit.vbox(6)
+		special_v.add_child(UiKit.label("Heutiges Café-Gericht", 30, UiKit.earth_dark()))
+		var special_row := UiKit.hbox(12)
+		special_row.add_child(UiKit.item_icon(daily_special, 72))
+		var special_text := UiKit.wrap_label("%s · Gäste bestellen es heute besonders gern!\n+50%% Münzen und +5 XP pro Lieferung" % GameData.item_name(daily_special), 24, UiKit.sage_dark())
+		special_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		special_row.add_child(special_text)
+		special_v.add_child(special_row)
+		var special_timer := UiKit.label("", 22, UiKit.earth_dark())
+		special_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		special_v.add_child(special_timer)
+		special_card.add_child(special_v)
+		c.add_child(special_card)
+		ui.ticker.append(func() -> void:
+			var remaining := GameState.daily_cafe_special_seconds_left()
+			special_timer.text = "Wechselt in %s" % GameData.format_time(remaining))
 	if not GameState.active_delivery_story.is_empty():
 		var campaign: Dictionary = GameData.DELIVERY_STORIES[GameState.active_delivery_story]
 		var stages: Array = campaign["stages"]
@@ -59,6 +78,8 @@ static func build(ui, _args: Dictionary) -> void:
 			v.add_child(UiKit.wrap_label("Geschichte · %s" % String(o["story_text"]), 23, UiKit.earth_dark()))
 		if o.has("visitor_story"):
 			v.add_child(UiKit.wrap_label("Zu Besuch im Café · %s" % String(o["visitor_story"]), 23, UiKit.earth_dark()))
+		if bool(o.get("cafe_daily_special", false)):
+			v.add_child(UiKit.wrap_label("Tagesgericht · +50%% Münzen · +5 XP", 22, UiKit.sage_dark()))
 		var chips := HFlowContainer.new()
 		chips.mouse_filter = Control.MOUSE_FILTER_PASS
 		chips.add_theme_constant_override("h_separation", 22)

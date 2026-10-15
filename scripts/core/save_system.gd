@@ -132,6 +132,15 @@ func migrate(data: Dictionary) -> Dictionary:
 		stats["cafe_stories_completed"] = int(stats.get("cafe_stories_completed", 0))
 		data["stats"] = stats
 		data["version"] = 5
+		v = 5
+	if v < 6:
+		# Das 24-Stunden-Tagesgericht wird für bestehende Café-Spielstände ausgewählt.
+		data["daily_cafe_special_id"] = str(data.get("daily_cafe_special_id", ""))
+		data["daily_cafe_special_at"] = float(data.get("daily_cafe_special_at", 0.0))
+		var cafe_stats: Dictionary = data.get("stats", {})
+		cafe_stats["cafe_special_orders"] = int(cafe_stats.get("cafe_special_orders", 0))
+		data["stats"] = cafe_stats
+		data["version"] = 6
 	return data
 
 

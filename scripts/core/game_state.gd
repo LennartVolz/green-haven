@@ -20,8 +20,12 @@ signal game_event(event_name: String, data: Dictionary)
 signal fx(kind: String, world_pos: Vector2, text: String)
 signal sound(sound_name: String)
 
-const SAVE_VERSION := 5
+const SAVE_VERSION := 6
 const MAX_ORDERS := 4
+const CAFE_SPECIAL_DURATION := 24.0 * 60.0 * 60.0
+const CAFE_SPECIAL_ORDER_CHANCE := 0.7
+const CAFE_SPECIAL_COIN_BONUS := 0.5
+const CAFE_SPECIAL_XP_BONUS := 5
 const ORDER_COOLDOWN := 25.0
 const PET_COOLDOWN := 12.0
 const ACTIVITY_COOLDOWN := 180.0
@@ -49,6 +53,8 @@ var land_level := 0
 var orders: Array = []
 var active_delivery_story := ""
 var delivery_story_stage := 0
+var daily_cafe_special_id := ""
+var daily_cafe_special_at := 0.0
 var diary: Array = []
 var stats: Dictionary = {}
 var claimed_quests: Array = []
@@ -95,6 +101,8 @@ func reset_state() -> void:
 	orders = []
 	active_delivery_story = ""
 	delivery_story_stage = 0
+	daily_cafe_special_id = ""
+	daily_cafe_special_at = 0.0
 	diary = []
 	stats = {}
 	claimed_quests = []
@@ -629,20 +637,71 @@ func _order_candidates() -> Array:
 	return [crops, products]
 
 
+func _available_cafe_specials() -> Array[String]:
+	var available: Array[String] = []
+	for recipe_id in GameData.CAFE_MENU:
+		if GameData.RECIPES.has(recipe_id) and int(GameData.RECIPES[recipe_id]["level"]) <= level:
+			available.append(recipe_id)
+	return available
+
+
+## Tagesangebote bleiben einen vollen echten Tag gültig und werden im Spielstand gespeichert.
+func daily_cafe_special() -> String:
+	if not has_building("cafe"):
+		return ""
+	_refresh_daily_cafe_special()
+	return daily_cafe_special_id
+
+
+func daily_cafe_special_seconds_left() -> float:
+	if daily_cafe_special().is_empty():
+		return 0.0
+	return maxf(0.0, daily_cafe_special_at + CAFE_SPECIAL_DURATION - now())
+
+
+func _refresh_daily_cafe_special() -> bool:
+	if not has_building("cafe"):
+		daily_cafe_special_id = ""
+		daily_cafe_special_at = 0.0
+		return false
+	var available := _available_cafe_specials()
+	if available.is_empty():
+		daily_cafe_special_id = ""
+		daily_cafe_special_at = 0.0
+		return false
+	var previous_index := available.find(daily_cafe_special_id)
+	if previous_index >= 0 and daily_cafe_special_at > 0.0:
+		var elapsed := now() - daily_cafe_special_at
+		if elapsed < CAFE_SPECIAL_DURATION:
+			return false
+		var elapsed_periods := maxi(1, int(floor(elapsed / CAFE_SPECIAL_DURATION)))
+		daily_cafe_special_id = available[(previous_index + elapsed_periods) % available.size()]
+		daily_cafe_special_at += float(elapsed_periods) * CAFE_SPECIAL_DURATION
+		return true
+	daily_cafe_special_id = available[rng.randi_range(0, available.size() - 1)]
+	daily_cafe_special_at = now()
+	return true
+
+
 func generate_order() -> Dictionary:
 	if has_building("cafe") and rng.randf() < 0.25:
-		var cafe_menu: Array = []
-		for recipe_id in GameData.CAFE_MENU:
-			if GameData.RECIPES.has(recipe_id) and int(GameData.RECIPES[recipe_id]["level"]) <= level:
-				cafe_menu.append(recipe_id)
+		var cafe_menu: Array[String] = _available_cafe_specials()
 		if not cafe_menu.is_empty():
-			var cafe_item: String = cafe_menu[rng.randi_range(0, cafe_menu.size() - 1)]
+			var special_id := daily_cafe_special()
+			var is_special := not special_id.is_empty() and rng.randf() < CAFE_SPECIAL_ORDER_CHANCE
+			var cafe_item: String = special_id if is_special else cafe_menu[rng.randi_range(0, cafe_menu.size() - 1)]
 			var cafe_recipe: Dictionary = GameData.RECIPES[cafe_item]
 			var visitor_story: String = GameData.CAFE_VISITOR_STORIES[rng.randi_range(0, GameData.CAFE_VISITOR_STORIES.size() - 1)]
 			var cafe_quantity := rng.randi_range(1, 2)
-			return {"id": _new_uid(), "customer": GameData.CUSTOMERS[rng.randi_range(0, GameData.CUSTOMERS.size() - 1)],
-				"items": {cafe_item: cafe_quantity}, "coins": int(cafe_recipe["sell"]) * cafe_quantity + 8,
-				"xp": maxi(4, int(cafe_recipe["xp"])), "cafe_order": true, "visitor_story": visitor_story}
+			var base_reward := int(cafe_recipe["sell"]) * cafe_quantity + 8
+			var reward := int(ceil(float(base_reward) * (1.0 + CAFE_SPECIAL_COIN_BONUS))) if is_special else base_reward
+			var bonus_xp := CAFE_SPECIAL_XP_BONUS if is_special else 0
+			var cafe_order := {"id": _new_uid(), "customer": GameData.CUSTOMERS[rng.randi_range(0, GameData.CUSTOMERS.size() - 1)],
+				"items": {cafe_item: cafe_quantity}, "coins": reward,
+				"xp": maxi(4, int(cafe_recipe["xp"])) + bonus_xp, "cafe_order": true, "visitor_story": visitor_story}
+			if is_special:
+				cafe_order["cafe_daily_special"] = true
+			return cafe_order
 	var cand := _order_candidates()
 	var crops: Array = cand[0]
 	var products: Array = cand[1]
@@ -674,7 +733,7 @@ func generate_order() -> Dictionary:
 
 
 func _fill_orders() -> void:
-	var changed := false
+	var changed := _refresh_daily_cafe_special()
 	var reserve_story_slot := not active_delivery_story.is_empty() and not _has_story_order()
 	while orders.size() < MAX_ORDERS - (1 if reserve_story_slot else 0) and now() >= next_order_at:
 		orders.append(generate_order())
@@ -763,6 +822,8 @@ func fulfill_order(order_id: int) -> bool:
 	var is_cafe_story := cafe_story_id == active_delivery_story and GameData.DELIVERY_STORIES.has(cafe_story_id) and str(GameData.DELIVERY_STORIES[cafe_story_id].get("feature", "")) == "cafe"
 	if bool(o.get("cafe_order", false)) or is_cafe_story:
 		bump("cafe_orders")
+		if bool(o.get("cafe_daily_special", false)):
+			bump("cafe_special_orders")
 		var shared_story := str(o.get("visitor_story", o.get("story_text", "")))
 		if not shared_story.is_empty():
 			bump("cafe_stories_shared")
@@ -1172,6 +1233,8 @@ func serialize() -> Dictionary:
 		"orders": orders.duplicate(true),
 		"active_delivery_story": active_delivery_story,
 		"delivery_story_stage": delivery_story_stage,
+		"daily_cafe_special_id": daily_cafe_special_id,
+		"daily_cafe_special_at": daily_cafe_special_at,
 		"diary": diary.duplicate(true),
 		"stats": stats.duplicate(),
 		"claimed_quests": claimed_quests.duplicate(),
@@ -1259,6 +1322,8 @@ func deserialize(d: Dictionary) -> bool:
 			if bool(e.get("cafe_order", false)):
 				order["cafe_order"] = true
 				order["visitor_story"] = str(e.get("visitor_story", ""))
+				if bool(e.get("cafe_daily_special", false)):
+					order["cafe_daily_special"] = true
 			orders.append(order)
 	var st: Dictionary = d.get("stats", {})
 	for k in st:
@@ -1266,6 +1331,11 @@ func deserialize(d: Dictionary) -> bool:
 	active_delivery_story = str(d.get("active_delivery_story", ""))
 	if not GameData.DELIVERY_STORIES.has(active_delivery_story):
 		active_delivery_story = ""
+	daily_cafe_special_id = str(d.get("daily_cafe_special_id", ""))
+	daily_cafe_special_at = maxf(0.0, float(d.get("daily_cafe_special_at", 0.0)))
+	if not GameData.CAFE_MENU.has(daily_cafe_special_id):
+		daily_cafe_special_id = ""
+		daily_cafe_special_at = 0.0
 	var story_stage_count := int(GameData.DELIVERY_STORIES.get(active_delivery_story, {}).get("stages", []).size())
 	delivery_story_stage = clampi(int(d.get("delivery_story_stage", 0)), 0, maxi(0, story_stage_count - 1)) if not active_delivery_story.is_empty() else 0
 	for entry in d.get("diary", []):

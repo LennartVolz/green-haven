@@ -72,6 +72,7 @@ Speicherstand, Offline-Fortschritt, Migration, Balance) wird headless geprüft:
 ```
 godot --headless --path . -s res://tests/run_tests.gd
 godot --headless --path . -s res://tests/achievements_ui.gd   # UI-Test (Menüs, Tagebuch, Erfolge)
+godot --headless --path . -s res://tests/save_transfer_ui.gd # UI-Test (Spielstand-Export/Import)
 ```
 
 Exit-Code 0 bedeutet: alle Prüfungen bestanden.
@@ -93,6 +94,8 @@ Oberfläche (`ui_root.gd`) nur über Signale und Methodenaufrufe benutzt.
 ## Spielstand
 
 - Datei: `user://savegame.json` (Android: app-privater Speicher), Backup: `.bak`
+- In den Einstellungen lassen sich JSON-Spielstände exportieren und importieren; vor einem Import werden JSON, Version und Spielzustand auf einer isolierten Kopie geprüft. Erst danach wird der bisherige Stand als Backup gesichert und der Import übernommen.
+- Desktop nutzt `DisplayServer.file_dialog_show`. Godot 4.4 dokumentiert `FEATURE_NATIVE_DIALOG_FILE` für Android, jedoch nicht `FEATURE_NATIVE_DIALOG_FILE_EXTRA`; ein nativer Dialog sagt nichts über tatsächlichen Datei-Zugriff aus. Ein Godot-Fehlerbericht reproduziert in 4.4.1, dass eine ausgewählte Android-Datei nicht über `FileAccess.open()` lesbar war (https://github.com/godotengine/godot/issues/105328). Deshalb nutzt Android den app-internen Ordner `user://save_transfer/savegame.json`; Dateien müssen dort über Android-Dateiverwaltung hinein- bzw. herauskopiert werden. Geräteprüfung steht noch aus.
 - Format versioniert (`version`), ältere Stände werden in `SaveSystem.migrate()` angehoben
 - Gespeichert wird alle 15 s, beim Pausieren, bei Fokusverlust und beim Beenden
 - Zeitbasierte Systeme speichern nur Zeitstempel, deshalb laufen Wachstum und

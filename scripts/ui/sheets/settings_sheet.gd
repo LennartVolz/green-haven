@@ -35,6 +35,22 @@ static func build(ui, _args: Dictionary) -> void:
 	load_b.pressed.connect(ui.act_load)
 	row.add_child(load_b)
 	c.add_child(row)
+	var transfer_row := UiKit.hbox(12)
+	var export_armed: bool = ui.state.get("confirm_export_save", false)
+	var export_button := UiKit.button("Wirklich exportieren? Nochmal tippen" if export_armed else "Spielstand exportieren", "danger" if export_armed else "light", 28)
+	export_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	export_button.pressed.connect(ui.act_export_save)
+	transfer_row.add_child(export_button)
+	var import_armed: bool = ui.state.get("confirm_import_save", false)
+	var import_button := UiKit.button("Wirklich importieren? Nochmal tippen" if import_armed else "Spielstand importieren", "danger" if import_armed else "light", 28)
+	import_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	import_button.pressed.connect(ui.act_import_save)
+	transfer_row.add_child(import_button)
+	c.add_child(transfer_row)
+	if OS.has_feature("android"):
+		c.add_child(UiKit.wrap_label("Android: Godot 4.4.1 zeigt den Dateidialog, kann ausgewählte Dokumente aber nicht zuverlässig öffnen. Import: savegame.json in den app-internen Ordner user://save_transfer kopieren. Export: Dort die gespeicherte JSON-Datei herauskopieren.", 22, UiKit.earth_dark()))
+	else:
+		c.add_child(UiKit.wrap_label("JSON-Spielstände lassen sich auf diesem Gerät auswählen und als Datei weitergeben.", 22, UiKit.earth_dark()))
 
 	c.add_child(UiKit.label("Weiteres", 30, UiKit.earth_dark()))
 	var cam := UiKit.button("Kamera zur Farm zentrieren", "light", 30)

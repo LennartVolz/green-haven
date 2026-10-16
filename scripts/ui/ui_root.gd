@@ -850,6 +850,100 @@ func act_save() -> void:
 		show_toast("Speichern fehlgeschlagen", "error")
 
 
+func _confirm_transfer(key: String, title: String) -> bool:
+	if bool(state.get(key, false)):
+		state[key] = false
+		return true
+	state[key] = true
+	refresh_sheet()
+	get_tree().create_timer(4.0).timeout.connect(func() -> void:
+		state[key] = false
+		if _sheet_name == "settings":
+			refresh_sheet())
+	show_toast("%s bitte durch erneutes Tippen bestätigen" % title, "info")
+	return false
+
+
+func _file_dialog_available() -> bool:
+	return DisplayServer.has_feature(DisplayServer.FEATURE_NATIVE_DIALOG_FILE) and not OS.has_feature("android")
+
+
+func _show_transfer_dialog(importing: bool) -> void:
+	var filters := PackedStringArray(["*.json;Green Haven-Spielstand;application/json"])
+	var mode := DisplayServer.FILE_DIALOG_MODE_OPEN_FILE if importing else DisplayServer.FILE_DIALOG_MODE_SAVE_FILE
+	var err := DisplayServer.file_dialog_show("Spielstand importieren" if importing else "Spielstand exportieren",
+		"", "savegame.json", false, mode, filters,
+		_on_transfer_file_selected.bind(importing))
+	if err != OK:
+		show_toast("Dateidialog nicht verfügbar. Nutze den Ordner user://save_transfer.", "error")
+		_write_transfer_file(importing)
+
+
+func _transfer_directory() -> String:
+	var directory := "user://save_transfer"
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(directory))
+	return directory
+
+
+func _on_transfer_file_selected(status: bool, selected_paths: PackedStringArray, _filter_index: int, importing: bool) -> void:
+	if not status or selected_paths.is_empty():
+		return
+	var path := selected_paths[0]
+	if importing:
+		if SaveSystem.import_from_file(path):
+			world.clear_tool()
+			world.reset_camera()
+			show_toast("Spielstand importiert", "good")
+			close_sheet()
+		else:
+			show_toast("Spielstand konnte nicht importiert werden%s" % (" – neuere Spielversion" if SaveSystem.last_load_error == "newer" else ""), "error")
+		return
+	if SaveSystem.export_to_file(path):
+		show_toast("Spielstand exportiert", "good")
+	else:
+		show_toast("Export fehlgeschlagen", "error")
+
+
+func _write_transfer_file(importing: bool) -> void:
+	var directory := _transfer_directory()
+	if importing:
+		var candidate := directory.path_join("savegame.json")
+		if not FileAccess.file_exists(candidate):
+			show_toast("Lege eine JSON-Datei in user://save_transfer/savegame.json.", "info")
+			return
+		if SaveSystem.import_from_file(candidate):
+			world.clear_tool()
+			world.reset_camera()
+			show_toast("Spielstand importiert", "good")
+			close_sheet()
+		else:
+			show_toast("Spielstand konnte nicht importiert werden%s" % (" – neuere Spielversion" if SaveSystem.last_load_error == "newer" else ""), "error")
+	else:
+		var target := directory.path_join("savegame.json")
+		if SaveSystem.export_to_file(target):
+			show_toast("Spielstand in user://save_transfer/savegame.json exportiert", "good")
+		else:
+			show_toast("Export fehlgeschlagen", "error")
+
+
+func act_export_save() -> void:
+	if not _confirm_transfer("confirm_export_save", "Spielstand-Export"):
+		return
+	if _file_dialog_available():
+		_show_transfer_dialog(false)
+	else:
+		_write_transfer_file(false)
+
+
+func act_import_save() -> void:
+	if not _confirm_transfer("confirm_import_save", "Spielstand-Import"):
+		return
+	if _file_dialog_available():
+		_show_transfer_dialog(true)
+	else:
+		_write_transfer_file(true)
+
+
 ## Laden verwirft den aktuellen Fortschritt (der Autosave ist höchstens 15 Sekunden alt),
 ## deshalb wie bei "Neues Spiel" erst nach einem zweiten Tippen innerhalb von vier Sekunden.
 func act_load() -> void:

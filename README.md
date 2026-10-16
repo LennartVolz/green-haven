@@ -20,12 +20,14 @@ animals a home. The animals produce nothing — they are simply cared for.
 - Per-paddock occupancy and wellbeing overview; animal profiles, journal and story progress are included in versioned saves
 - Touch controls: tap, swipe to sow/harvest, camera pan with inertia, pinch-to-zoom, placement by drag
 - Local, versioned save system (validated loading, rotating backup, newer-version saves are never overwritten); crop growth and production continue offline
+- Spielstände als JSON exportieren und importieren (Import wird vor dem Ersetzen geprüft; bisheriger Stand wird als Backup gesichert)
 
 ## Quick Start
 
 ```bash
 godot --headless --path . -s res://tests/run_tests.gd        # Logic tests
 godot --headless --path . -s res://tests/achievements_ui.gd  # UI tests
+godot --headless --path . -s res://tests/save_transfer_ui.gd # Save transfer UI
 godot --path .                                          # Start the game on desktop
 ```
 

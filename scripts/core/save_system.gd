@@ -1,17 +1,22 @@
 extends Node
 ## Lokale, versionierte Spielstandspeicherung (JSON in user://).
-## - atomares Schreiben (temporäre Datei, dann umbenennen)
-## - Backup des letzten gültigen Stands
+## - Schreiben über eine temporäre Datei, die vor dem Umbenennen geprüft wird
+## - Backup eines älteren gültigen Stands (höchstens alle BACKUP_MIN_AGE_SECONDS erneuert)
+## - Unlesbare oder zu neue Spielstände werden als Kopie aufbewahrt statt überschrieben
 ## - Migration älterer Versionen
-## - Autosave und Speichern beim Pausieren/Schließen der App
+## - Autosave (nur bei Änderungen) und Speichern beim Pausieren der App
 
 const PATH := "user://savegame.json"
-const BACKUP := "user://savegame.bak.json"
-const TMP := "user://savegame.tmp"
 const AUTOSAVE_SECONDS := 15.0
+## Das Backup ist ein Sicherheitsnetz gegen Fehlstände und wird deshalb nicht bei
+## jedem Autosave überschrieben, sondern höchstens alle zehn Minuten erneuert.
+const BACKUP_MIN_AGE_SECONDS := 600.0
 
 var path_override := ""   ## nur für Tests
+## Grund des letzten gescheiterten load_game(): "", "newer", "invalid"
+var last_load_error := ""
 var _timer := 0.0
+var _last_saved_fingerprint := ""
 
 
 func _path() -> String:
@@ -32,12 +37,12 @@ func _process(delta: float) -> void:
 	_timer += delta
 	if _timer >= AUTOSAVE_SECONDS:
 		_timer = 0.0
-		save_game()
+		save_game(false)
 
 
+## Beenden (Fenster schließen, Zurück-Taste) behandelt Main; hier nur das Pausieren.
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT \
-			or what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_WM_GO_BACK_REQUEST:
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		if GameState.loaded:
 			save_game()
 
@@ -46,24 +51,64 @@ func has_save() -> bool:
 	return FileAccess.file_exists(_path()) or FileAccess.file_exists(_backup_path())
 
 
-func save_game() -> bool:
+## Speichert den Spielstand. Mit force = false (Autosave) wird nichts geschrieben,
+## solange sich seit dem letzten Speichern nichts geändert hat.
+func save_game(force: bool = true) -> bool:
 	if not GameState.loaded:
 		return false
-	var text := JSON.stringify(GameState.serialize())
+	var data := GameState.serialize()
+	var fingerprint := _fingerprint(data)
+	if not force and fingerprint == _last_saved_fingerprint and FileAccess.file_exists(_path()):
+		return true
 	var f := FileAccess.open(_tmp_path(), FileAccess.WRITE)
 	if f == null:
 		push_warning("Speichern fehlgeschlagen: %s" % error_string(FileAccess.get_open_error()))
 		return false
-	f.store_string(text)
+	f.store_string(JSON.stringify(data))
 	f.close()
-	if FileAccess.file_exists(_path()):
-		DirAccess.copy_absolute(_path(), _backup_path())
-		DirAccess.remove_absolute(_path())
+	if _read(_tmp_path()).is_empty():
+		push_warning("Speichern fehlgeschlagen: die temporäre Datei ist nicht lesbar")
+		DirAccess.remove_absolute(_tmp_path())
+		return false
+	_rotate_backup()
 	var err := DirAccess.rename_absolute(_tmp_path(), _path())
 	if err != OK:
-		push_warning("Speichern fehlgeschlagen (rename): %s" % error_string(err))
-		return false
+		# Nicht jede Plattform überschreibt beim Umbenennen; dann erst die alte Datei entfernen.
+		DirAccess.remove_absolute(_path())
+		err = DirAccess.rename_absolute(_tmp_path(), _path())
+		if err != OK:
+			push_warning("Speichern fehlgeschlagen (rename): %s" % error_string(err))
+			return false
+	_last_saved_fingerprint = fingerprint
 	return true
+
+
+## Fingerabdruck des Spielstands ohne den Zeitstempel, der sich bei jedem Speichern ändert.
+func _fingerprint(data: Dictionary) -> String:
+	var copy := data.duplicate()
+	copy.erase("saved_at")
+	return JSON.stringify(copy).sha256_text()
+
+
+## Sichert den bisherigen Hauptstand, aber nur wenn er gültig ist und das Backup
+## älter als BACKUP_MIN_AGE_SECONDS ist (oder fehlt).
+func _rotate_backup() -> void:
+	if not FileAccess.file_exists(_path()):
+		return
+	var backup := _backup_path()
+	if FileAccess.file_exists(backup):
+		var age := Time.get_unix_time_from_system() - float(FileAccess.get_modified_time(backup))
+		if age < BACKUP_MIN_AGE_SECONDS:
+			return
+	if _read(_path()).is_empty():
+		return   # einen beschädigten Hauptstand nie über ein gutes Backup kopieren
+	DirAccess.copy_absolute(_path(), backup)
+
+
+## Bewahrt eine nicht ladbare Datei als Kopie auf, damit ein folgender Neustart sie nicht überschreibt.
+func _quarantine(p: String, tag: String) -> void:
+	if FileAccess.file_exists(p):
+		DirAccess.copy_absolute(p, "%s.%s" % [p, tag])
 
 
 func _read(p: String) -> Dictionary:
@@ -81,13 +126,28 @@ func _read(p: String) -> Dictionary:
 
 ## Lädt den Spielstand; fällt bei beschädigter Hauptdatei auf das Backup zurück.
 func load_game() -> bool:
+	last_load_error = ""
 	for p in [_path(), _backup_path()]:
+		if not FileAccess.file_exists(p):
+			continue
 		var data := _read(p)
 		if data.is_empty():
+			last_load_error = "invalid"
+			_quarantine(p, "corrupt")
+			continue
+		if int(data.get("version", 0)) > GameState.SAVE_VERSION:
+			# Stand einer neueren App-Version: nicht laden und nicht überschreiben.
+			last_load_error = "newer"
+			_quarantine(p, "newer")
 			continue
 		data = migrate(data)
 		if GameState.deserialize(data):
+			last_load_error = ""
+			# Nur nach dem Laden der Hauptdatei ist der Stand "bereits gespeichert".
+			_last_saved_fingerprint = _fingerprint(GameState.serialize()) if p == _path() else ""
 			return true
+		last_load_error = "invalid"
+		_quarantine(p, "corrupt")
 	return false
 
 

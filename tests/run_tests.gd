@@ -65,6 +65,8 @@ func _initialize() -> void:
 	test_data_consistency()
 	test_economy()
 	test_new_crops()
+	section = "Spielstand-Export/Import"
+	load("res://tests/suites/save_transfer.gd").new().run(self)
 	ss.delete_save()
 	print("")
 	print("Ergebnis: %d bestanden, %d fehlgeschlagen" % [passed, failed])

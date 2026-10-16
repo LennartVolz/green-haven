@@ -1,0 +1,92 @@
+{
+	"active_delivery_story": "",
+	"animals": [],
+	"claimed_achievements": [],
+	"claimed_quests": [],
+	"coins": 120,
+	"daily_cafe_special_at": 0.0,
+	"daily_cafe_special_id": "",
+	"delivery_story_stage": 0,
+	"diary": [],
+	"fields": [
+		{
+			"crop": "",
+			"t": 0.0,
+			"x": 8,
+			"y": 11
+		}
+	],
+	"inventory": {
+
+	},
+	"land": [
+		8,
+		11,
+		8,
+		8
+	],
+	"land_level": 0,
+	"level": 1,
+	"neighborhood_event_completed_cycle": -1,
+	"neighborhood_event_order": {
+
+	},
+	"neighborhood_event_stage": 0,
+	"next_order_at": 1000.0,
+	"next_rescue_at": 0.0,
+	"next_uid": 20,
+	"objects": [],
+	"orders": [
+		{
+			"coins": 5,
+			"customer": "Mira",
+			"id": 10,
+			"items": {
+				"wheat": 1
+			},
+			"xp": 2
+		},
+		{
+			"coins": 6,
+			"customer": "Jonas",
+			"id": 11,
+			"items": {
+				"carrot": 1
+			},
+			"xp": 2
+		},
+		{
+			"coins": 7,
+			"customer": "Lena",
+			"id": 12,
+			"items": {
+				"potato": 1
+			},
+			"xp": 3
+		},
+		{
+			"coins": 8,
+			"customer": "Emil",
+			"id": 13,
+			"items": {
+				"tomato": 1
+			},
+			"xp": 3
+		}
+	],
+	"rescue_case": {
+
+	},
+	"saved_at": 0.0,
+	"settings": {
+		"music": true,
+		"sound": true,
+		"vibration": true
+	},
+	"stats": {
+
+	},
+	"tutorial_step": 99,
+	"version": 8,
+	"xp": 0
+}

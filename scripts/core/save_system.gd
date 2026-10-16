@@ -51,6 +51,140 @@ func has_save() -> bool:
 	return FileAccess.file_exists(_path()) or FileAccess.file_exists(_backup_path())
 
 
+## Exportiert den aktuellen Stand als einzelne JSON-Datei.
+func export_to_file(destination: String) -> bool:
+	if not GameState.loaded or destination.strip_edges().is_empty():
+		return false
+	return _replace_json(destination, GameState.serialize())
+
+
+## Prüft den Import vollständig an einer separaten GameState-Instanz, bevor
+## Sicherung, Datei oder laufender Zustand verändert werden.
+func import_from_file(source: String) -> bool:
+	last_load_error = ""
+	if source == _path() or source == _backup_path():
+		last_load_error = "invalid"
+		return false
+	if source.strip_edges().is_empty():
+		last_load_error = "invalid"
+		return false
+	var candidate := _read(source)
+	if candidate.is_empty() or not candidate.has("version") or (typeof(candidate["version"]) != TYPE_INT and typeof(candidate["version"]) != TYPE_FLOAT):
+		last_load_error = "invalid"
+		return false
+	var source_version := float(candidate["version"])
+	if not is_finite(source_version) or source_version < 0.0 or source_version != floorf(source_version):
+		last_load_error = "invalid"
+		return false
+	if source_version > GameState.SAVE_VERSION:
+		last_load_error = "newer"
+		return false
+	candidate = migrate(candidate.duplicate(true))
+	var probe_script: GDScript = load("res://scripts/core/game_state.gd")
+	var probe: Node = probe_script.new()
+	probe.time_offset = GameState.time_offset
+	var valid: bool = probe.deserialize(candidate.duplicate(true))
+	probe.free()
+	if not valid:
+		last_load_error = "invalid"
+		return false
+	var old_state: Dictionary = GameState.serialize() if GameState.loaded else {}
+	var backup_before_import: Dictionary = _read(_backup_path()) if FileAccess.file_exists(_backup_path()) else {}
+	if not old_state.is_empty() and not _replace_json(_backup_path(), old_state):
+		last_load_error = "invalid"
+		return false
+	if not _replace_json(_path(), candidate):
+		_restore_import_backup(backup_before_import)
+		last_load_error = "invalid"
+		return false
+	if not GameState.deserialize(candidate.duplicate(true)):
+		# Die Probe und der echte Ladevorgang verwenden denselben Validator. Dieser
+		# Rückweg schützt zusätzlich vor unerwarteten Plattform-/Laufzeitfehlern.
+		if not old_state.is_empty():
+			_replace_json(_path(), old_state)
+			GameState.deserialize(old_state.duplicate(true))
+		_restore_import_backup(backup_before_import)
+		last_load_error = "invalid"
+		return false
+	_last_saved_fingerprint = _fingerprint(GameState.serialize())
+	last_load_error = ""
+	return true
+
+
+func _restore_import_backup(previous: Dictionary) -> void:
+	if previous.is_empty():
+		if FileAccess.file_exists(_backup_path()):
+			DirAccess.remove_absolute(_backup_path())
+		return
+	_replace_json(_backup_path(), previous)
+
+
+func _json_values_match(left: Variant, right: Variant) -> bool:
+	if (typeof(left) == TYPE_INT or typeof(left) == TYPE_FLOAT) and (typeof(right) == TYPE_INT or typeof(right) == TYPE_FLOAT):
+		return is_equal_approx(float(left), float(right))
+	if typeof(left) != typeof(right):
+		return false
+	if typeof(left) == TYPE_DICTIONARY:
+		if left.size() != right.size():
+			return false
+		for key in left:
+			if not right.has(key) or not _json_values_match(left[key], right[key]):
+				return false
+		return true
+	if typeof(left) == TYPE_ARRAY:
+		if left.size() != right.size():
+			return false
+		for index in range(left.size()):
+			if not _json_values_match(left[index], right[index]):
+				return false
+		return true
+	return left == right
+
+
+func _write_json(destination: String, data: Dictionary) -> bool:
+	var parent_directory := destination.get_base_dir()
+	if parent_directory.begins_with("user://") or parent_directory.begins_with("res://"):
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(parent_directory))
+	var file := FileAccess.open(destination, FileAccess.WRITE)
+	if file == null:
+		return false
+	file.store_string(JSON.stringify(data))
+	file.close()
+	return _json_values_match(_read(destination), data)
+
+
+## Ersetzt die Zieldatei über eine geprüfte temporäre Datei und stellt sie bei
+## einem fehlgeschlagenen Umbenennen wieder her.
+func _replace_json(destination: String, data: Dictionary) -> bool:
+	var temporary := destination + ".import.tmp"
+	if not _write_json(temporary, data):
+		if FileAccess.file_exists(temporary):
+			DirAccess.remove_absolute(temporary)
+		return false
+	var had_destination := FileAccess.file_exists(destination)
+	var previous := destination + ".import.previous"
+	if had_destination:
+		if FileAccess.file_exists(previous):
+			DirAccess.remove_absolute(previous)
+		if DirAccess.rename_absolute(destination, previous) != OK:
+			DirAccess.remove_absolute(temporary)
+			return false
+	var result := DirAccess.rename_absolute(temporary, destination)
+	if result != OK:
+		if had_destination:
+			DirAccess.rename_absolute(previous, destination)
+		DirAccess.remove_absolute(temporary)
+		return false
+	if not _json_values_match(_read(destination), data):
+		DirAccess.remove_absolute(destination)
+		if had_destination and FileAccess.file_exists(previous):
+			DirAccess.rename_absolute(previous, destination)
+		return false
+	if had_destination and FileAccess.file_exists(previous):
+		DirAccess.remove_absolute(previous)
+	return true
+
+
 ## Speichert den Spielstand. Mit force = false (Autosave) wird nichts geschrieben,
 ## solange sich seit dem letzten Speichern nichts geändert hat.
 func save_game(force: bool = true) -> bool:
@@ -166,10 +300,14 @@ func migrate(data: Dictionary) -> Dictionary:
 		# Neue Tierprofile und Rettungsfälle sind optionale Felder alter Stände.
 		data["rescue_case"] = {}
 		data["next_rescue_at"] = 0.0
-		for animal in data.get("animals", []):
-			animal["traits"] = []
-			animal["accessories"] = []
-			animal["activity_at"] = 0.0
+		var legacy_animals: Variant = data.get("animals", [])
+		if typeof(legacy_animals) == TYPE_ARRAY:
+			for animal in legacy_animals:
+				if typeof(animal) != TYPE_DICTIONARY:
+					continue
+				animal["traits"] = []
+				animal["accessories"] = []
+				animal["activity_at"] = 0.0
 		data["version"] = 2
 		v = 2
 	if v < 3:
@@ -186,7 +324,8 @@ func migrate(data: Dictionary) -> Dictionary:
 		v = 4
 	if v < 5:
 		# Café-Fortschritt startet für alte Spielstände bei null.
-		var stats: Dictionary = data.get("stats", {})
+		var stats_value: Variant = data.get("stats", {})
+		var stats: Dictionary = stats_value if typeof(stats_value) == TYPE_DICTIONARY else {}
 		stats["cafe_orders"] = int(stats.get("cafe_orders", 0))
 		stats["cafe_stories_shared"] = int(stats.get("cafe_stories_shared", 0))
 		stats["cafe_stories_completed"] = int(stats.get("cafe_stories_completed", 0))
@@ -197,7 +336,8 @@ func migrate(data: Dictionary) -> Dictionary:
 		# Das 24-Stunden-Tagesgericht wird für bestehende Café-Spielstände ausgewählt.
 		data["daily_cafe_special_id"] = str(data.get("daily_cafe_special_id", ""))
 		data["daily_cafe_special_at"] = float(data.get("daily_cafe_special_at", 0.0))
-		var cafe_stats: Dictionary = data.get("stats", {})
+		var cafe_stats_value: Variant = data.get("stats", {})
+		var cafe_stats: Dictionary = cafe_stats_value if typeof(cafe_stats_value) == TYPE_DICTIONARY else {}
 		cafe_stats["cafe_special_orders"] = int(cafe_stats.get("cafe_special_orders", 0))
 		data["stats"] = cafe_stats
 		data["version"] = 6
@@ -216,6 +356,6 @@ func migrate(data: Dictionary) -> Dictionary:
 
 
 func delete_save() -> void:
-	for p in [_path(), _backup_path(), _tmp_path()]:
+	for p in [_path(), _backup_path(), _tmp_path(), _path() + ".import.tmp", _path() + ".import.previous"]:
 		if FileAccess.file_exists(p):
 			DirAccess.remove_absolute(p)

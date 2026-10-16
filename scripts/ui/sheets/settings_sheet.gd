@@ -12,13 +12,10 @@ static func build(ui, _args: Dictionary) -> void:
 	var b1 := UiKit.button("Ton: %s" % ("An" if snd else "Aus"), "primary" if snd else "light", 32)
 	b1.pressed.connect(ui.act_toggle.bind("sound"))
 	c.add_child(b1)
-	var music_available: bool = MusicScript.track_available()
-	var music_button := UiKit.button("Hintergrundmusik: %s" % (("An" if music else "Aus") if music_available else "Datei fehlt"), "primary" if music and music_available else "light", 32)
-	music_button.disabled = not music_available
-	music_button.tooltip_text = "Track: res://audio/Sunlight_on_the_Path.mp3" if music_available else "Lege den MP3-Track unter res://audio/Sunlight_on_the_Path.mp3 ab."
-	if music_available:
+	if MusicScript.track_available():
+		var music_button := UiKit.button("Hintergrundmusik: %s" % ("An" if music else "Aus"), "primary" if music else "light", 32)
 		music_button.pressed.connect(ui.act_toggle.bind("music"))
-	c.add_child(music_button)
+		c.add_child(music_button)
 	var b2 := UiKit.button("Vibration: %s" % ("An" if vib else "Aus"), "primary" if vib else "light", 32)
 	b2.pressed.connect(ui.act_toggle.bind("vibration"))
 	c.add_child(b2)
@@ -31,7 +28,8 @@ static func build(ui, _args: Dictionary) -> void:
 	save.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	save.pressed.connect(ui.act_save)
 	row.add_child(save)
-	var load_b := UiKit.button("Laden", "light", 30)
+	var load_armed: bool = ui.state.get("confirm_load", false)
+	var load_b := UiKit.button("Wirklich laden? Nochmal tippen" if load_armed else "Laden", "danger" if load_armed else "light", 30)
 	load_b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	load_b.disabled = not SaveSystem.has_save()
 	load_b.pressed.connect(ui.act_load)
@@ -46,7 +44,7 @@ static func build(ui, _args: Dictionary) -> void:
 	tut.pressed.connect(ui.act_restart_tutorial)
 	c.add_child(tut)
 	var armed: bool = ui.state.get("confirm_new", false)
-	var nb := UiKit.button("Wirklich neu beginnen? Nochmal tippen" if armed else "Neues Spiel beginnen", "danger" if armed else "light", 30)
+	var nb := UiKit.button("Alles löschen und neu beginnen? Nochmal tippen" if armed else "Neues Spiel beginnen", "danger" if armed else "light", 30)
 	nb.pressed.connect(ui.act_new_game)
 	c.add_child(nb)
 	var ver := UiKit.label("Green Haven · Version %s · Spielstand-Format %d" % [ProjectSettings.get_setting("application/config/version", "0.1.0"), GameState.SAVE_VERSION], 22, UiKit.earth_dark())

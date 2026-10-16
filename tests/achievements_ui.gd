@@ -80,7 +80,7 @@ func run() -> void:
 	ui.act_open("settings", {})
 	await frames()
 	var music_available: bool = load("res://scripts/core/background_music.gd").track_available()
-	check(find_button(ui.content, "Hintergrundmusik: Datei fehlt") != null if not music_available else find_button(ui.content, "Hintergrundmusik: An") != null, "Musikoption zeigt Trackstatus in den Einstellungen")
+	check(find_button(ui.content, "Hintergrundmusik:") == null if not music_available else find_button(ui.content, "Hintergrundmusik: An") != null, "Musikoption erscheint nur, wenn der Track vorhanden ist")
 	var music_button := find_button(ui.content, "Hintergrundmusik:")
 	if music_available and check(music_button != null, "Musik lässt sich über die Einstellungen umschalten"):
 		music_button.pressed.emit()

@@ -22,6 +22,7 @@ jobs:
         run: |
           godot --headless --path . --editor --quit
           godot --headless --path . -s res://tests/run_tests.gd
+          godot --headless --path . -s res://tests/achievements_ui.gd
 
       - name: Export-Templates bereitstellen
         run: |

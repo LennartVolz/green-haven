@@ -168,6 +168,7 @@ func _build_top() -> void:
 	day_info.add_child(_event_label)
 	_weather_label = UiKit.label("Wetter: Sonnig", 21, UiKit.cream())
 	_weather_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_weather_label.tooltip_text = "Das Wetter beeinflusst das Wachstum aller Pflanzen."
 	day_info.add_child(_weather_label)
 	day_panel.add_child(day_info)
 	h.add_child(day_panel)
@@ -409,6 +410,18 @@ func close_sheet() -> void:
 	_update_nav_highlight()
 
 
+## Android-Zurück-Taste: schließt zuerst das offene Menü, dann ein aktives Werkzeug.
+## Liefert true, wenn die Taste dadurch verbraucht wurde; sonst darf die App den Beenden-Dialog zeigen.
+func handle_back() -> bool:
+	if _sheet_name != "":
+		close_sheet()
+		return true
+	if world.tool_mode != "":
+		world.clear_tool()
+		return true
+	return false
+
+
 func refresh_sheet() -> void:
 	if _sheet_name == "":
 		return
@@ -498,7 +511,6 @@ func _process(delta: float) -> void:
 		_tick_acc = 0.0
 		_day_label.text = world.day_clock_text()
 		_weather_label.text = GameData.weather_effect_text(world.current_weather)
-		_weather_label.tooltip_text = "Das Wetter beeinflusst das Wachstum aller Pflanzen."
 		if GameState.has_building("cafe"):
 			_event_label.text = "Gartentag!" if GameState.neighborhood_event_active() else "Gartentag in %s" % GameData.format_time(GameState.neighborhood_event_seconds_left())
 		else:
@@ -838,12 +850,25 @@ func act_save() -> void:
 		show_toast("Speichern fehlgeschlagen", "error")
 
 
+## Laden verwirft den aktuellen Fortschritt (der Autosave ist höchstens 15 Sekunden alt),
+## deshalb wie bei "Neues Spiel" erst nach einem zweiten Tippen innerhalb von vier Sekunden.
 func act_load() -> void:
+	if not bool(state.get("confirm_load", false)):
+		state["confirm_load"] = true
+		refresh_sheet()
+		get_tree().create_timer(4.0).timeout.connect(func() -> void:
+			state["confirm_load"] = false
+			if _sheet_name == "settings":
+				refresh_sheet())
+		return
+	state["confirm_load"] = false
 	if SaveSystem.load_game():
 		world.clear_tool()
 		world.reset_camera()
 		show_toast("Spielstand geladen", "good")
 		close_sheet()
+	elif SaveSystem.last_load_error == "newer":
+		show_toast("Dieser Spielstand stammt aus einer neueren Version", "error")
 	else:
 		show_toast("Kein Spielstand gefunden", "error")
 

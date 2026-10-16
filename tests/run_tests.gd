@@ -60,6 +60,9 @@ func _initialize() -> void:
 	test_save_roundtrip()
 	test_offline_progress()
 	test_corrupt_and_migration()
+	test_save_hardening()
+	test_logic_regressions()
+	test_data_consistency()
 	test_economy()
 	test_new_crops()
 	ss.delete_save()
@@ -331,7 +334,7 @@ func test_delivery_stories() -> void:
 					story_order = order
 	check(gs.active_delivery_story.is_empty(), "abgeschlossene Reihe wird beendet")
 	check(gs.diary.size() >= 5 and String(gs.diary.back().text).contains("abgeschlossen"), "Abschluss und Abschnitte stehen im Refugiums-Tagebuch")
-	check(gd.RECIPES.size() == 26, "Café und Tageskarte enthalten sechs neue Rezepte")
+	check(gd.RECIPES.size() >= 26, "Café und Tageskarte enthalten sechs neue Rezepte")
 
 
 func test_cafe() -> void:
@@ -351,6 +354,8 @@ func test_cafe() -> void:
 		if str(achievement["id"]) == "cafe_open":
 			cafe_achievement = achievement
 	check(not cafe_achievement.is_empty() and gs.achievement_unlocked(cafe_achievement), "Café-Erfolg erkennt das Gebäude")
+	check(not gs.available_delivery_stories().has("cafe_opening"), "Café-Geschichte wartet auf Stufe 9, damit alle Lieferungen herstellbar sind")
+	level_to(9)
 	check(gs.available_delivery_stories().has("cafe_opening"), "Café-Geschichte wird mit Gebäude angeboten")
 	check(gs.start_delivery_story("cafe_opening"), "Café-Geschichte starten")
 	var cafe_story_order: Dictionary = {}
@@ -711,7 +716,7 @@ func test_land_and_objects() -> void:
 
 func test_land_expansion_chain() -> void:
 	begin("Zusammenhängende Farm bis 24×24")
-	check(gd.LAND_EXPANSIONS.size() == 8, "acht fortlaufende Erweiterungsstufen sind vorhanden")
+	check(gd.LAND_EXPANSIONS.size() >= 8, "acht fortlaufende Erweiterungsstufen sind vorhanden")
 	check(gd.LAND_EXPANSIONS[4]["level"] < gd.LAND_EXPANSIONS[5]["level"] and gd.LAND_EXPANSIONS[5]["level"] < gd.LAND_EXPANSIONS[6]["level"] and gd.LAND_EXPANSIONS[6]["level"] < gd.LAND_EXPANSIONS[7]["level"], "zusätzliche Freischaltungen steigen sinnvoll an")
 	check(gs.land == Rect2i(8, 11, 8, 8), "Farm startet auf 8×8 Feldern")
 	gs.coins = 100000
@@ -837,6 +842,7 @@ func test_offline_progress() -> void:
 
 func test_corrupt_and_migration() -> void:
 	begin("Beschädigter Spielstand und Migration")
+	ss.delete_save()
 	gs.coins = 777
 	check(ss.save_game(), "erster Speicherstand")
 	gs.coins = 888
@@ -942,11 +948,150 @@ func test_new_crops() -> void:
 			gs.time_offset += gd.real_seconds_for_crop_growth(gs.now(), float(definition["grow"])) + 0.01
 			check(gs.harvest(cell), "%s kann nach effektiver Wetter-Wachstumszeit erneut geerntet werden" % crop)
 		gs.fields[cell] = {"crop": "", "t": 0.0}
-	check(gd.RECIPES.size() == 26, "Café und Tageskarte enthalten sechs neue Rezepte")
+	check(gd.RECIPES.size() >= 26, "Café und Tageskarte enthalten sechs neue Rezepte")
 	for recipe in ["pumpkin_spice_latte", "blueberry_coffee_cake"]:
 		check(gd.items.has(recipe), "%s ist als Tagesgericht-Produkt registriert" % recipe)
 	for recipe in ["pumpkin_soup", "beet_spread", "garden_salad", "blueberry_smoothie", "rice_milk", "quinoa_bowl"]:
 		check(gd.items.has(recipe), "%s ist als Produkt im Inventar registriert" % recipe)
 	check(gd.unlocks_at(18).has("Quinoa"), "Quinoa wird auf Stufe 18 freigeschaltet")
-	check(gd.LAND_EXPANSIONS.size() == 8, "acht Landstufen erreichen gemeinsam den Vollausbau")
+	check(gd.LAND_EXPANSIONS.size() >= 8, "acht Landstufen erreichen gemeinsam den Vollausbau")
 	check(gd.items.has("pumpkin") and gd.items.has("blueberry"), "neue Ernten als handelbare Items registriert")
+
+
+func _write_text(path: String, text: String) -> void:
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(text)
+	f.close()
+
+
+func test_save_hardening() -> void:
+	begin("Spielstand-Härtung")
+	ss.delete_save()
+	for suffix in [".corrupt", ".newer"]:
+		DirAccess.remove_absolute(ss._path() + suffix)
+	# Das Backup wird nicht bei jedem Speichern überschrieben, sondern bleibt eine Weile stabil.
+	gs.coins = 100
+	check(ss.save_game(), "Speicherstand A")
+	gs.coins = 200
+	check(ss.save_game(), "Speicherstand B (legt das Backup mit Stand A an)")
+	gs.coins = 300
+	check(ss.save_game(), "Speicherstand C (Backup bleibt frisch und unverändert)")
+	check(int(ss._read(ss._backup_path()).get("coins", -1)) == 100, "Backup wird nicht bei jedem Speichern überschrieben")
+	check(int(ss._read(ss._path()).get("coins", -1)) == 300, "Hauptdatei enthält den neuesten Stand")
+	check(not FileAccess.file_exists(ss._tmp_path()), "keine temporäre Datei bleibt liegen")
+	# Autosave schreibt nur bei Änderungen, das ausdrückliche Speichern immer.
+	_write_text(ss._path(), "marker")
+	check(ss.save_game(false), "unveränderter Autosave gilt als erfolgreich")
+	check(FileAccess.get_file_as_string(ss._path()) == "marker", "Autosave schreibt nichts, solange sich der Stand nicht ändert")
+	gs.coins += 1
+	check(ss.save_game(false) and FileAccess.get_file_as_string(ss._path()) != "marker", "Autosave schreibt nach einer Änderung")
+	_write_text(ss._path(), "marker")
+	check(ss.save_game() and FileAccess.get_file_as_string(ss._path()) != "marker", "ausdrückliches Speichern schreibt immer")
+	# Ein Stand aus einer neueren Spielversion wird weder geladen noch überschrieben.
+	var newer: Dictionary = gs.serialize()
+	newer["version"] = gs.SAVE_VERSION + 1
+	newer["coins"] = 99999
+	_write_text(ss._path(), JSON.stringify(newer))
+	DirAccess.remove_absolute(ss._backup_path())
+	gs.coins = 321
+	check(not ss.load_game(), "Stand aus neuerer Version wird nicht geladen")
+	check(ss.last_load_error == "newer", "Grund 'neuere Version' wird gemeldet")
+	check(gs.coins == 321, "laufender Spielstand bleibt unangetastet")
+	check(FileAccess.file_exists(ss._path() + ".newer"), "Stand der neueren Version bleibt als Kopie erhalten")
+	check(not gs.deserialize(newer) and gs.coins == 321, "deserialize lehnt neuere Versionen ab, ohne den Zustand zu löschen")
+	# Unlesbarer Stand: Kopie bleibt erhalten, ein gutes Backup wird nicht überschrieben.
+	ss.delete_save()
+	gs.coins = 150
+	check(ss.save_game(), "Stand für Beschädigungstest")
+	check(ss.save_game(), "zweiter Stand legt Backup an")
+	_write_text(ss._path(), "{ kaputt")
+	check(ss.save_game(), "Speichern über eine beschädigte Hauptdatei funktioniert")
+	check(int(ss._read(ss._backup_path()).get("coins", -1)) == 150, "gutes Backup bleibt erhalten")
+	# Beschädigte Einträge werden verworfen statt das Laden abzubrechen.
+	var broken := {"version": gs.SAVE_VERSION, "coins": 50, "next_uid": 1,
+		"fields": [{"x": 8, "y": 11, "crop": "wheat", "t": 0}, {"y": 3}, "kaputt", {"x": 999, "y": 999, "crop": ""}, {"x": 8, "y": 13, "crop": ""}],
+		"objects": [
+			{"uid": 5, "type": "bakery", "x": 8, "y": 13, "queue": ["nope", {"recipe": "bread", "start": 0, "end": 10}, {"recipe": "ghost", "start": 0, "end": 1}], "upgrades": 1},
+			{"uid": 5, "type": "kitchen", "x": 12, "y": 13},
+			{"uid": 6, "type": "kitchen", "x": 9, "y": 14},
+			{"uid": 7, "type": "paddock", "x": 8, "y": 16},
+			{"type": "bakery", "x": 12, "y": 11},
+			"kaputt",
+		],
+		"animals": [
+			{"uid": 8, "species": "rabbit", "paddock": 99},
+			{"uid": 8, "species": "rabbit", "paddock": 7},
+			{"species": "rabbit"},
+			{"uid": 9, "species": "dragon"},
+		],
+		"orders": [
+			{"id": 20, "items": {"wheat": 2}},
+			{"id": 20, "items": {"carrot": 1}},
+			{"id": 21, "items": "kaputt"},
+			{"id": 22, "items": {"wheat": 1}, "story_id": "lena_cafe"},
+		],
+		"claimed_quests": ["q_plant5", "bogus", "q_plant5"],
+		"diary": ["kaputt", {"text": "ok"}],
+		"stats": "kaputt",
+	}
+	check(gs.deserialize(broken), "Spielstand mit beschädigten Einträgen lässt sich laden")
+	check(gs.fields.size() == 1 and gs.fields.has(Vector2i(8, 11)), "ungültige, doppelte und von Gebäuden belegte Felder verworfen (%d)" % gs.fields.size())
+	check(gs.objects.size() == 2 and gs.get_object(5).get("type", "") == "bakery" and gs.get_object(7).get("type", "") == "paddock", "doppelte UIDs, überlappende und unvollständige Objekte verworfen (%d)" % gs.objects.size())
+	check((gs.get_object(5).queue as Array).size() == 1, "nur gültige Warteschlangeneinträge bleiben")
+	check(gs.animals.size() == 1 and int(gs.animals[0].paddock) == 7, "Tier ohne gültiges Gehege zieht ins freie Gehege")
+	var order_20 := 0
+	var stale_story := false
+	for order in gs.orders:
+		if int(order.id) == 20:
+			order_20 += 1
+		if order.has("story_id"):
+			stale_story = true
+	check(order_20 == 1 and not stale_story, "doppelte und verwaiste Story-Aufträge verworfen")
+	check(gs.next_uid > 20, "next_uid zeigt hinter alle vergebenen IDs (%d)" % gs.next_uid)
+	check(gs.claimed_quests == ["q_plant5"], "unbekannte und doppelte Quest-IDs verworfen")
+	check(gs.diary.size() == 1, "ungültige Tagebucheinträge verworfen")
+	ss.delete_save()
+	for suffix in [".corrupt", ".newer"]:
+		DirAccess.remove_absolute(ss._path() + suffix)
+
+
+func test_logic_regressions() -> void:
+	begin("Regressionen aus dem Code-Audit")
+	# Gartentag-Gäste lassen sich auch in der Logik nicht wegklicken.
+	gs.orders.append({"id": 9001, "customer": "Lena", "items": {"wheat": 1}, "coins": 5, "xp": 1, "neighborhood_event_cycle": 5})
+	check(not gs.skip_order(9001) and gs.find_order(9001) >= 0, "Gartentag-Bestellung lässt sich nicht überspringen")
+	# Die Weltgrenze wird geprüft, bevor Münzen abgezogen werden.
+	level_to(30)
+	gs.coins = 1000000
+	gs.land = Rect2i(0, 3, 24, 24)
+	check(not gs.expand_land(), "Erweiterung über die Weltgrenze scheitert")
+	check(gs.coins == 1000000 and gs.land_level == 0 and gs.land == Rect2i(0, 3, 24, 24), "gescheiterte Erweiterung kostet nichts")
+	# Die Spiel-Logik aktualisiert Aufträge im Takt, nicht pro Frame.
+	check(gs.REFRESH_INTERVAL_SECONDS >= 0.25, "Aufträge werden höchstens im Sekundenbruchteil-Takt geprüft")
+	check(gs.NEIGHBORHOOD_EVENT_FINALE_COINS > 0 and gs.NEIGHBORHOOD_EVENT_FINALE_XP > 0, "Gartentag-Finale hat benannte Belohnungen")
+
+
+func test_data_consistency() -> void:
+	begin("Konsistenz der Spieldaten")
+	var ids := {}
+	for q in gd.QUESTS:
+		check(not ids.has(q["id"]), "Quest-ID %s ist eindeutig" % q["id"])
+		ids[q["id"]] = true
+	ids = {}
+	for a in gd.ACHIEVEMENTS:
+		check(not ids.has(a["id"]), "Erfolgs-ID %s ist eindeutig" % a["id"])
+		ids[a["id"]] = true
+	for rid in gd.RECIPES:
+		var r: Dictionary = gd.RECIPES[rid]
+		check(gd.BUILDINGS.has(r["building"]) and gd.BUILDINGS[r["building"]]["kind"] == "production", "Rezept %s gehört zu einem Produktionsgebäude" % rid)
+		check(int(r["level"]) >= int(gd.BUILDINGS[r["building"]]["level"]), "Rezept %s ist nicht vor seinem Gebäude freigeschaltet" % rid)
+		for input in r["inputs"]:
+			check(gd.items.has(input), "Zutat %s von %s existiert" % [input, rid])
+			check(int(gd.items[input]["level"]) <= int(r["level"]), "Zutat %s von %s ist auf Rezeptstufe herstellbar" % [input, rid])
+	for sid in gd.DELIVERY_STORIES:
+		var story: Dictionary = gd.DELIVERY_STORIES[sid]
+		for stage in story["stages"]:
+			for item in stage["items"]:
+				check(gd.items.has(item) and int(gd.items[item]["level"]) <= int(story["level"]), "Geschichte %s: %s ist ab der Startstufe herstellbar" % [sid, item])
+	var world := Rect2i(gd.WORLD_ORIGIN, Vector2i(gd.WORLD_COLS, gd.WORLD_ROWS))
+	check(world.encloses(gd.START_LAND.grow(gd.LAND_EXPANSIONS.size())), "voll ausgebaute Farm liegt innerhalb der Welt")

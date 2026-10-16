@@ -298,8 +298,10 @@ func _process(delta: float) -> void:
 	day_modulate.color = daylight_color.lerp(daylight_color * weather_tint_at(current_weather), weather_strength)
 	_weather_accumulator += delta
 	if _weather_accumulator >= 1.0:
-		weather_elapsed_seconds = fposmod(weather_elapsed_seconds + _weather_accumulator, GameData.WEATHER_DURATION_SECONDS * float(GameData.WEATHER_TYPES.size()))
-		_weather_accumulator = fposmod(_weather_accumulator, 1.0)
+		# Jede Sekunde aus der echten Zeit neu setzen (wie das Pflanzenwachstum), statt Frame-Zeit
+		# aufzusummieren: so bleibt die Anzeige auch nach einer App-Pause korrekt.
+		weather_elapsed_seconds = fposmod(GameState.now(), GameData.WEATHER_DURATION_SECONDS * float(GameData.WEATHER_TYPES.size()))
+		_weather_accumulator = 0.0
 		var next_weather_index := GameData.weather_index_at(weather_elapsed_seconds)
 		if next_weather_index != _weather_index:
 			_weather_index = next_weather_index

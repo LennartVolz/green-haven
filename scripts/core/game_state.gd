@@ -25,6 +25,10 @@ const MAX_ORDERS := 4
 const NEIGHBORHOOD_EVENT_CYCLE_SECONDS := 3.0 * 60.0 * 60.0
 const NEIGHBORHOOD_EVENT_DURATION_SECONDS := 30.0 * 60.0
 const NEIGHBORHOOD_EVENT_SERIES_LENGTH := 3
+## Belohnung für den Abschluss der dritten Etappe eines Gartentags.
+const NEIGHBORHOOD_EVENT_FINALE_COINS := 90
+const NEIGHBORHOOD_EVENT_FINALE_XP := 30
+const REFRESH_INTERVAL_SECONDS := 0.5
 const CAFE_SPECIAL_DURATION := 24.0 * 60.0 * 60.0
 const CAFE_SPECIAL_ORDER_CHANCE := 0.7
 const CAFE_SPECIAL_COIN_BONUS := 0.5
@@ -72,6 +76,7 @@ var next_order_at := 0.0
 var away_seconds := 0.0
 
 var _occ: Dictionary = {}        ## Vector2i -> uid
+var _refresh_acc := 0.0
 
 
 func _ready() -> void:
@@ -84,10 +89,16 @@ func now() -> float:
 	return Time.get_unix_time_from_system() + time_offset
 
 
-func _process(_delta: float) -> void:
-	if loaded:
-		_fill_orders()
-		_refresh_rescue_case()
+func _process(delta: float) -> void:
+	if not loaded:
+		return
+	# Aufträge und Rettungsfälle ändern sich nur im Sekundentakt; pro Frame wäre das Verschwendung.
+	_refresh_acc += delta
+	if _refresh_acc < REFRESH_INTERVAL_SECONDS:
+		return
+	_refresh_acc = 0.0
+	_fill_orders()
+	_refresh_rescue_case()
 
 
 # ---------------------------------------------------------------- Zustand
@@ -448,18 +459,17 @@ func expand_land() -> bool:
 	if level < int(ex["level"]):
 		last_error = "Ab Stufe %d" % int(ex["level"])
 		return false
+	var grown := land.grow(1)
+	if grown.position.x < GameData.WORLD_ORIGIN.x or grown.position.y < GameData.WORLD_ORIGIN.y \
+			or grown.end.x > GameData.WORLD_ORIGIN.x + GameData.WORLD_COLS \
+			or grown.end.y > GameData.WORLD_ORIGIN.y + GameData.WORLD_ROWS:
+		last_error = "Die Farm hat die Weltgrenze erreicht"
+		return false
 	if not spend_coins(int(ex["cost"])):
 		last_error = "Nicht genug Münzen"
 		return false
-	var previous_land := land
-	land = land.grow(1)
+	land = grown
 	land_level += 1
-	if land.position.x < GameData.WORLD_ORIGIN.x or land.position.y < GameData.WORLD_ORIGIN.y or land.end.x > GameData.WORLD_ORIGIN.x + GameData.WORLD_COLS or land.end.y > GameData.WORLD_ORIGIN.y + GameData.WORLD_ROWS:
-		land = previous_land
-		land_level -= 1
-		add_coins(int(ex["cost"]))
-		last_error = "Die Farm hat die Weltgrenze erreicht"
-		return false
 	bump("expansions")
 	world_changed.emit()
 	sound.emit("build")
@@ -777,8 +787,6 @@ func _neighborhood_event_candidates(stage_index: int) -> Array[String]:
 	for crop_id in definition.get("crops", []):
 		if GameData.CROPS.has(str(crop_id)) and int(GameData.CROPS[str(crop_id)]["level"]) <= level:
 			candidates.append(str(crop_id))
-	if bool(definition.get("cafe_only", false)) and not has_building("cafe"):
-		return candidates
 	for recipe_id in definition.get("cafe_recipes", []):
 		if GameData.RECIPES.has(str(recipe_id)) and int(GameData.RECIPES[str(recipe_id)]["level"]) <= level and has_building("cafe"):
 			candidates.append(str(recipe_id))
@@ -841,7 +849,7 @@ func _fill_orders() -> void:
 				orders.remove_at(overflow_index)
 				evicted_order = true
 				break
-		changed = evicted_order
+		changed = changed or evicted_order
 		if not evicted_order:
 			reserve_event_slot = false
 	if reserve_event_slot and orders.size() < MAX_ORDERS and not _has_neighborhood_event_order(event_cycle):
@@ -962,8 +970,8 @@ func fulfill_order(order_id: int) -> bool:
 			if event_cafe_guest:
 				bump("cafe_stories_shared")
 			if event_stage == NEIGHBORHOOD_EVENT_SERIES_LENGTH - 1:
-				add_coins(90)
-				add_xp(30)
+				add_coins(NEIGHBORHOOD_EVENT_FINALE_COINS)
+				add_xp(NEIGHBORHOOD_EVENT_FINALE_XP)
 				bump("neighborhood_events_completed")
 				add_diary_entry("Der Gartentag endet mit einem langen Café-Nachmittag. Gemeinsam habt ihr drei Geschichten geteilt!")
 				neighborhood_event_completed_cycle = neighborhood_cycle
@@ -990,7 +998,7 @@ func fulfill_order(order_id: int) -> bool:
 	orders_changed.emit()
 	quests_changed.emit()
 	if event_completed_now:
-		toast.emit("Der Gartentag ist ein voller Erfolg! +90 Münzen · +30 XP", "good")
+		toast.emit("Der Gartentag ist ein voller Erfolg! +%d Münzen · +%d XP" % [NEIGHBORHOOD_EVENT_FINALE_COINS, NEIGHBORHOOD_EVENT_FINALE_XP], "good")
 		sound.emit("level")
 	else:
 		sound.emit("coin")
@@ -1000,8 +1008,9 @@ func fulfill_order(order_id: int) -> bool:
 
 func skip_order(order_id: int) -> bool:
 	var idx := find_order(order_id)
-	if idx < 0 or orders[idx].has("story_id") or orders[idx].has("visitor_story"):
-		return false
+	if idx < 0 or orders[idx].has("story_id") or orders[idx].has("visitor_story") \
+			or orders[idx].has("neighborhood_event_cycle"):
+		return false   # Geschichts-, Café- und Gartentag-Gäste bleiben, bis ihre Bestellung angenommen wird
 	orders.remove_at(idx)
 	next_order_at = now() + ORDER_COOLDOWN
 	orders_changed.emit()
@@ -1394,96 +1403,184 @@ func serialize() -> Dictionary:
 	}
 
 
+## Liefert ein Array aus einem geladenen Spielstand; ein Wert mit falschem Typ zählt als leer.
+func _save_array(d: Dictionary, key: String) -> Array:
+	var v: Variant = d.get(key, [])
+	if typeof(v) == TYPE_ARRAY:
+		return v
+	return []
+
+
+## Wie _save_array, für Dictionaries.
+func _save_dict(d: Dictionary, key: String) -> Dictionary:
+	var v: Variant = d.get(key, {})
+	if typeof(v) == TYPE_DICTIONARY:
+		return v
+	return {}
+
+
+## Prüft, ob ein geladener Eintrag ein Dictionary mit allen Schlüsseln ist.
+func _has_keys(e: Variant, keys: Array) -> bool:
+	if typeof(e) != TYPE_DICTIONARY:
+		return false
+	for k in keys:
+		if not (e as Dictionary).has(k):
+			return false
+	return true
+
+
+func _world_rect() -> Rect2i:
+	return Rect2i(GameData.WORLD_ORIGIN, Vector2i(GameData.WORLD_COLS, GameData.WORLD_ROWS))
+
+
 ## Liest einen (bereits migrierten) Spielstand. Ungültige Einträge werden
-## verworfen, negative Bestände und unbekannte IDs können nicht entstehen.
+## verworfen, negative Bestände, unbekannte IDs, doppelte UIDs, überlappende
+## Objekte und Einträge außerhalb der Welt können nicht entstehen. Ein Stand aus
+## einer neueren Spielversion wird abgelehnt, bevor der aktuelle Zustand angetastet wird.
 func deserialize(d: Dictionary) -> bool:
 	if not d.has("version"):
 		return false
+	if int(d.get("version", 0)) > SAVE_VERSION:
+		last_error = "Der Spielstand stammt aus einer neueren Version des Spiels"
+		return false
 	reset_state()
+	var world := _world_rect()
 	coins = maxi(0, int(d.get("coins", 0)))
 	level = clampi(int(d.get("level", 1)), 1, GameData.MAX_LEVEL)
 	xp = maxi(0, int(d.get("xp", 0)))
-	var inv: Dictionary = d.get("inventory", {})
+	var inv := _save_dict(d, "inventory")
 	for id in inv:
 		var n := int(inv[id])
 		if GameData.items.has(id) and n > 0:
 			inventory[id] = n
-	for e in d.get("fields", []):
+	var l := _save_array(d, "land")
+	if l.size() == 4:
+		var saved_land := Rect2i(int(l[0]), int(l[1]), int(l[2]), int(l[3]))
+		if saved_land.size.x > 0 and saved_land.size.y > 0 and world.encloses(saved_land):
+			land = saved_land
+	land_level = clampi(int(d.get("land_level", 0)), 0, GameData.LAND_EXPANSIONS.size())
+	for e in _save_array(d, "fields"):
+		if not _has_keys(e, ["x", "y"]):
+			continue
+		var cell := Vector2i(int(e["x"]), int(e["y"]))
+		if not world.has_point(cell):
+			continue
 		var crop: String = str(e.get("crop", ""))
 		if crop != "" and not GameData.CROPS.has(crop):
 			crop = ""
-		fields[Vector2i(int(e.x), int(e.y))] = {"crop": crop, "t": float(e.get("t", 0.0))}
-	for e in d.get("objects", []):
-		var type: String = str(e.get("type", ""))
-		if GameData.object_def(type).is_empty():
+		fields[cell] = {"crop": crop, "t": float(e.get("t", 0.0))}
+	var object_uids := {}
+	for e in _save_array(d, "objects"):
+		if not _has_keys(e, ["uid", "type", "x", "y"]):
+			continue
+		var type: String = str(e["type"])
+		var definition := GameData.object_def(type)
+		var object_uid := int(e["uid"])
+		if definition.is_empty() or object_uid <= 0 or object_uids.has(object_uid):
+			continue
+		var object_cell := Vector2i(int(e["x"]), int(e["y"]))
+		var footprint := footprint_cells(type, object_cell)
+		var fits := true
+		for c in footprint:
+			if not world.has_point(c) or _occ.has(c):
+				fits = false
+				break
+		if not fits:
 			continue
 		var queue: Array = []
-		for qe in e.get("queue", []):
-			if GameData.RECIPES.has(str(qe.get("recipe", ""))):
-				queue.append({"recipe": str(qe.recipe), "start": float(qe.start), "end": float(qe["end"])})
-		objects.append({"uid": int(e.uid), "kind": GameData.object_def(type)["kind"], "type": type,
-			"cell": Vector2i(int(e.x), int(e.y)), "queue": queue, "upgrades": clampi(int(e.get("upgrades", 0)), 0, MAX_UPGRADES)})
-	for e in d.get("animals", []):
-		if not GameData.ANIMALS.has(str(e.get("species", ""))):
+		for qe in _save_array(e, "queue"):
+			if _has_keys(qe, ["recipe", "start", "end"]) and GameData.RECIPES.has(str(qe["recipe"])):
+				queue.append({"recipe": str(qe["recipe"]), "start": float(qe["start"]), "end": float(qe["end"])})
+		objects.append({"uid": object_uid, "kind": definition["kind"], "type": type,
+			"cell": object_cell, "queue": queue, "upgrades": clampi(int(e.get("upgrades", 0)), 0, MAX_UPGRADES)})
+		object_uids[object_uid] = true
+		for c in footprint:
+			_occ[c] = object_uid
+	for c in _occ:
+		fields.erase(c)   # Objekte haben Vorrang vor Feldern auf derselben Zelle
+	var animal_uids := {}
+	for e in _save_array(d, "animals"):
+		if not _has_keys(e, ["uid", "species"]) or not GameData.ANIMALS.has(str(e["species"])):
 			continue
-		var species: String = str(e.species)
+		var animal_uid := int(e["uid"])
+		if animal_uid <= 0 or animal_uids.has(animal_uid):
+			continue
+		animal_uids[animal_uid] = true
+		var species: String = str(e["species"])
 		var valid_traits: Array = []
-		for trait_id in e.get("traits", []):
+		for trait_id in _save_array(e, "traits"):
 			if GameData.ANIMAL_TRAITS.has(str(trait_id)) and GameData.ANIMALS[species]["traits"].has(str(trait_id)) and not valid_traits.has(str(trait_id)):
 				valid_traits.append(str(trait_id))
 		if valid_traits.is_empty():
 			valid_traits = _choose_animal_traits(species)
 		var hearts := maxi(0, int(e.get("hearts", 0)))
 		var valid_accessories: Array = []
-		for cosmetic in e.get("accessories", []):
+		for cosmetic in _save_array(e, "accessories"):
 			for definition in GameData.COSMETICS:
 				if str(definition["id"]) == str(cosmetic) and hearts >= int(definition["hearts"]) and not valid_accessories.has(str(cosmetic)):
 					valid_accessories.append(str(cosmetic))
-		animals.append({"uid": int(e.uid), "species": species, "name": str(e.get("name", "Tier")),
+		var paddock_uid := int(e.get("paddock", -1))
+		var paddock_object := get_object(paddock_uid)
+		if paddock_object.is_empty() or str(paddock_object["kind"]) != "paddock":
+			paddock_uid = -1
+		animals.append({"uid": animal_uid, "species": species, "name": str(e.get("name", "Tier")),
 			"story": clampi(int(e.get("story", 0)), 0, GameData.ANIMALS[species]["stories"].size() - 1),
 			"traits": valid_traits, "hunger": clampf(float(e.get("hunger", 70)), 0.0, 100.0), "happy": clampf(float(e.get("happy", 70)), 0.0, 100.0),
 			"hearts": hearts, "last": float(e.get("last", now())),
-			"paddock": int(e.get("paddock", -1)), "pet_at": float(e.get("pet_at", 0.0)),
+			"paddock": paddock_uid, "pet_at": float(e.get("pet_at", 0.0)),
 			"activity_at": float(e.get("activity_at", 0.0)), "accessories": valid_accessories})
-	var saved_rescue: Dictionary = d.get("rescue_case", {})
+	for a in animals:
+		if int(a.paddock) < 0:
+			# Tiere ohne gültiges Gehege ziehen in ein Gehege mit freiem Platz (falls vorhanden).
+			var pad := free_paddock()
+			if not pad.is_empty():
+				a.paddock = int(pad.uid)
+	var saved_rescue := _save_dict(d, "rescue_case")
 	if GameData.ANIMALS.has(str(saved_rescue.get("species", ""))):
-		var rescue_species: String = str(saved_rescue.species)
+		var rescue_species: String = str(saved_rescue["species"])
 		rescue_case = {"species": rescue_species,
 			"story": clampi(int(saved_rescue.get("story", 0)), 0, GameData.ANIMALS[rescue_species]["stories"].size() - 1)}
 	next_rescue_at = float(d.get("next_rescue_at", 0.0))
-	var l: Array = d.get("land", [])
-	if l.size() == 4:
-		land = Rect2i(int(l[0]), int(l[1]), int(l[2]), int(l[3]))
-	land_level = int(d.get("land_level", 0))
-	for e in d.get("orders", []):
-		var items: Dictionary = {}
-		for id in e.get("items", {}):
-			if GameData.items.has(id) and int(e.items[id]) > 0:
-				items[id] = int(e.items[id])
-		if not items.is_empty():
-			var order := {"id": int(e.id), "customer": str(e.get("customer", "Gast")), "items": items,
-				"coins": maxi(0, int(e.get("coins", 0))), "xp": maxi(0, int(e.get("xp", 0)))}
-			if GameData.DELIVERY_STORIES.has(str(e.get("story_id", ""))):
-				order["story_id"] = str(e.story_id)
-				order["story_stage"] = int(e.get("story_stage", 0))
-				order["story_text"] = str(e.get("story_text", ""))
-			if bool(e.get("cafe_order", false)):
-				order["cafe_order"] = true
-				order["visitor_story"] = str(e.get("visitor_story", ""))
-			if bool(e.get("cafe_daily_special", false)):
-				order["cafe_daily_special"] = true
-			if int(e.get("neighborhood_event_cycle", -1)) >= 0:
-				order["neighborhood_event_cycle"] = int(e["neighborhood_event_cycle"])
-				order["neighborhood_event_stage"] = clampi(int(e.get("neighborhood_event_stage", 0)), 0, NEIGHBORHOOD_EVENT_SERIES_LENGTH - 1)
-				order["neighborhood_event_story"] = str(e.get("neighborhood_event_story", ""))
-				order["neighborhood_event_cafe"] = bool(e.get("neighborhood_event_cafe", false))
-			orders.append(order)
-	var st: Dictionary = d.get("stats", {})
-	for k in st:
-		stats[k] = int(st[k])
 	active_delivery_story = str(d.get("active_delivery_story", ""))
 	if not GameData.DELIVERY_STORIES.has(active_delivery_story):
 		active_delivery_story = ""
+	var order_ids := {}
+	for e in _save_array(d, "orders"):
+		if not _has_keys(e, ["id", "items"]) or typeof(e["items"]) != TYPE_DICTIONARY:
+			continue
+		var order_id := int(e["id"])
+		if order_id <= 0 or order_ids.has(order_id) or orders.size() >= MAX_ORDERS:
+			continue
+		var items: Dictionary = {}
+		for id in e["items"]:
+			if GameData.items.has(id) and int(e["items"][id]) > 0:
+				items[id] = int(e["items"][id])
+		if items.is_empty():
+			continue
+		var story_id := str(e.get("story_id", ""))
+		if GameData.DELIVERY_STORIES.has(story_id) and story_id != active_delivery_story:
+			continue   # Auftrag einer nicht (mehr) aktiven Geschichte: sonst bliebe er unüberspringbar liegen
+		order_ids[order_id] = true
+		var order := {"id": order_id, "customer": str(e.get("customer", "Gast")), "items": items,
+			"coins": maxi(0, int(e.get("coins", 0))), "xp": maxi(0, int(e.get("xp", 0)))}
+		if GameData.DELIVERY_STORIES.has(story_id):
+			order["story_id"] = story_id
+			order["story_stage"] = int(e.get("story_stage", 0))
+			order["story_text"] = str(e.get("story_text", ""))
+		if bool(e.get("cafe_order", false)):
+			order["cafe_order"] = true
+			order["visitor_story"] = str(e.get("visitor_story", ""))
+		if bool(e.get("cafe_daily_special", false)):
+			order["cafe_daily_special"] = true
+		if int(e.get("neighborhood_event_cycle", -1)) >= 0:
+			order["neighborhood_event_cycle"] = int(e["neighborhood_event_cycle"])
+			order["neighborhood_event_stage"] = clampi(int(e.get("neighborhood_event_stage", 0)), 0, NEIGHBORHOOD_EVENT_SERIES_LENGTH - 1)
+			order["neighborhood_event_story"] = str(e.get("neighborhood_event_story", ""))
+			order["neighborhood_event_cafe"] = bool(e.get("neighborhood_event_cafe", false))
+		orders.append(order)
+	var st := _save_dict(d, "stats")
+	for k in st:
+		stats[k] = int(st[k])
 	daily_cafe_special_id = str(d.get("daily_cafe_special_id", ""))
 	daily_cafe_special_at = maxf(0.0, float(d.get("daily_cafe_special_at", 0.0)))
 	if not GameData.CAFE_MENU.has(daily_cafe_special_id):
@@ -1491,39 +1588,55 @@ func deserialize(d: Dictionary) -> bool:
 		daily_cafe_special_at = 0.0
 	neighborhood_event_stage = posmod(int(d.get("neighborhood_event_stage", 0)), NEIGHBORHOOD_EVENT_SERIES_LENGTH)
 	neighborhood_event_completed_cycle = int(d.get("neighborhood_event_completed_cycle", -1))
-	var saved_event: Dictionary = d.get("neighborhood_event_order", {})
+	var saved_event := _save_dict(d, "neighborhood_event_order")
 	if saved_event.has("cycle") and typeof(saved_event.get("items", {})) == TYPE_DICTIONARY:
 		var valid_event_items: Dictionary = {}
 		for event_item in saved_event.get("items", {}):
-			if GameData.items.has(str(event_item)) and int(saved_event.items[event_item]) > 0:
-				valid_event_items[str(event_item)] = int(saved_event.items[event_item])
+			if GameData.items.has(str(event_item)) and int(saved_event["items"][event_item]) > 0:
+				valid_event_items[str(event_item)] = int(saved_event["items"][event_item])
 		if not valid_event_items.is_empty():
 			neighborhood_event_order = {"id": maxi(1, int(saved_event.get("id", 0))),
-				"cycle": int(saved_event.cycle), "stage": clampi(int(saved_event.get("stage", 0)), 0, NEIGHBORHOOD_EVENT_SERIES_LENGTH - 1),
+				"cycle": int(saved_event["cycle"]), "stage": clampi(int(saved_event.get("stage", 0)), 0, NEIGHBORHOOD_EVENT_SERIES_LENGTH - 1),
 				"customer": str(saved_event.get("customer", "Ein Nachbar")), "items": valid_event_items,
 				"coins": maxi(0, int(saved_event.get("coins", 0))), "xp": maxi(0, int(saved_event.get("xp", 0))),
 				"story": str(saved_event.get("story", "")), "cafe": bool(saved_event.get("cafe", false))}
 	var story_stage_count := int(GameData.DELIVERY_STORIES.get(active_delivery_story, {}).get("stages", []).size())
 	delivery_story_stage = clampi(int(d.get("delivery_story_stage", 0)), 0, maxi(0, story_stage_count - 1)) if not active_delivery_story.is_empty() else 0
-	for entry in d.get("diary", []):
-		if typeof(entry) == TYPE_DICTIONARY and entry.has("text"):
-			diary.append({"time": float(entry.get("time", now())), "text": str(entry.text), "animal_uid": int(entry.get("animal_uid", -1))})
+	for entry in _save_array(d, "diary"):
+		if _has_keys(entry, ["text"]):
+			diary.append({"time": float(entry.get("time", now())), "text": str(entry["text"]), "animal_uid": int(entry.get("animal_uid", -1))})
 	while diary.size() > 100:
 		diary.pop_front()
-	claimed_quests = (d.get("claimed_quests", []) as Array).duplicate()
+	claimed_quests = []
+	for quest_id in _save_array(d, "claimed_quests"):
+		for q in GameData.QUESTS:
+			if str(q["id"]) == str(quest_id):
+				if not claimed_quests.has(str(quest_id)):
+					claimed_quests.append(str(quest_id))
+				break
 	claimed_achievements = []
-	for achievement_id in d.get("claimed_achievements", []):
+	for achievement_id in _save_array(d, "claimed_achievements"):
 		for achievement in GameData.ACHIEVEMENTS:
 			if str(achievement["id"]) == str(achievement_id):
 				if not claimed_achievements.has(str(achievement_id)):
 					claimed_achievements.append(str(achievement_id))
 				break
-	var s: Dictionary = d.get("settings", {})
+	var s := _save_dict(d, "settings")
 	settings["sound"] = bool(s.get("sound", true))
 	settings["music"] = bool(s.get("music", true))
 	settings["vibration"] = bool(s.get("vibration", true))
 	tutorial_step = int(d.get("tutorial_step", 0))
-	next_uid = maxi(int(d.get("next_uid", 1)), 1)
+	# next_uid darf nie auf eine bereits vergebene ID zeigen, auch nicht bei beschädigten Ständen.
+	var max_uid := 0
+	for o in objects:
+		max_uid = maxi(max_uid, int(o.uid))
+	for a in animals:
+		max_uid = maxi(max_uid, int(a.uid))
+	for o in orders:
+		max_uid = maxi(max_uid, int(o.id))
+	if not neighborhood_event_order.is_empty():
+		max_uid = maxi(max_uid, int(neighborhood_event_order.id))
+	next_uid = maxi(maxi(int(d.get("next_uid", 1)), 1), max_uid + 1)
 	next_order_at = float(d.get("next_order_at", 0.0))
 	away_seconds = maxf(0.0, now() - float(d.get("saved_at", now())))
 	rebuild_occupancy()

@@ -37,7 +37,7 @@ kein Backend und keine Plugins. Das Spiel läuft komplett offline.
    Oder USB-Debugging aktivieren und in Godot oben rechts auf das Android-Symbol
    („Auf Gerät ausführen“) klicken.
 
-Die Export-Konfiguration liegt in `export_presets.cfg` (arm64-v8a, Hochformat,
+Die Export-Konfiguration liegt in `export_presets.cfg` (arm64-v8a, Querformat laut `display/window/handheld/orientation=0`; für Hochformat dort `1` und das Viewport-Format anpassen;
 Vibration erlaubt, kein Internet-Zugriff).
 
 ### Build per CI (GitHub Actions)
@@ -71,6 +71,7 @@ Speicherstand, Offline-Fortschritt, Migration, Balance) wird headless geprüft:
 
 ```
 godot --headless --path . -s res://tests/run_tests.gd
+godot --headless --path . -s res://tests/achievements_ui.gd   # UI-Test (Menüs, Tagebuch, Erfolge)
 ```
 
 Exit-Code 0 bedeutet: alle Prüfungen bestanden.

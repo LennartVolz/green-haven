@@ -251,6 +251,8 @@ const FRIENDSHIP_STORIES := {
 	"cow": ["nimmt Leckerbissen vorsichtig aus deiner Hand.", "genießt die vertraute Kraulrunde.", "ruht gelassen neben dir im Gras.", "begrüßt dich mit einem sanften Stupser."],
 }
 
+## Eine Geschichte startet erst auf der Stufe, auf der alle ihre Lieferungen herstellbar sind
+## (cafe_opening braucht Rezepte der Stufe 9).
 const DELIVERY_STORIES := {
 	"lena_cafe": {"title": "Lenas Gartencafé", "customer": "Lena", "level": 8,
 		"intro": "Lena richtet ein kleines Café für die Nachbarschaft her und möchte möglichst viel aus der Umgebung verwenden.",
@@ -266,7 +268,7 @@ const DELIVERY_STORIES := {
 			{"text": "Mehr Nachbarinnen und Nachbarn kommen dazu. Erdbeeren und Sojabohnen ergänzen das gemeinsame Buffet.", "items": {"strawberry": 4, "soy": 4}, "coins": 112, "xp": 34},
 			{"text": "Zum Abschluss bleibt ein Korb für die Straßenküche übrig. Fatima sammelt Äpfel und Kartoffeln.", "items": {"apple": 5, "potato": 5}, "coins": 148, "xp": 46},
 		], "bonus_coins": 160, "bonus_xp": 55},
-	"cafe_opening": {"title": "Geschichten aus dem Gartencafé", "customer": "Mira", "level": 8, "requires_building": "cafe", "feature": "cafe",
+	"cafe_opening": {"title": "Geschichten aus dem Gartencafé", "customer": "Mira", "level": 9, "requires_building": "cafe", "feature": "cafe",
 		"intro": "Das Gartencafé ist eröffnet. Die ersten Gäste bringen ihre Lieblingsgeschichten mit – und Lust auf etwas Warmes.",
 		"stages": [
 			{"text": "Mira erinnert sich an den ersten Kaffee, den sie mit ihrer Großmutter selbst gemahlen hat. Für den Auftakt wünscht sie sich frisch geröstete Bohnen.", "items": {"roasted_coffee": 2}, "coins": 72, "xp": 22},

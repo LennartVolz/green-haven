@@ -1,47 +1,53 @@
 # Green Haven
 
-A cozy vegan farming game for smartphones (Android first, iOS prepared).
-Built with Godot 4.4, GDScript, and 2D rendering — no web app, no backend, fully playable offline.
+Ein gemütliches veganes Farming-Spiel für Smartphones (zuerst Android, iOS vorbereitet).
+Gebaut mit Godot 4.4, GDScript und 2D-Rendering – keine Web-App, kein Backend, vollständig offline spielbar.
+Das Spiel läuft im **Querformat**.
 
-You begin with a small farm, grow vegetables, fruits, and grains, craft vegan products in a bakery,
-kitchen, plant milk factory, tofu workshop, and juice bar, complete customer orders, and give rescued
-animals a home. The animals produce nothing — they are simply cared for.
+Du startest mit einer kleinen Farm, baust Gemüse, Obst und Getreide an, stellst vegane Produkte in Bäckerei,
+Küche, Pflanzenmilch-Manufaktur, Tofu-Werkstatt, Saftbar und Gartencafé her, erfüllst Kundenaufträge und gibst
+geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfach nur umsorgt.
 
-## Scope
+## Umfang
 
-- 19 crops with multiple growth stages, tier-based progression, and unlock system
-- 6 production buildings (incl. the garden café), 26 recipes, queues, upgrades, and pickup functionality
-- New crops: pumpkin, beetroot, lettuce, cucumber, peas, perennial blueberries, rice, and quinoa
-- Customer orders, coins, XP, quests, shop, decoration, and land expansion
-- Animal sanctuary with 5 animal types, personal traits, optional species-specific activities, selectable cosmetic rewards, and no-pressure rescue offers
-- Refuge journal for rescues and shared moments, friendship milestones with animated reactions and profile stories
-- Optional multi-part neighborhood delivery stories with persistent progress and completion rewards
-- 13 claimable achievements for orders, harvests, crafting, animal care, friendship, stories, café, and farm expansion
-- Per-paddock occupancy and wellbeing overview; animal profiles, journal and story progress are included in versioned saves
-- Touch controls: tap, swipe to sow/harvest, camera pan with inertia, pinch-to-zoom, placement by drag
-- Local, versioned save system (validated loading, rotating backup, newer-version saves are never overwritten); crop growth and production continue offline
+- 19 Pflanzen mit mehreren Wachstumsstufen, stufenbasierter Progression und Freischaltsystem
+- Weitere Pflanzen: Kürbis, Rote Bete, Salat, Gurke, Erbsen, mehrjährige Heidelbeeren, Reis, Quinoa und mehrjähriger Kaffee (für das Café)
+- 6 Produktionsgebäude (inkl. Gartencafé), 26 Rezepte, Warteschlangen, Ausbaustufen und Abholfunktion
+- Kundenaufträge, Münzen, Erfahrungspunkte, Quests, Shop, Dekoration und Landerweiterung
+- Tierrefugium mit 5 Tierarten, eigenen Charakterzügen, optionalen artspezifischen Aktivitäten, wählbaren kosmetischen Belohnungen und Rettungsangeboten ohne Druck
+- Refugium-Tagebuch für Rettungen und gemeinsame Momente, Freundschaftsstufen mit animierten Reaktionen und Profilgeschichten
+- Optionale mehrteilige Nachbarschafts-Lieferungsgeschichten mit gespeichertem Fortschritt und Abschlussbelohnungen
+- 13 einlösbare Erfolge für Aufträge, Ernten, Herstellung, Tierpflege, Freundschaft, Geschichten, Café und Farmerweiterung
+- Belegungs- und Wohlbefinden-Übersicht pro Gehege; Tierprofile, Tagebuch und Geschichtenfortschritt sind Teil der versionierten Spielstände
+- Wetter: Sonnig, Bewölkt, Regen und Nebel wechseln alle 120 Sekunden. Bewölkt verlangsamt das Wachstum um 10 %, Regen beschleunigt es um 25 %. Die Wachstumszeiten berücksichtigen den Wetterverlauf, auch während der Offline-Zeit
+- Tag-Nacht-Zyklus mit Uhrzeitanzeige: ein Spieltag dauert 8 Minuten echter Zeit, mit Dämmerung und Farbstimmung
+- Touch-Steuerung: Tippen, Wischen zum Säen/Ernten, Kamera verschieben mit Trägheit, Pinch-Zoom, Platzieren per Ziehen
+- Lokales, versioniertes Speichersystem (geprüftes Laden, rotierendes Backup, Spielstände neuerer Versionen werden nie überschrieben); Wachstum und Produktion laufen offline weiter
 - Spielstände als JSON exportieren und importieren (Import wird vor dem Ersetzen geprüft; bisheriger Stand wird als Backup gesichert)
+- Soundeffekte (zur Laufzeit erzeugt), Vibrations-Feedback und optionale Hintergrundmusik; Ton, Musik und Vibration lassen sich in den Einstellungen abschalten
 
-## Quick Start
+## Schnellstart
 
 ```bash
-godot --headless --path . -s res://tests/run_tests.gd        # Logic tests
-godot --headless --path . -s res://tests/achievements_ui.gd  # UI tests
-godot --headless --path . -s res://tests/save_transfer_ui.gd # Save transfer UI
-godot --path .                                          # Start the game on desktop
+godot --headless --path . -s res://tests/run_tests.gd        # Logiktests
+godot --headless --path . -s res://tests/achievements_ui.gd  # UI-Tests (Menüs, Tagebuch, Erfolge)
+godot --headless --path . -s res://tests/save_transfer_ui.gd # UI-Test Spielstand-Export/Import
+godot --path .                                               # Spiel auf dem Desktop starten
 ```
 
-Android APK, iOS, and release builds: see [docs/BUILD.md](docs/BUILD.md).
-Every push triggers GitHub Actions (`.github/workflows/android.yml`) to run the tests and build a debug APK
-(artifact `GreenHaven-build` under Actions).
+Android-APK, iOS und Release-Builds: siehe [docs/BUILD.md](docs/BUILD.md).
+Jeder Push startet GitHub Actions (`.github/workflows/android.yml`), die die Tests ausführen und einen Debug-APK bauen
+(Artefakt `GreenHaven-build` unter Actions).
 
-## Project Structure
+## Projektstruktur
 
 ```text
-scripts/core/    GameData (balancing), GameState (logic), SaveSystem, Sfx
-scripts/world/   World, camera/touch, terrain, fields, objects, animals, Painter
-scripts/ui/      UiRoot (HUD, actions), UiKit, icons, sheets/ (menus)
+audio/           Hintergrundmusik (Sunlight_on_the_Path.mp3)
+scripts/core/    GameData (Balancing), GameState (Logik), SaveSystem, Sfx, BackgroundMusic
+scripts/world/   Welt, Kamera/Touch, Gelände, Felder, Objekte, Tiere, Painter
+scripts/ui/      UiRoot (HUD, Aktionen), UiKit, Icons, sheets/ (Menüs)
 scenes/          main, world, ui_root, entity, animal
-tests/           run_tests.gd, achievements_ui.gd, screenshots.gd
+tests/           run_tests.gd, achievements_ui.gd, save_transfer_ui.gd, screenshots.gd,
+                 suites/ (Testgruppen), fixtures/ (Test-Spielstände)
 docs/            BUILD.md
 ```

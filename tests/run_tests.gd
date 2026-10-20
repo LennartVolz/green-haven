@@ -440,7 +440,7 @@ func test_delivery_stories() -> void:
 func test_cafe() -> void:
 	begin("Veganes Gartencafé")
 	check(gd.BUILDINGS.has("cafe") and int(gd.BUILDINGS["cafe"]["level"]) == 8, "Café ab Stufe 8 freigeschaltet")
-	check(gd.CROPS.has("coffee") and bool(gd.CROPS["coffee"]["perennial"]), "Kaffee wächst als mehrjährige Pflanze")
+	check(gd.CROPS.has("coffee") and not gd.CROPS["coffee"].has("perennial"), "Kaffee wird wie alle Pflanzen einjährig angebaut")
 	check(gd.RECIPES.has("roasted_coffee") and gd.RECIPES.has("filter_coffee") and gd.RECIPES.has("oat_latte"), "Kaffeekette mit Hafer-Latte")
 	check(gd.RECIPES.has("pumpkin_spice_latte") and gd.RECIPES.has("blueberry_coffee_cake"), "Tageskarte erhält spätere Café-Rezepte")
 	check(gs.daily_cafe_special().is_empty(), "Tagesgericht ohne Café noch nicht verfügbar")
@@ -1071,13 +1071,8 @@ func test_new_crops() -> void:
 		gs.time_offset += gd.real_seconds_for_crop_growth(gs.now(), float(definition["grow"])) + 0.01
 		check(gs.harvest(cell), "%s nach effektiver Wetter-Wachstumszeit erntbar" % crop)
 		check(gs.item_count(crop) == int(definition["yield"]), "%s liefert Inventar-Ertrag" % crop)
-		if crop == "coffee" or crop == "blueberry":
-			check(gs.fields[cell].crop == crop, "%s wächst nach Ernte weiter" % crop)
-			gs.time_offset += gd.real_seconds_for_crop_growth(gs.now(), float(definition["grow"])) + 0.01
-			check(gs.harvest(cell), "%s kann nach effektiver Wetter-Wachstumszeit erneut geerntet werden" % crop)
-		if crop == "almond":
-			check(gs.fields[cell].crop == "", "Mandeln werden nach der Ernte nicht automatisch nachgepflanzt")
-			check(not gs.harvest(cell), "das leere Mandelfeld ist erst nach neuer Aussaat wieder erntbar")
+		check(gs.fields[cell].crop == "", "%s hinterlässt nach der Ernte ein leeres Feld" % crop)
+		check(not gs.harvest(cell), "%s kann ohne neue Aussaat nicht erneut geerntet werden" % crop)
 		gs.fields[cell] = {"crop": "", "t": 0.0}
 	check(gd.RECIPES.size() >= 26, "Café und Tageskarte enthalten sechs neue Rezepte")
 	for recipe in ["pumpkin_spice_latte", "blueberry_coffee_cake"]:
@@ -1086,7 +1081,12 @@ func test_new_crops() -> void:
 		check(gd.items.has(recipe), "%s ist als Produkt im Inventar registriert" % recipe)
 	check(gd.unlocks_at(18).has("Quinoa"), "Quinoa wird auf Stufe 18 freigeschaltet")
 	check(gd.unlocks_at(5).has("Mandeln"), "Mandeln werden auf Stufe 5 freigeschaltet")
-	check(gd.CROPS.has("almond") and not bool(gd.CROPS["almond"]["perennial"]), "Mandeln werden nach der Ernte nicht automatisch nachgepflanzt")
+	var perennial_crops := false
+	for crop in gd.CROPS:
+		if gd.CROPS[crop].has("perennial"):
+			perennial_crops = true
+	check(not perennial_crops, "alle Pflanzen sind einjährig und werden nach der Ernte neu ausgesät")
+	check(gd.CROPS.has("almond") and not gd.CROPS["almond"].has("perennial"), "Mandeln werden nach der Ernte nicht automatisch nachgepflanzt")
 	check(gd.CROPS["almond"]["level"] == gd.RECIPES["almond_milk"]["level"], "Mandel und Mandelmilch starten auf derselben Stufe")
 	check(gd.items["almond"]["kind"] == "crop", "Mandeln sind als Feldfrucht registriert")
 	check(not gd.EXTRA_ITEMS.has("almond"), "Mandeln sind keine reine Shop-Zutat mehr")

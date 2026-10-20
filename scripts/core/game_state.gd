@@ -592,10 +592,8 @@ func harvest(cell: Vector2i) -> bool:
 	add_item(crop, amount)
 	add_xp(int(c["xp"]))
 	bump("harvested")
-	if c["perennial"]:
-		fields[cell] = {"crop": crop, "t": now()}
-	else:
-		fields[cell] = {"crop": "", "t": 0.0}
+	# Alle Pflanzen sind einjährig: Nach der Ernte ist das Feld wieder frei.
+	fields[cell] = {"crop": "", "t": 0.0}
 	world_changed.emit()
 	fx.emit("harvest", cell_center(cell), "+%d %s" % [amount, c["name"]])
 	sound.emit("harvest")

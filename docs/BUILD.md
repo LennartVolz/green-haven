@@ -37,8 +37,10 @@ kein Backend und keine Plugins. Das Spiel läuft komplett offline.
    Oder USB-Debugging aktivieren und in Godot oben rechts auf das Android-Symbol
    („Auf Gerät ausführen“) klicken.
 
-Die Export-Konfiguration liegt in `export_presets.cfg` (arm64-v8a, Querformat laut `display/window/handheld/orientation=0`; für Hochformat dort `1` und das Viewport-Format anpassen;
-Vibration erlaubt, kein Internet-Zugriff).
+Die Export-Konfiguration liegt in `export_presets.cfg` (arm64-v8a, Vibration erlaubt, kein Internet-Zugriff).
+Das Spiel ist bewusst für **Querformat** ausgelegt: `project.godot` setzt `display/window/handheld/orientation=0`
+und ein Viewport von 1920×1080. Das UI ist darauf abgestimmt; ein Wechsel auf Hochformat wäre eine größere Layout-Änderung
+und kein reiner Schalter.
 
 ### Build per CI (GitHub Actions)
 
@@ -66,8 +68,8 @@ Notwendig sind ein Mac mit Xcode, ein Apple-Developer-Konto und die iOS-Export-T
 
 ## Tests
 
-Die gesamte Spiellogik (Anbau, Inventar, Produktion, Aufträge, Quests, Tiere, Land,
-Speicherstand, Offline-Fortschritt, Migration, Balance) wird headless geprüft:
+Die gesamte Spiellogik (Anbau, Wetter und Tag-Nacht-Zyklus, Inventar, Produktion, Aufträge, Quests, Tiere, Land,
+Café, Nachbarschaftsgeschichten, Erfolge, Speicherstand, Offline-Fortschritt, Migration, Balance) wird headless geprüft:
 
 ```
 godot --headless --path . -s res://tests/run_tests.gd
@@ -75,16 +77,27 @@ godot --headless --path . -s res://tests/achievements_ui.gd   # UI-Test (Menüs,
 godot --headless --path . -s res://tests/save_transfer_ui.gd # UI-Test (Spielstand-Export/Import)
 ```
 
-Exit-Code 0 bedeutet: alle Prüfungen bestanden.
+Exit-Code 0 bedeutet: alle Prüfungen bestanden. Alle drei Läufe sind auch in der CI eingebunden.
+
+`tests/screenshots.gd` ist kein Test, sondern ein Hilfsskript für die visuelle Prüfung: Es spielt eine Szenenfolge durch
+und speichert Screenshots. Es braucht ein Display (z. B. `xvfb`) und läuft nicht in der CI:
+
+```
+godot --path . --rendering-driver opengl3 --resolution 960x540 -s res://tests/screenshots.gd -- /pfad/zum/ordner
+```
+
+Testgruppen liegen in `tests/suites/`, Test-Spielstände (z. B. `save_v8.json` für die Migration) in `tests/fixtures/`.
 
 ## Projektstruktur
 
 ```
-scripts/core/    GameData (Balancing), GameState (Logik), SaveSystem, Sfx
+audio/           Hintergrundmusik (Sunlight_on_the_Path.mp3)
+scripts/core/    GameData (Balancing), GameState (Logik), SaveSystem, Sfx, BackgroundMusic
 scripts/world/   Welt, Kamera/Touch, Gelände, Felder, Objekte, Tiere, Painter
 scripts/ui/      UiRoot (HUD, Aktionen), UiKit, Icons, sheets/ (Menüs)
 scenes/          main, world, ui_root, entity, animal
-tests/           run_tests.gd
+tests/           run_tests.gd, achievements_ui.gd, save_transfer_ui.gd, screenshots.gd,
+                 suites/ (Testgruppen), fixtures/ (Test-Spielstände)
 docs/            diese Anleitung
 ```
 
@@ -99,7 +112,31 @@ Oberfläche (`ui_root.gd`) nur über Signale und Methodenaufrufe benutzt.
 - Format versioniert (`version`), ältere Stände werden in `SaveSystem.migrate()` angehoben
 - Gespeichert wird alle 15 s, beim Pausieren, bei Fokusverlust und beim Beenden
 - Zeitbasierte Systeme speichern nur Zeitstempel, deshalb laufen Wachstum und
-  Produktion offline „weiter“: beim Start wird aus der verstrichenen Zeit der Zustand abgeleitet
+  Produktion offline „weiter“: beim Start wird aus der verstrichenen Zeit der Zustand abgeleitet.
+  Das Pflanzenwachstum berücksichtigt dabei den Wetterverlauf der verstrichenen Zeit
+
+## Wetter und Tageszeit
+
+- Wetter (`GameData`): Sonnig, Bewölkt, Regen und Nebel wechseln in dieser Reihenfolge alle 120 Sekunden
+  (`WEATHER_DURATION_SECONDS`). Wachstumsfaktoren: Sonnig 1,0, Bewölkt 0,9, Regen 1,25, Nebel 1,0
+  (`WEATHER_GROWTH_RATES`). Das Wetter hängt von der Spielzeit ab, nicht vom Spielstand-Inhalt.
+- Tag-Nacht-Zyklus (`world.gd`): Ein Spieltag dauert 8 Minuten echter Zeit (`REAL_DAY_LENGTH_SECONDS`).
+  Er beeinflusst nur Farbstimmung und Uhrzeitanzeige, nicht das Wachstum.
+
+## Audio
+
+- Soundeffekte werden zur Laufzeit synthetisiert (`Sfx`), dafür sind keine Audiodateien nötig.
+- Hintergrundmusik (`BackgroundMusic`) spielt `res://audio/Sunlight_on_the_Path.mp3` leise als Schleife. Der Schalter
+  „Hintergrundmusik“ erscheint in den Einstellungen nur, wenn die Datei vorhanden ist; fehlt sie, startet das Spiel
+  ohne Musik und gibt nur eine Warnung aus.
+
+## Offene Punkte vor einer Veröffentlichung
+
+- **Musik:** Quelle und Lizenz von `Sunlight_on_the_Path.mp3` sind hier nicht dokumentiert. Vor einem Play-Store-Release
+  klären und an dieser Stelle festhalten (oder den Track entfernen; das Spiel läuft auch ohne).
+- **Android-Dateiimport:** Der Pfad über `user://save_transfer/` ist noch nicht auf einem echten Gerät geprüft.
+- **Release-Build:** Es gibt keinen automatischen Release-/AAB-Workflow, nur die Anleitung oben. Launcher-Icons sind im
+  Preset leer (Fallback auf `icon.svg`). Version ist `0.1.0`, `version/code` ist `1`.
 
 ## Steuerung
 

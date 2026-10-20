@@ -1,7 +1,6 @@
-# Baut bei jedem Push einen installierbaren Android-Debug-APK.
-# Hinweis: Diese Datei wurde in der Entwicklungsumgebung nicht ausgeführt
-# (dort waren die Android-SDK-Quellen gesperrt). Sie folgt dem Standardablauf
-# des Images barichello/godot-ci.
+# Führt bei jedem Push die Tests aus und baut einen installierbaren Android-Debug-APK.
+# Der Ablauf folgt dem Standard des Images barichello/godot-ci.
+# Der APK ist als Artefakt "GreenHaven-build" abrufbar.
 name: android-build
 on:
   push:

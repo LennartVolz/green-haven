@@ -9,6 +9,9 @@ const MAX_LEVEL := 30
 const WORLD_COLS := 24
 const WORLD_ROWS := 30
 const WORLD_MARGIN_CELLS := 2
+## Prozedural erzeugter Wildnisgürtel um die Karte. Er wird in Chunks
+## gezeichnet, damit beim Schwenken und Zoomen kein leerer Rand entsteht.
+const SCENERY_MARGIN_CELLS := 24
 const WORLD_ORIGIN := Vector2i(0, 0)
 const START_LAND := Rect2i(8, 11, 8, 8)
 const TILL_COST := 10
@@ -49,6 +52,7 @@ const CROPS := {
 	"sunflower": {"name": "Sonnenblume", "grow": 360, "seed": 6, "yield": 4, "sell": 11, "xp": 8, "level": 8, "col": "#F6C21C"},
 	"coffee": {"name": "Kaffeekirsche", "grow": 720, "seed": 10, "yield": 3, "sell": 14, "xp": 10, "level": 8, "col": "#A9463D"},
 	"pumpkin": {"name": "Kürbis", "grow": 480, "seed": 8, "yield": 4, "sell": 13, "xp": 9, "level": 9, "col": "#E8792F"},
+	"sugarcane": {"name": "Zuckerrohr", "grow": 480, "seed": 9, "yield": 4, "sell": 8, "xp": 9, "level": 9, "col": "#9FC468"},
 	"beet": {"name": "Rote Bete", "grow": 540, "seed": 9, "yield": 4, "sell": 15, "xp": 10, "level": 10, "col": "#A93659"},
 	"rhubarb": {"name": "Rhabarber", "grow": 360, "seed": 7, "yield": 3, "sell": 11, "xp": 8, "level": 10, "col": "#C94F5A"},
 	"lettuce": {"name": "Salat", "grow": 150, "seed": 4, "yield": 3, "sell": 7, "xp": 5, "level": 11, "col": "#79B85A"},
@@ -61,10 +65,9 @@ const CROPS := {
 }
 
 ## Zutaten, die nicht angebaut, sondern im Shop gekauft werden.
-## Zucker wird für Konfitüren und Marmeladen benötigt.
-const EXTRA_ITEMS := {
-	"sugar": {"name": "Zucker", "sell": 4, "shop": 6, "level": 1, "col": "#F4E6C8"},
-}
+## Derzeit keine: Zucker wird seit der Zuckermühle selbst aus Zuckerrohr gepresst.
+## Die Liste bleibt für künftige Shop-Zutaten bestehen.
+const EXTRA_ITEMS := {}
 
 const BUILDINGS := {
 	"bakery": {"name": "Bäckerei", "kind": "production", "cost": 150, "level": 2, "size": [2, 2], "slots": 2, "max": 1, "col": "#D9A066", "roof": "#B5532F"},
@@ -76,6 +79,7 @@ const BUILDINGS := {
 	"florist": {"name": "Blumenwerkstatt", "kind": "production", "cost": 900, "level": 8, "size": [2, 2], "slots": 2, "max": 1, "col": "#E9D9B0", "roof": "#6F9A63"},
 	"oilmill": {"name": "Ölmühle", "kind": "production", "cost": 1200, "level": 9, "size": [2, 2], "slots": 2, "max": 1, "col": "#D8C6A2", "roof": "#8E6240"},
 	"preserves": {"name": "Konfitürenküche", "kind": "production", "cost": 1000, "level": 9, "size": [2, 2], "slots": 2, "max": 1, "col": "#F2D9C6", "roof": "#B5532F"},
+	"sugarmill": {"name": "Zuckermühle", "kind": "production", "cost": 950, "level": 9, "size": [2, 2], "slots": 2, "max": 1, "col": "#EDE3C8", "roof": "#8E6240"},
 	"pasta": {"name": "Nudelwerkstatt", "kind": "production", "cost": 1450, "level": 10, "size": [2, 2], "slots": 2, "max": 1, "col": "#F0D9A8", "roof": "#C97A3A"},
 	"icecream": {"name": "Eismanufaktur", "kind": "production", "cost": 1700, "level": 11, "size": [2, 2], "slots": 2, "max": 1, "col": "#F7E6D0", "roof": "#D9647A"},
 	"muesli": {"name": "Müsli-Manufaktur", "kind": "production", "cost": 2200, "level": 14, "size": [2, 2], "slots": 2, "max": 1, "col": "#E4D1B0", "roof": "#9A6A4A"},
@@ -111,8 +115,12 @@ const RECIPES := {
 	"blueberry_coffee_cake": {"name": "Blaubeer-Kaffeekuchen", "building": "cafe", "inputs": {"oat_cookies": 1, "blueberry": 2}, "time": 210, "sell": 110, "xp": 30, "level": 14, "col": "#8474A6"},
 	"sunflower_oil": {"name": "Sonnenblumenöl", "building": "oilmill", "inputs": {"sunflower": 4}, "time": 120, "sell": 64, "xp": 15, "level": 9, "col": "#E2BC52"},
 	"almond_butter": {"name": "Mandelmus", "building": "oilmill", "inputs": {"almond": 4}, "time": 150, "sell": 70, "xp": 18, "level": 10, "col": "#C99C69"},
-	"strawberry_jam": {"name": "Erdbeerkonfitüre", "building": "preserves", "inputs": {"strawberry": 4, "sugar": 1}, "time": 120, "sell": 72, "xp": 18, "level": 9, "col": "#D95A7B"},
-	"apple_jam": {"name": "Apfelkonfitüre", "building": "preserves", "inputs": {"apple": 4, "sugar": 1}, "time": 120, "sell": 78, "xp": 19, "level": 10, "col": "#D9A93A"},
+	"sugar": {"name": "Zucker", "building": "sugarmill", "inputs": {"sugarcane": 3}, "time": 120, "sell": 30, "xp": 8, "level": 9, "col": "#F4E6C8"},
+	"cane_syrup": {"name": "Zuckerrohrsirup", "building": "sugarmill", "inputs": {"sugarcane": 4}, "time": 150, "sell": 42, "xp": 12, "level": 10, "col": "#C9A24A"},
+	"caramel_syrup": {"name": "Karamellsirup", "building": "sugarmill", "inputs": {"sugar": 1, "oat_milk": 1}, "time": 180, "sell": 78, "xp": 18, "level": 12, "col": "#B67A3C"},
+	"caramel_latte": {"name": "Karamell-Latte", "building": "cafe", "inputs": {"caramel_syrup": 1, "roasted_coffee": 1, "oat_milk": 1}, "time": 150, "sell": 178, "xp": 30, "level": 13, "col": "#C08A55"},
+	"strawberry_jam": {"name": "Erdbeerkonfitüre", "building": "preserves", "inputs": {"strawberry": 4, "sugar": 1}, "time": 120, "sell": 96, "xp": 18, "level": 9, "col": "#D95A7B"},
+	"apple_jam": {"name": "Apfelkonfitüre", "building": "preserves", "inputs": {"apple": 4, "sugar": 1}, "time": 120, "sell": 104, "xp": 19, "level": 10, "col": "#D9A93A"},
 	"rhubarb_jam": {"name": "Rhabarberkonfitüre", "building": "preserves", "inputs": {"rhubarb": 4, "sugar": 1}, "time": 150, "sell": 78, "xp": 19, "level": 11, "col": "#C94F5A"},
 	"blueberry_jam": {"name": "Blaubeerkonfitüre", "building": "preserves", "inputs": {"blueberry": 4, "sugar": 1}, "time": 150, "sell": 82, "xp": 20, "level": 14, "col": "#6572BB"},
 	"pasta": {"name": "Weizennudeln", "building": "pasta", "inputs": {"wheat": 3}, "time": 90, "sell": 30, "xp": 10, "level": 10, "col": "#E8C77A"},
@@ -240,35 +248,39 @@ const QUESTS := [
 	{"id": "q_florist", "text": "Baue eine Blumenwerkstatt", "type": "building", "building": "florist", "target": 1, "coins": 100, "xp": 30},
 	{"id": "q_noodles", "text": "Stelle 5 Portionen Nudeln her", "type": "stat", "key": "crafted_pasta", "target": 5, "coins": 160, "xp": 55},
 	{"id": "q_icecream", "text": "Stelle 5 Erdbeer-Eis her", "type": "stat", "key": "crafted_strawberry_ice", "target": 5, "coins": 190, "xp": 65},
+	{"id": "q_sugarmill", "text": "Baue eine Zuckermühle", "type": "building", "building": "sugarmill", "target": 1, "coins": 110, "xp": 35},
+	{"id": "q_sugar", "text": "Stelle 5 Zucker her", "type": "stat", "key": "crafted_sugar", "target": 5, "coins": 150, "xp": 50},
 ]
 
 ## Dauerhafte Erfolge: Kriterium + einmalige Münz-/XP-Belohnung.
 const ACHIEVEMENTS := [
-	{"id": "orders_2", "text": "Zwei gute Nachbarn", "description": "Erfülle 2 Bestellungen.", "type": "stat", "key": "orders", "target": 2, "coins": 50, "xp": 20},
-	{"id": "orders_10", "text": "Stammkundschaft", "description": "Erfülle 10 Bestellungen.", "type": "stat", "key": "orders", "target": 10, "coins": 180, "xp": 70},
-	{"id": "orders_25", "text": "Das ganze Viertel kennt dich", "description": "Erfülle 25 Bestellungen.", "type": "stat", "key": "orders", "target": 25, "coins": 450, "xp": 180},
-	{"id": "harvest_25", "text": "Erste reiche Ernte", "description": "Ernte 25 Felder.", "type": "stat", "key": "harvested", "target": 25, "coins": 100, "xp": 35},
-	{"id": "harvest_100", "text": "Grüne Daumen", "description": "Ernte 100 Felder.", "type": "stat", "key": "harvested", "target": 100, "coins": 300, "xp": 110},
-	{"id": "crafted_10", "text": "Kleine Manufaktur", "description": "Stelle 10 Produkte her.", "type": "stat", "key": "crafted", "target": 10, "coins": 150, "xp": 55},
-	{"id": "animals_3", "text": "Ein Refugium voller Leben", "description": "Gib 3 Tieren ein sicheres Zuhause.", "type": "animals", "target": 3, "coins": 220, "xp": 85},
-	{"id": "friendship_15", "text": "Vertrauen wächst", "description": "Erreiche 15 Freundschaftsherzen mit einem Tier.", "type": "friendship", "target": 15, "coins": 180, "xp": 65},
-	{"id": "story_complete", "text": "Gute Geschichten teilen", "description": "Schließe eine Liefergeschichte ab.", "type": "stat", "key": "stories_completed", "target": 1, "coins": 200, "xp": 80},
-	{"id": "land_expansion", "text": "Platz zum Wachsen", "description": "Erweitere deine Farm zum ersten Mal.", "type": "stat", "key": "expansions", "target": 1, "coins": 100, "xp": 35},
-	{"id": "cafe_open", "text": "Ein Platz für alle", "description": "Eröffne dein veganes Gartencafé.", "type": "building", "key": "cafe", "target": 1, "coins": 180, "xp": 65},
-	{"id": "cafe_orders_10", "text": "Stammgäste im Café", "description": "Bediene 10 Café-Gäste.", "type": "stat", "key": "cafe_orders", "target": 10, "coins": 300, "xp": 110},
-	{"id": "cafe_stories_3", "text": "Geschichten am Kaffeetisch", "description": "Höre drei Geschichten von Café-Gästen.", "type": "stat", "key": "cafe_stories_shared", "target": 3, "coins": 260, "xp": 95},
-	{"id": "build_florist", "text": "Blumen für alle", "description": "Baue eine Blumenwerkstatt.", "type": "building", "key": "florist", "target": 1, "coins": 100, "xp": 35},
-	{"id": "build_oilmill", "text": "Öl aus eigener Ernte", "description": "Baue eine Ölmühle.", "type": "building", "key": "oilmill", "target": 1, "coins": 130, "xp": 45},
-	{"id": "build_preserves", "text": "Ein Vorrat für später", "description": "Baue eine Konfitürenküche.", "type": "building", "key": "preserves", "target": 1, "coins": 120, "xp": 40},
-	{"id": "build_pasta", "text": "Frische Nudeln", "description": "Baue eine Nudelwerkstatt.", "type": "building", "key": "pasta", "target": 1, "coins": 150, "xp": 50},
-	{"id": "build_icecream", "text": "Eiszeit", "description": "Baue eine Eismanufaktur.", "type": "building", "key": "icecream", "target": 1, "coins": 170, "xp": 55},
-	{"id": "build_muesli", "text": "Guter Start in den Tag", "description": "Baue eine Müsli-Manufaktur.", "type": "building", "key": "muesli", "target": 1, "coins": 220, "xp": 75},
-	{"id": "bouquets_10", "text": "Blumengruß", "description": "Stelle 10 Sonnenblumensträuße her.", "type": "stat", "key": "crafted_sunflower_bouquet", "target": 10, "coins": 160, "xp": 55},
-	{"id": "oil_10", "text": "Flüssiges Gold", "description": "Stelle 10 Sonnenblumenöl her.", "type": "stat", "key": "crafted_sunflower_oil", "target": 10, "coins": 180, "xp": 60},
-	{"id": "jam_10", "text": "Eingemacht", "description": "Stelle 10 Erdbeerkonfitüren her.", "type": "stat", "key": "crafted_strawberry_jam", "target": 10, "coins": 170, "xp": 55},
-	{"id": "pasta_10", "text": "Nudelmeister", "description": "Stelle 10 Portionen Weizennudeln her.", "type": "stat", "key": "crafted_pasta", "target": 10, "coins": 190, "xp": 65},
-	{"id": "icecream_10", "text": "Eismacher", "description": "Stelle 10 Erdbeer-Eis her.", "type": "stat", "key": "crafted_strawberry_ice", "target": 10, "coins": 210, "xp": 70},
-	{"id": "muesli_10", "text": "Frühstücksliebe", "description": "Stelle 10 Beeren-Müsli her.", "type": "stat", "key": "crafted_berry_muesli", "target": 10, "coins": 240, "xp": 80},
+	{"id": "orders_2", "text": "Zwei gute Nachbarn", "description": "Erfülle 2 Bestellungen.", "type": "stat", "key": "orders", "target": 2, "coins": 50, "xp": 8},
+	{"id": "orders_10", "text": "Stammkundschaft", "description": "Erfülle 10 Bestellungen.", "type": "stat", "key": "orders", "target": 10, "coins": 180, "xp": 28},
+	{"id": "orders_25", "text": "Das ganze Viertel kennt dich", "description": "Erfülle 25 Bestellungen.", "type": "stat", "key": "orders", "target": 25, "coins": 450, "xp": 72},
+	{"id": "harvest_25", "text": "Erste reiche Ernte", "description": "Ernte 25 Felder.", "type": "stat", "key": "harvested", "target": 25, "coins": 100, "xp": 14},
+	{"id": "harvest_100", "text": "Grüne Daumen", "description": "Ernte 100 Felder.", "type": "stat", "key": "harvested", "target": 100, "coins": 300, "xp": 44},
+	{"id": "crafted_10", "text": "Kleine Manufaktur", "description": "Stelle 10 Produkte her.", "type": "stat", "key": "crafted", "target": 10, "coins": 150, "xp": 22},
+	{"id": "animals_3", "text": "Ein Refugium voller Leben", "description": "Gib 3 Tieren ein sicheres Zuhause.", "type": "animals", "target": 3, "coins": 220, "xp": 34},
+	{"id": "friendship_15", "text": "Vertrauen wächst", "description": "Erreiche 15 Freundschaftsherzen mit einem Tier.", "type": "friendship", "target": 15, "coins": 180, "xp": 26},
+	{"id": "story_complete", "text": "Gute Geschichten teilen", "description": "Schließe eine Liefergeschichte ab.", "type": "stat", "key": "stories_completed", "target": 1, "coins": 200, "xp": 32},
+	{"id": "land_expansion", "text": "Platz zum Wachsen", "description": "Erweitere deine Farm zum ersten Mal.", "type": "stat", "key": "expansions", "target": 1, "coins": 100, "xp": 14},
+	{"id": "cafe_open", "text": "Ein Platz für alle", "description": "Eröffne dein veganes Gartencafé.", "type": "building", "key": "cafe", "target": 1, "coins": 180, "xp": 26},
+	{"id": "cafe_orders_10", "text": "Stammgäste im Café", "description": "Bediene 10 Café-Gäste.", "type": "stat", "key": "cafe_orders", "target": 10, "coins": 300, "xp": 44},
+	{"id": "cafe_stories_3", "text": "Geschichten am Kaffeetisch", "description": "Höre drei Geschichten von Café-Gästen.", "type": "stat", "key": "cafe_stories_shared", "target": 3, "coins": 260, "xp": 38},
+	{"id": "build_florist", "text": "Blumen für alle", "description": "Baue eine Blumenwerkstatt.", "type": "building", "key": "florist", "target": 1, "coins": 100, "xp": 14},
+	{"id": "build_oilmill", "text": "Öl aus eigener Ernte", "description": "Baue eine Ölmühle.", "type": "building", "key": "oilmill", "target": 1, "coins": 130, "xp": 18},
+	{"id": "build_preserves", "text": "Ein Vorrat für später", "description": "Baue eine Konfitürenküche.", "type": "building", "key": "preserves", "target": 1, "coins": 120, "xp": 16},
+	{"id": "build_pasta", "text": "Frische Nudeln", "description": "Baue eine Nudelwerkstatt.", "type": "building", "key": "pasta", "target": 1, "coins": 150, "xp": 20},
+	{"id": "build_icecream", "text": "Eiszeit", "description": "Baue eine Eismanufaktur.", "type": "building", "key": "icecream", "target": 1, "coins": 170, "xp": 22},
+	{"id": "build_muesli", "text": "Guter Start in den Tag", "description": "Baue eine Müsli-Manufaktur.", "type": "building", "key": "muesli", "target": 1, "coins": 220, "xp": 30},
+	{"id": "bouquets_10", "text": "Blumengruß", "description": "Stelle 10 Sonnenblumensträuße her.", "type": "stat", "key": "crafted_sunflower_bouquet", "target": 10, "coins": 160, "xp": 22},
+	{"id": "oil_10", "text": "Flüssiges Gold", "description": "Stelle 10 Sonnenblumenöl her.", "type": "stat", "key": "crafted_sunflower_oil", "target": 10, "coins": 180, "xp": 24},
+	{"id": "jam_10", "text": "Eingemacht", "description": "Stelle 10 Erdbeerkonfitüren her.", "type": "stat", "key": "crafted_strawberry_jam", "target": 10, "coins": 170, "xp": 22},
+	{"id": "pasta_10", "text": "Nudelmeister", "description": "Stelle 10 Portionen Weizennudeln her.", "type": "stat", "key": "crafted_pasta", "target": 10, "coins": 190, "xp": 26},
+	{"id": "icecream_10", "text": "Eismacher", "description": "Stelle 10 Erdbeer-Eis her.", "type": "stat", "key": "crafted_strawberry_ice", "target": 10, "coins": 210, "xp": 28},
+	{"id": "muesli_10", "text": "Frühstücksliebe", "description": "Stelle 10 Beeren-Müsli her.", "type": "stat", "key": "crafted_berry_muesli", "target": 10, "coins": 240, "xp": 32},
+	{"id": "build_sugarmill", "text": "Süß aus eigener Ernte", "description": "Baue eine Zuckermühle.", "type": "building", "key": "sugarmill", "target": 1, "coins": 120, "xp": 18},
+	{"id": "sugar_10", "text": "Zuckersüß", "description": "Stelle 10 Zucker her.", "type": "stat", "key": "crafted_sugar", "target": 10, "coins": 170, "xp": 26},
 ]
 
 
@@ -467,8 +479,11 @@ func _init() -> void:
 		items[id] = {"id": id, "name": r.name, "sell": r.sell, "col": r.col, "kind": "product", "level": r.level}
 
 
+## Erfahrung für den Aufstieg von lvl auf lvl + 1. Früh moderat, später deutlich
+## steiler: Erfolge und Quests beschleunigen den Start, tragen aber nicht mehr
+## allein bis zur Maximalstufe.
 static func xp_needed(lvl: int) -> int:
-	return 25 + 15 * lvl
+	return 30 + 12 * lvl + 2 * lvl * lvl
 
 
 func item_name(id: String) -> String:

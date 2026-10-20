@@ -120,6 +120,8 @@ static func draw_crop(ci: CanvasItem, id: String, stage: int, center: Vector2, t
 				_zucchini(ci, stage, t)
 			"rhubarb":
 				_rhubarb(ci, stage, t)
+			"sugarcane":
+				_sugarcane(ci, stage, t)
 			"pea":
 				_pea(ci, stage, t)
 			"blueberry":
@@ -328,6 +330,24 @@ static func _rhubarb(ci: CanvasItem, stage: int, t: float) -> void:
 			ellipse(ci, top + Vector2(9, -7), 13, 8, col("#7DBB62"), 10)
 		if stage == 3:
 			ci.draw_circle(top + Vector2(-10, 5), 2.5, col("#F2D6A2"))
+
+
+## Hohe, gegliederte Halme mit langen Blättern – Zuckerrohr.
+static func _sugarcane(ci: CanvasItem, stage: int, t: float) -> void:
+	var h := 14.0 + float(stage) * 26.0
+	for i in range(3):
+		var x := -26.0 + float(i) * 26.0
+		var top := Vector2(x + sway(t, i, 2.2), -h - float(i % 2) * 8.0)
+		ci.draw_line(Vector2(x, -2), top, col("#A8C46A"), 8.0, true)
+		ci.draw_line(Vector2(x, -2), top, col("#C2D98A"), 3.0, true)
+		if stage >= 2:
+			for k in range(3):
+				var node := Vector2(x, -8.0 - float(k) * (h * 0.3))
+				ci.draw_line(node + Vector2(-5, 0), node + Vector2(5, 0), col("#86A84E"), 2.5, true)
+			ellipse(ci, top + Vector2(-13, 10), 17, 6, col("#7DBB62"), 10)
+			ellipse(ci, top + Vector2(13, 6), 15, 6, col("#8CC96E"), 10)
+		if stage == 3:
+			ellipse(ci, top + Vector2(0, -7), 4.5, 10, col("#D8C58A"))
 
 
 static func _pea(ci: CanvasItem, stage: int, t: float) -> void:
@@ -543,6 +563,16 @@ static func draw_item(ci: CanvasItem, id: String, pos: Vector2, size: float) -> 
 				ci.draw_line(Vector2(x, 30), Vector2(x + 2, -12), base, 6.0, true)
 				ellipse(ci, Vector2(x + 2, -20), 10, 7, col("#6FAE56"), 8)
 				ellipse(ci, Vector2(x + 12, -24), 9, 6, col("#7DBB62"), 8)
+		"sugarcane":
+			for i in range(3):
+				var x0 := -16.0 + float(i) * 16.0
+				ci.draw_line(Vector2(x0, 30), Vector2(x0 + 6, -26), col("#C2D98A"), 8.0, true)
+				ci.draw_line(Vector2(x0, 30), Vector2(x0 + 6, -26), col("#A8C46A"), 3.0, true)
+				for k in range(4):
+					var p := Vector2(x0, 30).lerp(Vector2(x0 + 6, -26), float(k + 1) / 5.0)
+					ci.draw_line(p + Vector2(-5, 0), p + Vector2(5, 0), col("#86A84E"), 2.0, true)
+			ellipse(ci, Vector2(8, -24), 16, 6, col("#7DBB62"), 10)
+			ellipse(ci, Vector2(-4, -30), 13, 5, col("#8CC96E"), 10)
 		"sunflower_oil":
 			rrect(ci, Rect2(-13, -8, 26, 38), col("#F6F2E6"), 7)
 			rrect(ci, Rect2(-8, -22, 16, 16), col("#F6F2E6"), 4)
@@ -800,7 +830,7 @@ static func draw_deco(ci: CanvasItem, type: String, t: float) -> void:
 
 # ------------------------------------------------------------- Gebäude
 
-const BUILDING_ICON := {"bakery": "bread", "kitchen": "carrot_soup", "milkery": "oat_milk", "juicebar": "apple_juice", "tofu": "tofu", "cafe": "filter_coffee", "florist": "sunflower_bouquet", "oilmill": "sunflower_oil", "preserves": "strawberry_jam", "pasta": "pasta", "icecream": "strawberry_ice", "muesli": "berry_muesli"}
+const BUILDING_ICON := {"bakery": "bread", "kitchen": "carrot_soup", "milkery": "oat_milk", "juicebar": "apple_juice", "tofu": "tofu", "cafe": "filter_coffee", "florist": "sunflower_bouquet", "oilmill": "sunflower_oil", "preserves": "strawberry_jam", "sugarmill": "sugar", "pasta": "pasta", "icecream": "strawberry_ice", "muesli": "berry_muesli"}
 
 
 ## Ursprung = Mitte der Unterkante; Grundfläche 2x2 Zellen (256 px).
@@ -857,6 +887,17 @@ static func draw_building(ci: CanvasItem, type: String, t: float, working: bool)
 			ellipse(ci, Vector2(x, -88), 15, 9, col("#9CC47A"))
 			for k in range(3):
 				ci.draw_circle(Vector2(x - 8.0 + float(k) * 8.0, -98 + float(k % 2) * 4.0), 5, col("#E2BC52") if k % 2 == 0 else col("#D96A7A"))
+	elif type == "sugarmill":
+		# Gemauerte Mühle mit Zuckerrohrbündeln und einer kleinen Presse.
+		rrect(ci, Rect2(-100, -46, 200, 18), col("#C6B294"), 6)
+		for x in [-88.0, -68.0, 68.0, 88.0]:
+			for k in range(3):
+				ci.draw_line(Vector2(x - 6.0 + float(k) * 6.0, -12), Vector2(x - 2.0 + float(k) * 6.0, -50), col("#C2D98A"), 4.0, true)
+			ci.draw_line(Vector2(x - 9, -34), Vector2(x + 9, -34), col("#8E6240"), 3.0, true)
+		ci.draw_circle(Vector2(-40, -28), 13, col("#B58A5A"))
+		ci.draw_circle(Vector2(-40, -28), 5, col("#8E6240"))
+		ci.draw_circle(Vector2(40, -28), 13, col("#B58A5A"))
+		ci.draw_circle(Vector2(40, -28), 5, col("#8E6240"))
 
 
 static func draw_paddock_back(ci: CanvasItem, rect: Rect2) -> void:

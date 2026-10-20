@@ -48,6 +48,32 @@ func run() -> void:
 	gs = root.get_node("GameState")
 	ui = main.get_node("UI")
 	await frames(5)
+	# Das Gelände wird in Chunks gestreamt und deckt den sichtbaren Ausschnitt lückenlos ab.
+	var world = main.get_node("World")
+	var terrain = world.terrain
+	check(terrain._chunks.size() > 0, "Gelände-Chunks werden für den Startausschnitt erzeugt")
+	var view: Rect2 = terrain.visible_world_rect()
+	var chunk_cover := true
+	for corner in [view.position + Vector2(1, 1), view.end - Vector2(1, 1)]:
+		var cell := Vector2i(floori(corner.x / 128.0), floori(corner.y / 128.0))
+		var hit := false
+		for chunk in terrain._chunks.values():
+			if chunk.bounds.has_point(cell):
+				hit = true
+				break
+		chunk_cover = chunk_cover and hit
+	check(chunk_cover, "der sichtbare Ausschnitt ist lückenlos mit Chunks belegt")
+	var start_chunks: Array = terrain._chunks.keys()
+	world.cam.position += Vector2(4000, 4000)
+	await frames(3)
+	var streamed := false
+	for coord in terrain._chunks.keys():
+		if not start_chunks.has(coord):
+			streamed = true
+			break
+	check(streamed and terrain._chunks.size() > 0, "beim Schwenken werden neue Chunks nachgeladen")
+	world.reset_camera()
+	await frames(2)
 	# Die Saat-Auswahl zeigt den aktuellen Wettereffekt und wetterbasierte Reifezeiten.
 	gs.level = 1
 	var weather_duration: float = root.get_node("GameData").WEATHER_DURATION_SECONDS
@@ -145,11 +171,17 @@ func run() -> void:
 	ui.act_open("settings", {})
 	await frames()
 	var music_available: bool = load("res://scripts/core/background_music.gd").track_available()
-	var sound_slider := ui.content.find_child("Volume_sound", true, false) as HSlider
-	var music_slider := ui.content.find_child("Volume_music", true, false) as HSlider
-	check(sound_slider != null, "Tonlautstärke ist ein Regler")
-	check(music_slider != null, "Musiklautstärke ist ein Regler")
+	var slider_script: GDScript = load("res://scripts/ui/volume_slider.gd")
+	var sound_slider = ui.content.find_child("Volume_sound", true, false)
+	var music_slider = ui.content.find_child("Volume_music", true, false)
+	check(sound_slider != null and sound_slider.get_script() == slider_script, "Tonlautstärke ist ein Regler")
+	check(music_slider != null and music_slider.get_script() == slider_script, "Musiklautstärke ist ein Regler")
 	if sound_slider != null:
+		var track: Rect2 = sound_slider.track_rect()
+		var handle: Rect2 = sound_slider.handle_rect()
+		check(track.size.x > 100.0 and track.size.y >= 12.0, "Tonregler zeichnet eine sichtbare Schiene")
+		check(handle.size.x >= 40.0 and handle.size.x <= 64.0, "Tonregler hat einen sichtbaren Griff")
+		check(sound_slider.size.y >= 64.0, "Tonregler ist hoch genug für den Finger")
 		sound_slider.value = 0.4
 		await frames()
 		check(is_equal_approx(float(gs.settings.get("sound_volume", -1.0)), 0.4), "Tonregler speichert 40 %")
@@ -175,14 +207,17 @@ func run() -> void:
 	await frames()
 	check(contains_label(ui.content, "Nudelwerkstatt"), "Nudelwerkstatt steht im Gebäude-Shop")
 	check(contains_label(ui.content, "Eismanufaktur"), "Eismanufaktur steht im Gebäude-Shop")
+	check(contains_label(ui.content, "Zuckermühle"), "Zuckermühle steht im Gebäude-Shop")
 	ui.act_open("shop", {"tab": "crops"})
 	await frames()
 	check(contains_label(ui.content, "Zucchini"), "Zucchini ist in der Pflanzenauswahl")
 	check(contains_label(ui.content, "Rhabarber"), "Rhabarber ist in der Pflanzenauswahl")
+	check(contains_label(ui.content, "Zuckerrohr"), "Zuckerrohr ist in der Pflanzenauswahl")
 	ui.act_open("shop", {"tab": "land"})
 	await frames()
-	check(contains_label(ui.content, "Zucker"), "Zucker ist im Land-Shop kaufbar")
+	check(not contains_label(ui.content, "im Vorrat"), "keine fertige Zucker-Zutat mehr im Land-Shop")
 	var new_buildings := {
+		"sugarmill": [Vector2i(14, 17), "Zucker"],
 		"florist": [Vector2i(8, 11), "Sonnenblumenstrauß"],
 		"oilmill": [Vector2i(10, 11), "Sonnenblumenöl"],
 		"preserves": [Vector2i(12, 11), "Erdbeerkonfitüre"],

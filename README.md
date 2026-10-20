@@ -13,15 +13,16 @@ geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfa
 - 23 Pflanzen mit mehreren Wachstumsstufen, stufenbasierter Progression und Freischaltsystem. Alle Pflanzen sind einjährig: Nach der Ernte wird das Feld frei und muss neu bestellt werden
 - Weitere Pflanzen: Kürbis, Rote Bete, Rhabarber, Zuckerrohr, Salat, Zucchini, Gurke, Erbsen, Heidelbeeren, Reis, Quinoa und Kaffee (für das Café)
 - Mandeln als Feldfrucht ab Stufe 5: pflanzbar, erntbar und Grundlage für Mandelmilch
-- 13 Produktionsgebäude (inkl. Gartencafé), 50 Rezepte, Warteschlangen, Ausbaustufen und Abholfunktion
+- 13 Produktionsgebäude (inkl. Gartencafé), 53 Rezepte, Warteschlangen, Ausbaustufen und Abholfunktion
 - Neue Produktionsketten: Blumenwerkstatt (8), Ölmühle (9), Zuckermühle (9), Konfitürenküche (9), Nudelwerkstatt (10), Eismanufaktur (11) und Müsli-Manufaktur (14)
 - Vollständig eigene Warenketten: Zuckerrohr wird ab Stufe 9 angebaut und in der Zuckermühle zu Zucker gepresst; Konfitüren, Karamellsirup und Karamell-Latte verarbeiten den Zucker weiter. Fertige Zutaten gibt es nicht mehr zu kaufen
+- Wilde Sammelstellen außerhalb des Zauns: Wilde Kräuter (ab 2), Waldpilze (ab 4) und Wildbeeren (ab 6) wachsen in einem Ring um die Farm in festen, ortsgebundenen Fundstellen nach. Tippen oder Wischen sammelt sie ein; in der Küche werden daraus Kräuterkartoffeln, Pilzrahm-Suppe und Wildbeerenkompott
 - Produktions-Dashboard: alle Gebäude mit Warteschlange, Restzeiten und abholbaren Produkten auf einen Blick, Sammelabholung und Badge in der Navigation
 - Kundenaufträge, Münzen, Erfahrungspunkte, Quests, Shop, Dekoration und Landerweiterung
 - Tierrefugium mit 5 Tierarten, eigenen Charakterzügen, optionalen artspezifischen Aktivitäten, wählbaren kosmetischen Belohnungen und Rettungsangeboten ohne Druck
 - Refugium-Tagebuch für Rettungen und gemeinsame Momente, Freundschaftsstufen mit animierten Reaktionen und Profilgeschichten
 - Optionale mehrteilige Nachbarschafts-Lieferungsgeschichten mit gespeichertem Fortschritt und Abschlussbelohnungen
-- 27 einlösbare Erfolge für Aufträge, Ernten, Herstellung, Tierpflege, Freundschaft, Geschichten, Café, neue Produktionsketten, Zuckermühle und Farmerweiterung
+- 28 einlösbare Erfolge für Aufträge, Ernten, Herstellung, Sammeln, Tierpflege, Freundschaft, Geschichten, Café, neue Produktionsketten, Zuckermühle und Farmerweiterung
 - Belegungs- und Wohlbefinden-Übersicht pro Gehege; Tierprofile, Tagebuch und Geschichtenfortschritt sind Teil der versionierten Spielstände
 - Wetter: Sonnig, Bewölkt, Regen und Nebel wechseln alle 120 Sekunden. Bewölkt verlangsamt das Wachstum um 10 %, Regen beschleunigt es um 25 %. Die Wachstumszeiten berücksichtigen den Wetterverlauf, auch während der Offline-Zeit
 - Tag-Nacht-Zyklus mit Uhrzeitanzeige: ein Spieltag dauert 8 Minuten echter Zeit, mit Dämmerung und Farbstimmung
@@ -30,7 +31,7 @@ geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfa
 - Prozedurale Umgebung in Chunks: Wiese und Wald rings um die Farm werden in 8×8-Zellen-Chunks erzeugt und nur im sichtbaren Kamerabereich gezeichnet. Beim Schwenken und Zoomen entsteht so kein leerer grüner Rand, und die Umgebung bleibt auch bei ausgebauter Farm performant
 - Stufenkurve mit langem Atem: frühe Stufen bleiben schnell erreichbar, spätere Ziele wachsen quadratisch. Erfolge sind eine willkommene Beschleunigung, tragen aber nicht mehr allein bis zur Maximalstufe
 - Touch-Steuerung: Tippen, Wischen zum Säen/Ernten, Kamera verschieben mit Trägheit, Pinch-Zoom, Platzieren per Ziehen
-- Lokales, versioniertes Speichersystem (geprüftes Laden, rotierendes Backup, Spielstände neuerer Versionen werden nie überschrieben); Wachstum und Produktion laufen offline weiter
+- Lokales, versioniertes Speichersystem (geprüftes Laden, rotierendes Backup, Spielstände neuerer Versionen werden nie überschrieben); Wachstum, Produktion und wilde Fundstellen laufen offline weiter. Ältere Spielstände erhalten leere Sammelzeiten ohne Versionssprung
 - Spielstände als JSON exportieren und importieren (Import wird vor dem Ersetzen geprüft; bisheriger Stand wird als Backup gesichert)
 - Soundeffekte (zur Laufzeit erzeugt), Vibrations-Feedback und optionale Hintergrundmusik; Ton und Musik haben getrennte, selbst gezeichnete Lautstärkeregler (0–100 %, sichtbare Schiene mit großem Griff), Vibration lässt sich abschalten
 
@@ -53,7 +54,7 @@ Jeder Push startet GitHub Actions (`.github/workflows/android.yml`), die die Tes
 ```text
 audio/           Hintergrundmusik (Sunlight_on_the_Path.mp3)
 scripts/core/    GameData (Balancing), GameState (Logik), SaveSystem, Sfx, BackgroundMusic
-scripts/world/   Welt, Kamera/Touch, Gelände, Felder, Objekte, Tiere, Painter
+scripts/world/   Welt, Kamera/Touch, Gelände, Felder, Sammelstellen, Objekte, Tiere, Painter
 scripts/ui/      UiRoot (HUD, Aktionen), UiKit, Icons, sheets/ (Menüs)
 scenes/          main, world, ui_root, entity, animal
 tests/           run_tests.gd, achievements_ui.gd, save_transfer_ui.gd, screenshots.gd,

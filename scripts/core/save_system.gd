@@ -362,6 +362,10 @@ func migrate(data: Dictionary) -> Dictionary:
 		data["last_day_recap"] = 1
 		data["day_stats_snapshot"] = day_snapshot.duplicate(true)
 		data["version"] = 9
+	# Wilde Sammelstellen sind eine optionale Ergänzung. Altstände starten ohne
+	# Nachwuchszeiten; die Fundstellen selbst ergeben sich aus der Zellposition.
+	if not data.has("forage"):
+		data["forage"] = []
 	# Lautstärken sind optionale Einstellungen. Ältere Stände kannten nur An/Aus;
 	# sie werden auf 0 % bzw. 100 % abgebildet, ohne die Save-Version zu erhöhen.
 	var settings_value: Variant = data.get("settings", {})

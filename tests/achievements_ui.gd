@@ -29,6 +29,10 @@ func find_button(node: Node, prefix: String) -> Button:
 	return null
 
 
+func world_to_screen(world_node: Node, world_pos: Vector2) -> Vector2:
+	return (world_pos - world_node.cam.position) * world_node.cam.zoom.x + world_node.get_viewport_rect().size * 0.5
+
+
 func contains_label(node: Node, text: String) -> bool:
 	if node is Label and String((node as Label).text).contains(text):
 		return true
@@ -74,6 +78,52 @@ func run() -> void:
 	check(streamed and terrain._chunks.size() > 0, "beim Schwenken werden neue Chunks nachgeladen")
 	world.reset_camera()
 	await frames(2)
+	check(world.forage_layer != null and world.forage_layer.z_index == 1, "Sammel-Ebene für Wildware liegt über dem Gelände")
+	check(world.forage_layer.view_rect().size.x > 0.0, "Sammel-Ebene kennt den sichtbaren Ausschnitt")
+	gs.level = 6
+	var forage_data: Node = root.get_node("GameData")
+	var band: int = int(forage_data.FORAGE_BAND_CELLS)
+	var forage_cell := Vector2i(-999, -999)
+	for y in range(gs.land.position.y - band, gs.land.end.y + band):
+		for x in range(gs.land.position.x - band, gs.land.end.x + band):
+			if gs.forage_ready(Vector2i(x, y)):
+				forage_cell = Vector2i(x, y)
+				break
+		if forage_cell.x != -999:
+			break
+	check(forage_cell.x != -999, "in der Umgebung gibt es eine reife Sammelstelle")
+	if forage_cell.x != -999:
+		var forage_id: String = gs.forage_spot_at(forage_cell)
+		var forage_before: int = gs.item_count(forage_id)
+		var forage_world := Vector2(forage_cell) * 128.0 + Vector2(64, 96)
+		world._handle_tap(world_to_screen(world, forage_world))
+		await frames(2)
+		check(gs.item_count(forage_id) == forage_before + int(forage_data.FORAGE[forage_id]["amount"]), "Tippen in der Wildnis sammelt die Ware ein")
+		check(int(gs.stats.get("foraged", 0)) == 1, "Sammeln wird in der Statistik gezählt")
+	# Wischen über eine zweite reife Stelle sammelt ohne einzelnes Tippen.
+	var swipe_cell := Vector2i(-999, -999)
+	for y in range(gs.land.position.y - band, gs.land.end.y + band):
+		for x in range(gs.land.position.x - band, gs.land.end.x + band):
+			if Vector2i(x, y) != forage_cell and gs.forage_ready(Vector2i(x, y)):
+				swipe_cell = Vector2i(x, y)
+				break
+		if swipe_cell.x != -999:
+			break
+	check(swipe_cell.x != -999, "es gibt eine zweite reife Sammelstelle")
+	if swipe_cell.x != -999:
+		var swipe_id: String = gs.forage_spot_at(swipe_cell)
+		var swipe_before: int = gs.item_count(swipe_id)
+		var foraged_before: int = int(gs.stats.get("foraged", 0))
+		var swipe_start := world_to_screen(world, Vector2(swipe_cell) * 128.0 + Vector2(20, 90))
+		var swipe_end := world_to_screen(world, Vector2(swipe_cell) * 128.0 + Vector2(108, 98))
+		world._begin_single(swipe_start)
+		world._moved = true
+		world._last_sweep_pos = swipe_start
+		world._sweep_to(swipe_end)
+		world._end_single(swipe_end)
+		await frames(2)
+		check(gs.item_count(swipe_id) == swipe_before + int(forage_data.FORAGE[swipe_id]["amount"]), "Wischen in der Wildnis sammelt die Ware ein")
+		check(int(gs.stats.get("foraged", 0)) == foraged_before + 1, "Wisch-Ernte zählt in der Statistik")
 	# Die Saat-Auswahl zeigt den aktuellen Wettereffekt und wetterbasierte Reifezeiten.
 	gs.level = 1
 	var weather_duration: float = root.get_node("GameData").WEATHER_DURATION_SECONDS

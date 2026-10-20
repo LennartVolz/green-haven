@@ -71,6 +71,7 @@ func _initialize() -> void:
 	test_new_crops()
 	test_new_production()
 	test_sugar_chain()
+	test_foraging()
 	test_level_curve()
 	test_landscape_chunks()
 	section = "Tierverhalten bei Wetter und Nacht"
@@ -1225,6 +1226,60 @@ func test_sugar_chain() -> void:
 	gs.time_offset += 121.0
 	check(gs.collect_ready(preserves).size() == 1 and gs.item_count("strawberry_jam") == 1, "Konfitüre mit eigenem Zucker abholen")
 	check(gd.RECIPES.has("cane_syrup") and gd.RECIPES.has("caramel_syrup") and gd.RECIPES.has("caramel_latte"), "Zuckermühle hat eine kleine eigene Rezeptkette")
+
+
+func test_foraging() -> void:
+	begin("Wildnis sammeln")
+	check(gd.FORAGE.size() == 3, "drei wilde Lebensmittel")
+	for id in gd.FORAGE:
+		check(gd.items.has(id) and gd.items[id]["kind"] == "forage", "%s ist als Sammelgut registriert" % id)
+		check(int(gd.FORAGE[id]["amount"]) > 0 and float(gd.FORAGE[id]["respawn"]) > 0.0, "%s hat Ertrag und Nachwuchszeit" % id)
+		check(int(gd.FORAGE[id]["level"]) > 1, "%s wird nicht schon auf Stufe 1 verschenkt" % id)
+	check(gd.unlocks_at(2).has("Wildnis: Wilde Kräuter"), "wilde Kräuter stehen in den Freischaltungen")
+	var found := {}
+	var sample := Vector2i.ZERO
+	var sample_id := ""
+	var locked_cell := Vector2i.ZERO
+	var locked_id := ""
+	for y in range(-30, 40):
+		for x in range(-30, 40):
+			var cell := Vector2i(x, y)
+			var id: String = gs.forage_spot_at(cell)
+			if id == "":
+				continue
+			found[id] = int(found.get(id, 0)) + 1
+			check(not gs.land.has_point(cell), "Sammelstelle %s liegt außerhalb der Farm" % cell)
+			check(gs.land.grow(gd.FORAGE_BAND_CELLS).has_point(cell), "Sammelstelle %s bleibt im Sammelring" % cell)
+			if sample_id == "":
+				sample = cell
+				sample_id = id
+			elif locked_id == "" and int(gd.FORAGE[id]["level"]) > gs.level:
+				locked_cell = cell
+				locked_id = id
+	check(found.size() >= 2, "mehrere Sorten wachsen in der Umgebung")
+	check(sample_id != "" and sample_id == gs.forage_spot_at(sample), "Fundstellen bleiben stabil")
+	check(locked_id != "" and not gs.forage_available(locked_cell), "höhere Wildware bleibt anfangs verborgen")
+	check(gs.collect_forage(locked_cell).is_empty() and gs.last_error.contains("Stufe"), "Sammeln vor der Freischaltung wird abgelehnt")
+	check(gs.forage_spot_at(gs.land.position) == "", "auf der Farm wächst nichts Wildes")
+	level_to(int(gd.FORAGE[sample_id]["level"]))
+	var before: int = gs.item_count(sample_id)
+	var got: Dictionary = gs.collect_forage(sample)
+	check(not got.is_empty() and gs.item_count(sample_id) == before + int(gd.FORAGE[sample_id]["amount"]), "Sammeln legt Wildware in den Vorrat")
+	check(int(gs.stats.get("foraged", 0)) == 1, "Sammeln zählt für Quests und Erfolge")
+	check(not gs.forage_ready(sample) and gs.forage_remaining(sample) > 0.0, "die Stelle wächst zuerst nach")
+	check(gs.collect_forage(sample).is_empty(), "dieselbe Stelle gibt nicht zweimal Ware")
+	gs.time_offset += float(gd.FORAGE[sample_id]["respawn"]) + 1.0
+	check(gs.forage_ready(sample) and not gs.collect_forage(sample).is_empty(), "nach der Nachwuchszeit wieder sammelbar")
+	var ready_at: float = float(gs.forage.get(sample, 0.0))
+	var saved: Dictionary = gs.serialize()
+	check(saved.has("forage") and (saved["forage"] as Array).size() >= 1, "Spielstand enthält Sammelzeiten")
+	gs.new_game()
+	check(gs.forage.is_empty(), "neues Spiel startet ohne Sammelzeiten")
+	check(gs.deserialize(saved), "Spielstand mit Sammelzeiten laden")
+	check(is_equal_approx(float(gs.forage.get(sample, 0.0)), ready_at), "Nachwuchszeit bleibt erhalten")
+	var foraged_achievement: Dictionary = _achievement("forage_15")
+	check(not foraged_achievement.is_empty() and gd.QUESTS.any(func(q: Dictionary) -> bool: return str(q["id"]) == "q_forage5"), "Erfolg und Quest begleiten das Sammeln")
+	check(gd.RECIPES["mushroom_soup"]["inputs"].has("mushroom") and gd.RECIPES["herb_potatoes"]["inputs"].has("wild_herbs"), "Wildware wird in der Küche verarbeitet")
 
 
 func test_level_curve() -> void:

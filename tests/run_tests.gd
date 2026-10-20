@@ -1071,10 +1071,13 @@ func test_new_crops() -> void:
 		gs.time_offset += gd.real_seconds_for_crop_growth(gs.now(), float(definition["grow"])) + 0.01
 		check(gs.harvest(cell), "%s nach effektiver Wetter-Wachstumszeit erntbar" % crop)
 		check(gs.item_count(crop) == int(definition["yield"]), "%s liefert Inventar-Ertrag" % crop)
-		if crop == "coffee" or crop == "blueberry" or crop == "almond":
+		if crop == "coffee" or crop == "blueberry":
 			check(gs.fields[cell].crop == crop, "%s wächst nach Ernte weiter" % crop)
 			gs.time_offset += gd.real_seconds_for_crop_growth(gs.now(), float(definition["grow"])) + 0.01
 			check(gs.harvest(cell), "%s kann nach effektiver Wetter-Wachstumszeit erneut geerntet werden" % crop)
+		if crop == "almond":
+			check(gs.fields[cell].crop == "", "Mandeln werden nach der Ernte nicht automatisch nachgepflanzt")
+			check(not gs.harvest(cell), "das leere Mandelfeld ist erst nach neuer Aussaat wieder erntbar")
 		gs.fields[cell] = {"crop": "", "t": 0.0}
 	check(gd.RECIPES.size() >= 26, "Café und Tageskarte enthalten sechs neue Rezepte")
 	for recipe in ["pumpkin_spice_latte", "blueberry_coffee_cake"]:
@@ -1083,7 +1086,7 @@ func test_new_crops() -> void:
 		check(gd.items.has(recipe), "%s ist als Produkt im Inventar registriert" % recipe)
 	check(gd.unlocks_at(18).has("Quinoa"), "Quinoa wird auf Stufe 18 freigeschaltet")
 	check(gd.unlocks_at(5).has("Mandeln"), "Mandeln werden auf Stufe 5 freigeschaltet")
-	check(gd.CROPS.has("almond") and bool(gd.CROPS["almond"]["perennial"]), "Mandeln wachsen als mehrjährige Pflanze")
+	check(gd.CROPS.has("almond") and not bool(gd.CROPS["almond"]["perennial"]), "Mandeln werden nach der Ernte nicht automatisch nachgepflanzt")
 	check(gd.CROPS["almond"]["level"] == gd.RECIPES["almond_milk"]["level"], "Mandel und Mandelmilch starten auf derselben Stufe")
 	check(gd.items["almond"]["kind"] == "crop", "Mandeln sind als Feldfrucht registriert")
 	check(not gd.EXTRA_ITEMS.has("almond"), "Mandeln sind keine reine Shop-Zutat mehr")

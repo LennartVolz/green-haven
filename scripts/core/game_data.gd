@@ -43,7 +43,7 @@ const CROPS := {
 	"tomato": {"name": "Tomate", "grow": 180, "seed": 4, "yield": 3, "sell": 8, "xp": 5, "level": 4, "col": "#E04B3A", "perennial": false},
 	"corn": {"name": "Mais", "grow": 240, "seed": 5, "yield": 4, "sell": 8, "xp": 6, "level": 5, "col": "#F2CF3E", "perennial": false},
 	"soy": {"name": "Sojabohne", "grow": 300, "seed": 6, "yield": 4, "sell": 9, "xp": 7, "level": 5, "col": "#9DB35C", "perennial": false},
-	"almond": {"name": "Mandeln", "grow": 420, "seed": 6, "yield": 3, "sell": 8, "xp": 8, "level": 5, "col": "#D8B98A", "perennial": true},
+	"almond": {"name": "Mandeln", "grow": 420, "seed": 6, "yield": 3, "sell": 8, "xp": 8, "level": 5, "col": "#D8B98A", "perennial": false},
 	"strawberry": {"name": "Erdbeere", "grow": 420, "seed": 8, "yield": 5, "sell": 12, "xp": 9, "level": 6, "col": "#D9344F", "perennial": false},
 	"apple": {"name": "Apfel", "grow": 600, "seed": 10, "yield": 6, "sell": 14, "xp": 12, "level": 7, "col": "#C9362D", "perennial": true},
 	"sunflower": {"name": "Sonnenblume", "grow": 360, "seed": 6, "yield": 4, "sell": 11, "xp": 8, "level": 8, "col": "#F6C21C", "perennial": false},

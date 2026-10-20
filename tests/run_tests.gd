@@ -68,6 +68,7 @@ func _initialize() -> void:
 	test_data_consistency()
 	test_economy()
 	test_new_crops()
+	test_new_production()
 	section = "Tierverhalten bei Wetter und Nacht"
 	load("res://tests/suites/animal_weather.gd").new().run(self, world_script, gs, gd)
 	section = "Spielstand-Export/Import"
@@ -434,7 +435,7 @@ func test_delivery_stories() -> void:
 					story_order = order
 	check(gs.active_delivery_story.is_empty(), "abgeschlossene Reihe wird beendet")
 	check(gs.diary.size() >= 5 and String(gs.diary.back().text).contains("abgeschlossen"), "Abschluss und Abschnitte stehen im Refugiums-Tagebuch")
-	check(gd.RECIPES.size() >= 26, "Café und Tageskarte enthalten sechs neue Rezepte")
+	check(gd.RECIPES.size() >= 46, "die neuen Produktionsketten erweitern das Rezeptbuch auf 46 Rezepte")
 
 
 func test_cafe() -> void:
@@ -1029,7 +1030,7 @@ func test_economy() -> void:
 	for id in gd.CROPS:
 		var c: Dictionary = gd.CROPS[id]
 		check(int(c["yield"]) * int(c.sell) > int(c.seed), "%s: Ernte lohnt sich" % id)
-	check(gd.CROPS.size() == 20, "zwanzig Pflanzen einschließlich Mandel und Kaffeepflanze")
+	check(gd.CROPS.size() == 22, "22 Pflanzen einschließlich Mandel, Rhabarber und Zucchini")
 	check(gd.RECIPES.size() >= 8, "mindestens acht Rezepte")
 	# Erste Minuten: Spieler erreicht Stufe 2 nach wenigen Ernten
 	gs.new_game()
@@ -1060,8 +1061,8 @@ func test_new_crops() -> void:
 	gs.coins = 100000
 	var cell: Vector2i = gs.fields.keys()[0]
 	var new_crops := {
-		"almond": 5, "coffee": 8, "pumpkin": 9, "beet": 10, "lettuce": 11, "cucumber": 12,
-		"pea": 13, "blueberry": 14, "rice": 16, "quinoa": 18,
+		"almond": 5, "coffee": 8, "pumpkin": 9, "beet": 10, "rhubarb": 10, "lettuce": 11, "zucchini": 11,
+		"cucumber": 12, "pea": 13, "blueberry": 14, "rice": 16, "quinoa": 18,
 	}
 	for crop in new_crops:
 		var level: int = int(new_crops[crop])
@@ -1074,7 +1075,7 @@ func test_new_crops() -> void:
 		check(gs.fields[cell].crop == "", "%s hinterlässt nach der Ernte ein leeres Feld" % crop)
 		check(not gs.harvest(cell), "%s kann ohne neue Aussaat nicht erneut geerntet werden" % crop)
 		gs.fields[cell] = {"crop": "", "t": 0.0}
-	check(gd.RECIPES.size() >= 26, "Café und Tageskarte enthalten sechs neue Rezepte")
+	check(gd.RECIPES.size() >= 46, "die neuen Produktionsketten erweitern das Rezeptbuch auf 46 Rezepte")
 	for recipe in ["pumpkin_spice_latte", "blueberry_coffee_cake"]:
 		check(gd.items.has(recipe), "%s ist als Tagesgericht-Produkt registriert" % recipe)
 	for recipe in ["pumpkin_soup", "beet_spread", "garden_salad", "blueberry_smoothie", "rice_milk", "quinoa_bowl"]:
@@ -1099,6 +1100,52 @@ func test_new_crops() -> void:
 	check(gs.collect_ready(almond_milkery).size() == 1 and gs.item_count("almond_milk") == 1, "Mandelmilch aus geernteten Mandeln herstellen")
 	check(gd.LAND_EXPANSIONS.size() >= 8, "acht Landstufen erreichen gemeinsam den Vollausbau")
 	check(gd.items.has("pumpkin") and gd.items.has("blueberry"), "neue Ernten als handelbare Items registriert")
+
+
+func test_new_production() -> void:
+	begin("Neue Produktionsketten")
+	gs.new_game()
+	gs.level = 18
+	gs.coins = 100000
+	var spots := {
+		"florist": Vector2i(8, 11), "oilmill": Vector2i(10, 11), "preserves": Vector2i(12, 11),
+		"pasta": Vector2i(8, 17), "icecream": Vector2i(10, 17), "muesli": Vector2i(12, 17),
+	}
+	var uids := {}
+	for id in spots:
+		uids[id] = gs.place_object(str(id), spots[id])
+		check(int(uids[id]) > 0, "%s bauen" % gd.BUILDINGS[id]["name"])
+	check(gs.production_buildings().size() == 6, "alle sechs neuen Gebäude stehen")
+	for id in ["build_florist", "build_oilmill", "build_preserves", "build_pasta", "build_icecream", "build_muesli"]:
+		var achievement: Dictionary = {}
+		for entry in gd.ACHIEVEMENTS:
+			if str(entry["id"]) == id:
+				achievement = entry
+		check(not achievement.is_empty() and gs.achievement_unlocked(achievement), "Erfolg %s zählt das neue Gebäude" % id)
+	check(gd.unlocks_at(8).has("Blumenwerkstatt") and gd.unlocks_at(9).has("Ölmühle"), "neue Gebäude sind sinnvoll gestaffelt")
+	check(gd.unlocks_at(10).has("Rhabarber") and gd.unlocks_at(11).has("Zucchini"), "neue Pflanzen erscheinen auf ihrer Freischaltstufe")
+	check(gd.EXTRA_ITEMS.has("sugar") and gs.buy_item("sugar", 1), "Zucker ist als Shop-Zutat verfügbar")
+	# Öl, Nudeln und Konfitüre über die echten Produktionswege herstellen.
+	gs.add_item("sunflower", 4)
+	check(gs.start_recipe(int(uids["oilmill"]), "sunflower_oil"), "Sonnenblumenöl starten")
+	gs.add_item("wheat", 3)
+	check(gs.start_recipe(int(uids["pasta"]), "pasta"), "Weizennudeln starten")
+	gs.time_offset += 121.0
+	check(gs.collect_ready(int(uids["oilmill"])).size() == 1 and gs.item_count("sunflower_oil") == 1, "Öl abholen")
+	check(gs.collect_ready(int(uids["pasta"])).size() == 1 and gs.item_count("pasta") == 1, "Nudeln abholen")
+	check(int(gs.stats.get("crafted_sunflower_oil", 0)) == 1 and int(gs.stats.get("crafted_pasta", 0)) == 1, "Rezepte zählen eigene Erfolgsstatistiken")
+	for id in ["pasta_10", "oil_10"]:
+		var achievement: Dictionary = {}
+		for entry in gd.ACHIEVEMENTS:
+			if str(entry["id"]) == id:
+				achievement = entry
+		check(gs.achievement_progress(achievement) == 1, "Erfolgsfortschritt %s zählt hergestellte Ware" % id)
+	gs.add_item("strawberry", 4)
+	check(gs.start_recipe(int(uids["preserves"]), "strawberry_jam"), "Erdbeerkonfitüre starten")
+	gs.time_offset += 121.0
+	check(gs.collect_ready(int(uids["preserves"])).size() == 1 and gs.item_count("strawberry_jam") == 1, "Konfitüre abholen")
+	check(gd.items.has("apple_rice_pudding") and gd.RECIPES["quinoa_bar"]["level"] == 18, "späte Rezepte bleiben bis Stufe 18 sinnvoll")
+	check(gd.RECIPES["strawberry_ice"]["inputs"].has("oat_milk"), "Eis verbindet Obst und Pflanzenmilch")
 
 
 func _write_text(path: String, text: String) -> void:

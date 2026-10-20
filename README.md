@@ -10,16 +10,17 @@ geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfa
 
 ## Umfang
 
-- 20 Pflanzen mit mehreren Wachstumsstufen, stufenbasierter Progression und Freischaltsystem. Alle Pflanzen sind einjährig: Nach der Ernte wird das Feld frei und muss neu bestellt werden
-- Weitere Pflanzen: Kürbis, Rote Bete, Salat, Gurke, Erbsen, Heidelbeeren, Reis, Quinoa und Kaffee (für das Café)
+- 22 Pflanzen mit mehreren Wachstumsstufen, stufenbasierter Progression und Freischaltsystem. Alle Pflanzen sind einjährig: Nach der Ernte wird das Feld frei und muss neu bestellt werden
+- Weitere Pflanzen: Kürbis, Rote Bete, Rhabarber, Salat, Zucchini, Gurke, Erbsen, Heidelbeeren, Reis, Quinoa und Kaffee (für das Café)
 - Mandeln als Feldfrucht ab Stufe 5: pflanzbar, erntbar und Grundlage für Mandelmilch
-- 6 Produktionsgebäude (inkl. Gartencafé), 26 Rezepte, Warteschlangen, Ausbaustufen und Abholfunktion
+- 12 Produktionsgebäude (inkl. Gartencafé), 46 Rezepte, Warteschlangen, Ausbaustufen und Abholfunktion
+- Neue Produktionsketten: Blumenwerkstatt (8), Ölmühle (9), Konfitürenküche (9), Nudelwerkstatt (10), Eismanufaktur (11) und Müsli-Manufaktur (14); Zucker für Konfitüren gibt es im Land-Shop
 - Produktions-Dashboard: alle Gebäude mit Warteschlange, Restzeiten und abholbaren Produkten auf einen Blick, Sammelabholung und Badge in der Navigation
 - Kundenaufträge, Münzen, Erfahrungspunkte, Quests, Shop, Dekoration und Landerweiterung
 - Tierrefugium mit 5 Tierarten, eigenen Charakterzügen, optionalen artspezifischen Aktivitäten, wählbaren kosmetischen Belohnungen und Rettungsangeboten ohne Druck
 - Refugium-Tagebuch für Rettungen und gemeinsame Momente, Freundschaftsstufen mit animierten Reaktionen und Profilgeschichten
 - Optionale mehrteilige Nachbarschafts-Lieferungsgeschichten mit gespeichertem Fortschritt und Abschlussbelohnungen
-- 13 einlösbare Erfolge für Aufträge, Ernten, Herstellung, Tierpflege, Freundschaft, Geschichten, Café und Farmerweiterung
+- 25 einlösbare Erfolge für Aufträge, Ernten, Herstellung, Tierpflege, Freundschaft, Geschichten, Café, neue Produktionsketten und Farmerweiterung
 - Belegungs- und Wohlbefinden-Übersicht pro Gehege; Tierprofile, Tagebuch und Geschichtenfortschritt sind Teil der versionierten Spielstände
 - Wetter: Sonnig, Bewölkt, Regen und Nebel wechseln alle 120 Sekunden. Bewölkt verlangsamt das Wachstum um 10 %, Regen beschleunigt es um 25 %. Die Wachstumszeiten berücksichtigen den Wetterverlauf, auch während der Offline-Zeit
 - Tag-Nacht-Zyklus mit Uhrzeitanzeige: ein Spieltag dauert 8 Minuten echter Zeit, mit Dämmerung und Farbstimmung

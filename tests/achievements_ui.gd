@@ -158,6 +158,37 @@ func run() -> void:
 			music_button.pressed.emit()
 		await frames()
 
+	# Neue Gebäude und Pflanzen erscheinen in Shop und Produktionsansicht.
+	gs.level = 18
+	gs.coins = 50000
+	ui.act_open("shop", {"tab": "buildings"})
+	await frames()
+	check(contains_label(ui.content, "Nudelwerkstatt"), "Nudelwerkstatt steht im Gebäude-Shop")
+	check(contains_label(ui.content, "Eismanufaktur"), "Eismanufaktur steht im Gebäude-Shop")
+	ui.act_open("shop", {"tab": "crops"})
+	await frames()
+	check(contains_label(ui.content, "Zucchini"), "Zucchini ist in der Pflanzenauswahl")
+	check(contains_label(ui.content, "Rhabarber"), "Rhabarber ist in der Pflanzenauswahl")
+	ui.act_open("shop", {"tab": "land"})
+	await frames()
+	check(contains_label(ui.content, "Zucker"), "Zucker ist im Land-Shop kaufbar")
+	var new_buildings := {
+		"florist": [Vector2i(8, 11), "Sonnenblumenstrauß"],
+		"oilmill": [Vector2i(10, 11), "Sonnenblumenöl"],
+		"preserves": [Vector2i(12, 11), "Erdbeerkonfitüre"],
+		"pasta": [Vector2i(8, 17), "Weizennudeln"],
+		"icecream": [Vector2i(10, 17), "Erdbeer-Eis"],
+		"muesli": [Vector2i(12, 17), "Beeren-Müsli"],
+	}
+	for id in new_buildings:
+		var spot: Vector2i = new_buildings[id][0]
+		var uid: int = gs.place_object(str(id), spot)
+		if check(uid > 0, "%s lässt sich platzieren" % id):
+			ui.act_open("production", {"uid": uid})
+			await frames()
+			check(ui._sheet_name == "production" and contains_label(ui.content, String(new_buildings[id][1])), "%s zeigt sein Rezept" % id)
+	ui.close_sheet()
+
 	# Der Gartentag bekommt im HUD und Auftragsbuch echte Sichtbarkeit.
 	gs.new_game()
 	gs.level = 10

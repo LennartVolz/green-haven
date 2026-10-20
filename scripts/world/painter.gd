@@ -116,6 +116,10 @@ static func draw_crop(ci: CanvasItem, id: String, stage: int, center: Vector2, t
 				_lettuce(ci, stage, t)
 			"cucumber":
 				_cucumber(ci, stage, t)
+			"zucchini":
+				_zucchini(ci, stage, t)
+			"rhubarb":
+				_rhubarb(ci, stage, t)
 			"pea":
 				_pea(ci, stage, t)
 			"blueberry":
@@ -296,6 +300,34 @@ static func _cucumber(ci: CanvasItem, stage: int, t: float) -> void:
 			ellipse(ci, Vector2(x + 13, y + 6), 6, 17, col("#4F9A55"))
 			for k in range(3):
 				ci.draw_circle(Vector2(x + 13 + float(k - 1) * 3, y + 3 + float(k) * 5), 1.4, col("#B8D779"))
+
+
+static func _zucchini(ci: CanvasItem, stage: int, t: float) -> void:
+	var h := 12.0 + float(stage) * 10.0
+	for i in range(4):
+		var x := -30.0 + float(i) * 20.0
+		var top := Vector2(x + sway(t, i, 1.4), -h - float(i % 2) * 6.0)
+		ci.draw_line(Vector2(0, -3), top, col("#5A9147"), 4.0, true)
+		ellipse(ci, top + Vector2(-8, 4), 12, 8, col("#6FAE56"))
+		ellipse(ci, top + Vector2(7, 1), 11, 7, col("#7DBB62"))
+	if stage == 3:
+		ellipse(ci, Vector2(12, -20), 8, 20, col("#4F9A48"), 12)
+		ci.draw_circle(Vector2(12, -38), 4, col("#F2C24A"))
+		for k in range(3):
+			ci.draw_circle(Vector2(10 + float(k) * 2, -26 + float(k) * 6), 1.2, col("#B8D779"))
+
+
+static func _rhubarb(ci: CanvasItem, stage: int, t: float) -> void:
+	var h := 14.0 + float(stage) * 14.0
+	for i in range(3):
+		var x := -22.0 + float(i) * 22.0
+		var top := Vector2(x + sway(t, i, 1.8), -h - float(i % 2) * 4.0)
+		ci.draw_line(Vector2(x, -2), top, col("#B84B55"), 5.0, true)
+		if stage >= 2:
+			ellipse(ci, top + Vector2(-10, -4), 15, 9, col("#6FAE56"), 10)
+			ellipse(ci, top + Vector2(9, -7), 13, 8, col("#7DBB62"), 10)
+		if stage == 3:
+			ci.draw_circle(top + Vector2(-10, 5), 2.5, col("#F2D6A2"))
 
 
 static func _pea(ci: CanvasItem, stage: int, t: float) -> void:
@@ -496,6 +528,82 @@ static func draw_item(ci: CanvasItem, id: String, pos: Vector2, size: float) -> 
 			for p in [Vector2(-8, -13), Vector2(3, -15), Vector2(13, -11)]:
 				ci.draw_circle(p, 4, col("#5365A8"))
 				ci.draw_circle(p + Vector2(-1, -1), 1.2, col("#8996D0"))
+		"sugar":
+			for p in [Vector2(-12, 8), Vector2(6, 10), Vector2(-2, -8)]:
+				rrect(ci, Rect2(p.x - 9, p.y - 9, 18, 18), base, 4)
+				ci.draw_line(Vector2(p.x - 6, p.y - 5), Vector2(p.x + 6, p.y - 5), Color(1, 1, 1, 0.55), 2.0, true)
+		"zucchini":
+			ellipse(ci, Vector2(2, 4), 12, 26, base, 12)
+			ci.draw_circle(Vector2(2, -24), 7, col("#F2C24A"))
+			for i in range(4):
+				ci.draw_circle(Vector2(-2 + float(i % 2) * 4, -8 + float(i) * 7), 1.2, col("#B8D779"))
+		"rhubarb":
+			for i in range(3):
+				var x := -14.0 + float(i) * 14.0
+				ci.draw_line(Vector2(x, 30), Vector2(x + 2, -12), base, 6.0, true)
+				ellipse(ci, Vector2(x + 2, -20), 10, 7, col("#6FAE56"), 8)
+				ellipse(ci, Vector2(x + 12, -24), 9, 6, col("#7DBB62"), 8)
+		"sunflower_oil":
+			rrect(ci, Rect2(-13, -8, 26, 38), col("#F6F2E6"), 7)
+			rrect(ci, Rect2(-8, -22, 16, 16), col("#F6F2E6"), 4)
+			rrect(ci, Rect2(-10, -28, 20, 8), col("#D9A93A"), 3)
+			rrect(ci, Rect2(-10, 2, 20, 20), base, 4)
+			ci.draw_circle(Vector2(0, -12), 4, col("#E2BC52"))
+		"almond_butter":
+			rrect(ci, Rect2(-18, -12, 36, 40), col("#F6F2E6"), 8)
+			rrect(ci, Rect2(-14, -4, 28, 24), base, 6)
+			rrect(ci, Rect2(-19, -20, 38, 10), col("#8E6240"), 4)
+			ellipse(ci, Vector2(0, 7), 7, 10, col("#E8D0A8"))
+		"pasta":
+			for i in range(5):
+				var x := -14.0 + float(i) * 7.0
+				ci.draw_line(Vector2(x, 24), Vector2(x + 4, -22), base, 5.0, true)
+			rrect(ci, Rect2(-18, -2, 36, 8), col("#C97A3A"), 4)
+		"tomato_ravioli", "pumpkin_ravioli":
+			for p in [Vector2(-10, 2), Vector2(12, 8)]:
+				rrect(ci, Rect2(p.x - 14, p.y - 14, 28, 28), col("#E8C77A"), 6)
+				rrect(ci, Rect2(p.x - 10, p.y - 10, 20, 20), base, 4)
+				ci.draw_circle(Vector2(p.x, p.y), 3, col("#F1D9A0"))
+		"zucchini_noodles":
+			for i in range(3):
+				var y := -12.0 + float(i) * 12.0
+				ci.draw_line(Vector2(-22, y), Vector2(22, y + 4), base, 6.0, true)
+				ci.draw_line(Vector2(-22, y + 6), Vector2(22, y + 10), col("#B8D779"), 2.0, true)
+		"strawberry_ice", "apple_cookie_ice", "rhubarb_ice", "blueberry_ice":
+			poly(ci, [Vector2(-15, -2), Vector2(15, -2), Vector2(0, 32)], col("#D9A93A"))
+			ci.draw_circle(Vector2(0, -8), 17, base)
+			ci.draw_circle(Vector2(-5, -13), 5, Color(1, 1, 1, 0.35))
+			ci.draw_line(Vector2(-13, -2), Vector2(13, -2), col("#B88050"), 3.0, true)
+		"sunflower_bouquet":
+			for i in range(3):
+				var x := -13.0 + float(i) * 13.0
+				ci.draw_line(Vector2(0, 28), Vector2(x, -6), col("#5FA84A"), 4.0, true)
+				for k in range(8):
+					var a := TAU * float(k) / 8.0
+					ellipse(ci, Vector2(x, -6) + Vector2(cos(a), sin(a)) * 9.0, 4.5, 3.0, base, 6)
+				ci.draw_circle(Vector2(x, -6), 5.0, col("#7A4A22"))
+			rrect(ci, Rect2(-15, 8, 30, 20), col("#E9D9B0"), 5)
+		"dried_wreath", "autumn_wreath":
+			for i in range(12):
+				var a := TAU * float(i) / 12.0
+				ellipse(ci, Vector2(cos(a), sin(a)) * 22.0, 8, 6, col("#6FAE56") if i % 2 == 0 else base, 8)
+			ci.draw_circle(Vector2(-16, -16), 4, base)
+			ci.draw_circle(Vector2(16, -12), 4, base)
+		"berry_muesli", "apple_rice_pudding":
+			poly(ci, [Vector2(-26, 0), Vector2(26, 0), Vector2(18, 24), Vector2(-18, 24)], col("#EAD9B0"))
+			ellipse(ci, Vector2(0, 0), 26, 8, base)
+			for p in [Vector2(-12, 0), Vector2(0, -3), Vector2(12, 1)]:
+				ci.draw_circle(p, 3, col("#F1D9A0"))
+		"quinoa_bar":
+			rrect(ci, Rect2(-24, -12, 48, 32), base, 8)
+			rrect(ci, Rect2(-20, -8, 40, 24), base.lightened(0.15), 6)
+			for p in [Vector2(-12, 0), Vector2(0, 6), Vector2(11, -2)]:
+				ci.draw_circle(p, 2.5, col("#F1D9A0"))
+		"strawberry_jam", "apple_jam", "rhubarb_jam", "blueberry_jam":
+			rrect(ci, Rect2(-18, -6, 36, 36), col("#F6F2E6"), 8)
+			rrect(ci, Rect2(-14, 2, 28, 22), base, 5)
+			rrect(ci, Rect2(-20, -16, 40, 12), col("#B5532F"), 4)
+			rrect(ci, Rect2(-10, 7, 20, 10), col("#FFF6E0"), 3)
 		"blueberry":
 			for p in [Vector2(-13, 8), Vector2(0, -5), Vector2(14, 8), Vector2(-4, 18)]:
 				ci.draw_circle(p, 11, base)
@@ -692,7 +800,7 @@ static func draw_deco(ci: CanvasItem, type: String, t: float) -> void:
 
 # ------------------------------------------------------------- Gebäude
 
-const BUILDING_ICON := {"bakery": "bread", "kitchen": "carrot_soup", "milkery": "oat_milk", "juicebar": "apple_juice", "tofu": "tofu", "cafe": "filter_coffee"}
+const BUILDING_ICON := {"bakery": "bread", "kitchen": "carrot_soup", "milkery": "oat_milk", "juicebar": "apple_juice", "tofu": "tofu", "cafe": "filter_coffee", "florist": "sunflower_bouquet", "oilmill": "sunflower_oil", "preserves": "strawberry_jam", "pasta": "pasta", "icecream": "strawberry_ice", "muesli": "berry_muesli"}
 
 
 ## Ursprung = Mitte der Unterkante; Grundfläche 2x2 Zellen (256 px).
@@ -738,6 +846,17 @@ static func draw_building(ci: CanvasItem, type: String, t: float, working: bool)
 		ci.draw_string(ThemeDB.fallback_font, Vector2(-96, -155), "CAFE", HORIZONTAL_ALIGNMENT_LEFT, 36, 12, col("#6F6248"))
 		ellipse(ci, Vector2(-84, -87), 14, 8, col("#9CC47A"))
 		ellipse(ci, Vector2(82, -87), 14, 8, col("#9CC47A"))
+	elif type == "icecream":
+		for i in range(8):
+			var stripe: Color = roof if i % 2 == 0 else col("#FFF6E0")
+			poly(ci, [Vector2(-104.0 + float(i) * 26.0, -112), Vector2(-78.0 + float(i) * 26.0, -112), Vector2(-82.0 + float(i) * 26.0, -90), Vector2(-100.0 + float(i) * 26.0, -90)], stripe)
+		ellipse(ci, Vector2(-82, -88), 13, 8, col("#F2C24A"))
+		ellipse(ci, Vector2(82, -88), 13, 8, col("#F2C24A"))
+	elif type == "florist":
+		for x in [-84.0, 72.0]:
+			ellipse(ci, Vector2(x, -88), 15, 9, col("#9CC47A"))
+			for k in range(3):
+				ci.draw_circle(Vector2(x - 8.0 + float(k) * 8.0, -98 + float(k % 2) * 4.0), 5, col("#E2BC52") if k % 2 == 0 else col("#D96A7A"))
 
 
 static func draw_paddock_back(ci: CanvasItem, rect: Rect2) -> void:

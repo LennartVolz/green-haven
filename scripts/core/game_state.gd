@@ -711,6 +711,7 @@ func collect_ready(uid: int, with_sound: bool = true) -> Array:
 		add_item(rid, 1)
 		add_xp(int(GameData.RECIPES[rid]["xp"]))
 		bump("crafted")
+		bump("crafted_" + rid)
 		got.append(rid)
 	if not got.is_empty():
 		world_changed.emit()

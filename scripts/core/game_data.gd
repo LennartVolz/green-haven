@@ -50,7 +50,9 @@ const CROPS := {
 	"coffee": {"name": "Kaffeekirsche", "grow": 720, "seed": 10, "yield": 3, "sell": 14, "xp": 10, "level": 8, "col": "#A9463D"},
 	"pumpkin": {"name": "Kürbis", "grow": 480, "seed": 8, "yield": 4, "sell": 13, "xp": 9, "level": 9, "col": "#E8792F"},
 	"beet": {"name": "Rote Bete", "grow": 540, "seed": 9, "yield": 4, "sell": 15, "xp": 10, "level": 10, "col": "#A93659"},
+	"rhubarb": {"name": "Rhabarber", "grow": 360, "seed": 7, "yield": 3, "sell": 11, "xp": 8, "level": 10, "col": "#C94F5A"},
 	"lettuce": {"name": "Salat", "grow": 150, "seed": 4, "yield": 3, "sell": 7, "xp": 5, "level": 11, "col": "#79B85A"},
+	"zucchini": {"name": "Zucchini", "grow": 300, "seed": 6, "yield": 3, "sell": 10, "xp": 7, "level": 11, "col": "#5E9E4A"},
 	"cucumber": {"name": "Gurke", "grow": 210, "seed": 5, "yield": 4, "sell": 8, "xp": 6, "level": 12, "col": "#4F9A55"},
 	"pea": {"name": "Erbse", "grow": 270, "seed": 6, "yield": 4, "sell": 10, "xp": 7, "level": 13, "col": "#79A94B"},
 	"blueberry": {"name": "Blaubeere", "grow": 360, "seed": 7, "yield": 5, "sell": 12, "xp": 8, "level": 14, "col": "#5365A8"},
@@ -59,9 +61,10 @@ const CROPS := {
 }
 
 ## Zutaten, die nicht angebaut, sondern im Shop gekauft werden.
-## Aktuell keine: Mandeln sind eine Feldfrucht. Der Eintrag bleibt als
-## Erweiterungspunkt für spätere Zutaten erhalten.
-const EXTRA_ITEMS := {}
+## Zucker wird für Konfitüren und Marmeladen benötigt.
+const EXTRA_ITEMS := {
+	"sugar": {"name": "Zucker", "sell": 4, "shop": 6, "level": 1, "col": "#F4E6C8"},
+}
 
 const BUILDINGS := {
 	"bakery": {"name": "Bäckerei", "kind": "production", "cost": 150, "level": 2, "size": [2, 2], "slots": 2, "max": 1, "col": "#D9A066", "roof": "#B5532F"},
@@ -70,6 +73,12 @@ const BUILDINGS := {
 	"juicebar": {"name": "Saftbar", "kind": "production", "cost": 900, "level": 6, "size": [2, 2], "slots": 2, "max": 1, "col": "#F6E3B4", "roof": "#E0783A"},
 	"tofu": {"name": "Tofu-Werkstatt", "kind": "production", "cost": 1100, "level": 6, "size": [2, 2], "slots": 2, "max": 1, "col": "#F1E6C8", "roof": "#D6A93A"},
 	"cafe": {"name": "Veganes Gartencafé", "kind": "production", "cost": 1800, "level": 8, "size": [2, 2], "slots": 2, "max": 1, "col": "#F2E4C9", "roof": "#6F9A63"},
+	"florist": {"name": "Blumenwerkstatt", "kind": "production", "cost": 900, "level": 8, "size": [2, 2], "slots": 2, "max": 1, "col": "#E9D9B0", "roof": "#6F9A63"},
+	"oilmill": {"name": "Ölmühle", "kind": "production", "cost": 1200, "level": 9, "size": [2, 2], "slots": 2, "max": 1, "col": "#D8C6A2", "roof": "#8E6240"},
+	"preserves": {"name": "Konfitürenküche", "kind": "production", "cost": 1000, "level": 9, "size": [2, 2], "slots": 2, "max": 1, "col": "#F2D9C6", "roof": "#B5532F"},
+	"pasta": {"name": "Nudelwerkstatt", "kind": "production", "cost": 1450, "level": 10, "size": [2, 2], "slots": 2, "max": 1, "col": "#F0D9A8", "roof": "#C97A3A"},
+	"icecream": {"name": "Eismanufaktur", "kind": "production", "cost": 1700, "level": 11, "size": [2, 2], "slots": 2, "max": 1, "col": "#F7E6D0", "roof": "#D9647A"},
+	"muesli": {"name": "Müsli-Manufaktur", "kind": "production", "cost": 2200, "level": 14, "size": [2, 2], "slots": 2, "max": 1, "col": "#E4D1B0", "roof": "#9A6A4A"},
 	"paddock": {"name": "Gehege", "kind": "paddock", "cost": 250, "level": 3, "size": [4, 3], "capacity": 3, "max": 4, "col": "#9CC47A", "roof": "#8E6240"},
 }
 
@@ -100,6 +109,26 @@ const RECIPES := {
 	"coffee_cookie_plate": {"name": "Kaffee & Haferkekse", "building": "cafe", "inputs": {"filter_coffee": 1, "oat_cookies": 1}, "time": 120, "sell": 82, "xp": 24, "level": 9, "col": "#B88050"},
 	"pumpkin_spice_latte": {"name": "Kürbisgewürz-Latte", "building": "cafe", "inputs": {"roasted_coffee": 1, "oat_milk": 1, "pumpkin": 1}, "time": 150, "sell": 145, "xp": 27, "level": 12, "col": "#D98B4F"},
 	"blueberry_coffee_cake": {"name": "Blaubeer-Kaffeekuchen", "building": "cafe", "inputs": {"oat_cookies": 1, "blueberry": 2}, "time": 210, "sell": 110, "xp": 30, "level": 14, "col": "#8474A6"},
+	"sunflower_oil": {"name": "Sonnenblumenöl", "building": "oilmill", "inputs": {"sunflower": 4}, "time": 120, "sell": 64, "xp": 15, "level": 9, "col": "#E2BC52"},
+	"almond_butter": {"name": "Mandelmus", "building": "oilmill", "inputs": {"almond": 4}, "time": 150, "sell": 70, "xp": 18, "level": 10, "col": "#C99C69"},
+	"strawberry_jam": {"name": "Erdbeerkonfitüre", "building": "preserves", "inputs": {"strawberry": 4, "sugar": 1}, "time": 120, "sell": 72, "xp": 18, "level": 9, "col": "#D95A7B"},
+	"apple_jam": {"name": "Apfelkonfitüre", "building": "preserves", "inputs": {"apple": 4, "sugar": 1}, "time": 120, "sell": 78, "xp": 19, "level": 10, "col": "#D9A93A"},
+	"rhubarb_jam": {"name": "Rhabarberkonfitüre", "building": "preserves", "inputs": {"rhubarb": 4, "sugar": 1}, "time": 150, "sell": 78, "xp": 19, "level": 11, "col": "#C94F5A"},
+	"blueberry_jam": {"name": "Blaubeerkonfitüre", "building": "preserves", "inputs": {"blueberry": 4, "sugar": 1}, "time": 150, "sell": 82, "xp": 20, "level": 14, "col": "#6572BB"},
+	"pasta": {"name": "Weizennudeln", "building": "pasta", "inputs": {"wheat": 3}, "time": 90, "sell": 30, "xp": 10, "level": 10, "col": "#E8C77A"},
+	"tomato_ravioli": {"name": "Tomaten-Ravioli", "building": "pasta", "inputs": {"pasta": 1, "tomato": 2}, "time": 150, "sell": 78, "xp": 19, "level": 11, "col": "#D9644A"},
+	"zucchini_noodles": {"name": "Zucchini-Nudeln", "building": "pasta", "inputs": {"pasta": 1, "zucchini": 2}, "time": 150, "sell": 78, "xp": 19, "level": 12, "col": "#6FAF5A"},
+	"pumpkin_ravioli": {"name": "Kürbis-Ravioli", "building": "pasta", "inputs": {"pasta": 1, "pumpkin": 2}, "time": 180, "sell": 92, "xp": 22, "level": 13, "col": "#E08A3C"},
+	"strawberry_ice": {"name": "Erdbeer-Eis", "building": "icecream", "inputs": {"strawberry": 3, "oat_milk": 1}, "time": 150, "sell": 82, "xp": 20, "level": 11, "col": "#E86F8E"},
+	"apple_cookie_ice": {"name": "Apfel-Keks-Eis", "building": "icecream", "inputs": {"apple": 3, "oat_milk": 1, "oat_cookies": 1}, "time": 180, "sell": 116, "xp": 25, "level": 12, "col": "#D9A93A"},
+	"rhubarb_ice": {"name": "Rhabarber-Eis", "building": "icecream", "inputs": {"rhubarb": 3, "almond_milk": 1}, "time": 180, "sell": 96, "xp": 22, "level": 13, "col": "#D96A7A"},
+	"blueberry_ice": {"name": "Blaubeer-Eis", "building": "icecream", "inputs": {"blueberry": 3, "soy_milk": 1}, "time": 180, "sell": 98, "xp": 23, "level": 14, "col": "#6C7BC0"},
+	"sunflower_bouquet": {"name": "Sonnenblumenstrauß", "building": "florist", "inputs": {"sunflower": 3, "wheat": 1}, "time": 90, "sell": 60, "xp": 14, "level": 8, "col": "#E2BC52"},
+	"dried_wreath": {"name": "Trockenblumenkranz", "building": "florist", "inputs": {"sunflower": 4, "oat": 2}, "time": 150, "sell": 84, "xp": 19, "level": 10, "col": "#B08A5A"},
+	"autumn_wreath": {"name": "Herbstkranz", "building": "florist", "inputs": {"sunflower": 3, "pumpkin": 2}, "time": 180, "sell": 96, "xp": 21, "level": 12, "col": "#D98B4F"},
+	"berry_muesli": {"name": "Beeren-Müsli", "building": "muesli", "inputs": {"oat": 2, "almond": 2, "blueberry": 2}, "time": 120, "sell": 78, "xp": 19, "level": 14, "col": "#C9A36A"},
+	"apple_rice_pudding": {"name": "Apfel-Reisbrei", "building": "muesli", "inputs": {"rice": 3, "almond_milk": 1, "apple": 1}, "time": 180, "sell": 132, "xp": 26, "level": 16, "col": "#EAD9B0"},
+	"quinoa_bar": {"name": "Quinoa-Riegel", "building": "muesli", "inputs": {"quinoa": 2, "almond": 1, "oat": 1}, "time": 150, "sell": 86, "xp": 21, "level": 18, "col": "#B66D70"},
 }
 
 const DECOS := {
@@ -208,6 +237,9 @@ const QUESTS := [
 	{"id": "q_cafe_orders", "text": "Bediene 5 Café-Gäste", "type": "stat", "key": "cafe_orders", "target": 5, "coins": 180, "xp": 60},
 	{"id": "q_cafe_story", "text": "Teile eine Café-Geschichte", "type": "stat", "key": "cafe_stories_completed", "target": 1, "coins": 260, "xp": 90},
 	{"id": "q_cafe_specials", "text": "Serviere 5 Tagesgerichte", "type": "stat", "key": "cafe_special_orders", "target": 5, "coins": 240, "xp": 80},
+	{"id": "q_florist", "text": "Baue eine Blumenwerkstatt", "type": "building", "building": "florist", "target": 1, "coins": 100, "xp": 30},
+	{"id": "q_noodles", "text": "Stelle 5 Portionen Nudeln her", "type": "stat", "key": "crafted_pasta", "target": 5, "coins": 160, "xp": 55},
+	{"id": "q_icecream", "text": "Stelle 5 Erdbeer-Eis her", "type": "stat", "key": "crafted_strawberry_ice", "target": 5, "coins": 190, "xp": 65},
 ]
 
 ## Dauerhafte Erfolge: Kriterium + einmalige Münz-/XP-Belohnung.
@@ -225,6 +257,18 @@ const ACHIEVEMENTS := [
 	{"id": "cafe_open", "text": "Ein Platz für alle", "description": "Eröffne dein veganes Gartencafé.", "type": "building", "key": "cafe", "target": 1, "coins": 180, "xp": 65},
 	{"id": "cafe_orders_10", "text": "Stammgäste im Café", "description": "Bediene 10 Café-Gäste.", "type": "stat", "key": "cafe_orders", "target": 10, "coins": 300, "xp": 110},
 	{"id": "cafe_stories_3", "text": "Geschichten am Kaffeetisch", "description": "Höre drei Geschichten von Café-Gästen.", "type": "stat", "key": "cafe_stories_shared", "target": 3, "coins": 260, "xp": 95},
+	{"id": "build_florist", "text": "Blumen für alle", "description": "Baue eine Blumenwerkstatt.", "type": "building", "key": "florist", "target": 1, "coins": 100, "xp": 35},
+	{"id": "build_oilmill", "text": "Öl aus eigener Ernte", "description": "Baue eine Ölmühle.", "type": "building", "key": "oilmill", "target": 1, "coins": 130, "xp": 45},
+	{"id": "build_preserves", "text": "Ein Vorrat für später", "description": "Baue eine Konfitürenküche.", "type": "building", "key": "preserves", "target": 1, "coins": 120, "xp": 40},
+	{"id": "build_pasta", "text": "Frische Nudeln", "description": "Baue eine Nudelwerkstatt.", "type": "building", "key": "pasta", "target": 1, "coins": 150, "xp": 50},
+	{"id": "build_icecream", "text": "Eiszeit", "description": "Baue eine Eismanufaktur.", "type": "building", "key": "icecream", "target": 1, "coins": 170, "xp": 55},
+	{"id": "build_muesli", "text": "Guter Start in den Tag", "description": "Baue eine Müsli-Manufaktur.", "type": "building", "key": "muesli", "target": 1, "coins": 220, "xp": 75},
+	{"id": "bouquets_10", "text": "Blumengruß", "description": "Stelle 10 Sonnenblumensträuße her.", "type": "stat", "key": "crafted_sunflower_bouquet", "target": 10, "coins": 160, "xp": 55},
+	{"id": "oil_10", "text": "Flüssiges Gold", "description": "Stelle 10 Sonnenblumenöl her.", "type": "stat", "key": "crafted_sunflower_oil", "target": 10, "coins": 180, "xp": 60},
+	{"id": "jam_10", "text": "Eingemacht", "description": "Stelle 10 Erdbeerkonfitüren her.", "type": "stat", "key": "crafted_strawberry_jam", "target": 10, "coins": 170, "xp": 55},
+	{"id": "pasta_10", "text": "Nudelmeister", "description": "Stelle 10 Portionen Weizennudeln her.", "type": "stat", "key": "crafted_pasta", "target": 10, "coins": 190, "xp": 65},
+	{"id": "icecream_10", "text": "Eismacher", "description": "Stelle 10 Erdbeer-Eis her.", "type": "stat", "key": "crafted_strawberry_ice", "target": 10, "coins": 210, "xp": 70},
+	{"id": "muesli_10", "text": "Frühstücksliebe", "description": "Stelle 10 Beeren-Müsli her.", "type": "stat", "key": "crafted_berry_muesli", "target": 10, "coins": 240, "xp": 80},
 ]
 
 

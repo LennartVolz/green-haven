@@ -437,6 +437,45 @@ static func _almond_tree(ci: CanvasItem, stage: int, t: float) -> void:
 			ci.draw_line(p + Vector2(0, -4), p + Vector2(0, 4), col("#A07C4E"), 1.5, true)
 
 
+# ------------------------------------------------------------ Wildnis
+
+## Wilde Sammelstelle außerhalb des Zauns. Ursprung = untere Zellmitte.
+## `ready` zeigt die reife Pflanze, sonst nur den jungen Nachwuchs.
+static func draw_forage(ci: CanvasItem, id: String, base: Vector2, ready: bool) -> void:
+	var s := 1.0 if ready else 0.7
+	ci.draw_set_transform(base, 0.0, Vector2(s, s))
+	match id:
+		"wild_herbs":
+			shadow(ci, Vector2(0, -4), 26, 7)
+			for i in range(5):
+				var x := -18.0 + float(i) * 9.0
+				var top := Vector2(x + sway(0.0, i, 2.0), -26.0 - float(i % 3) * 8.0)
+				ci.draw_line(Vector2(x, -4), top, col("#5F9A4A"), 3.0, true)
+				ellipse(ci, top + Vector2(-4, 0), 7, 4, col("#7FB56A"), 8)
+				ellipse(ci, top + Vector2(4, -2), 6, 3.5, col("#8FC777"), 8)
+			if ready:
+				for p in [Vector2(-8, -40), Vector2(6, -46), Vector2(14, -32)]:
+					ci.draw_circle(p, 2.6, col("#FFF6E0"))
+		"mushroom":
+			shadow(ci, Vector2(0, -3), 24, 6)
+			for i in range(3):
+				var x := -14.0 + float(i) * 14.0
+				var h := 14.0 + float(i % 2) * 8.0
+				rrect(ci, Rect2(x - 4, -4 - h, 8, h), col("#F1E4C8"), 3)
+				ellipse(ci, Vector2(x, -4 - h - 2), 13, 8, col("#B5643F") if i != 1 else col("#C97A4A"))
+				if ready:
+					ci.draw_circle(Vector2(x - 4, -4 - h - 4), 2.0, col("#FFF1D0"))
+		"wild_berries":
+			shadow(ci, Vector2(0, -4), 30, 8)
+			ellipse(ci, Vector2(0, -22), 24, 16, col("#4F8A45"))
+			ellipse(ci, Vector2(-14, -28), 13, 10, col("#5F9A4A"))
+			ellipse(ci, Vector2(13, -26), 12, 9, col("#71AA5A"))
+			if ready:
+				for p in [Vector2(-12, -22), Vector2(2, -18), Vector2(12, -26), Vector2(-2, -30)]:
+					ci.draw_circle(p, 3.5, col("#C43A4E"))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
 # ---------------------------------------------------------- Gegenstände
 
 ## Zeichnet das Symbol eines Gegenstands, zentriert auf pos, Kantenlänge ~size.
@@ -573,6 +612,25 @@ static func draw_item(ci: CanvasItem, id: String, pos: Vector2, size: float) -> 
 					ci.draw_line(p + Vector2(-5, 0), p + Vector2(5, 0), col("#86A84E"), 2.0, true)
 			ellipse(ci, Vector2(8, -24), 16, 6, col("#7DBB62"), 10)
 			ellipse(ci, Vector2(-4, -30), 13, 5, col("#8CC96E"), 10)
+		"wild_herbs":
+			for i in range(3):
+				var x := -14.0 + float(i) * 14.0
+				ci.draw_line(Vector2(x, 28), Vector2(x + 4, -14), col("#6FA84C"), 4.0, true)
+				ellipse(ci, Vector2(x + 6, -18), 9, 6, col("#7FB56A"), 10)
+				ellipse(ci, Vector2(x - 2, -22), 8, 5, col("#8FC777"), 10)
+			rrect(ci, Rect2(-16, 10, 32, 12), col("#C9A24A"), 4)
+		"mushroom":
+			for i in range(2):
+				var x := -12.0 + float(i) * 24.0
+				var h := 18.0 + float(i) * 8.0
+				rrect(ci, Rect2(x - 5, 26 - h, 10, h), col("#F1E4C8"), 3)
+				ellipse(ci, Vector2(x, 24 - h), 16, 10, col("#B5643F") if i == 0 else col("#C97A4A"))
+				ci.draw_circle(Vector2(x - 5, 20 - h), 2.2, col("#FFF1D0"))
+		"wild_berries":
+			for p in [Vector2(-12, 6), Vector2(2, 12), Vector2(12, -2), Vector2(-2, -6)]:
+				ci.draw_circle(p, 9, base)
+				ci.draw_circle(p + Vector2(-3, -3), 2.5, col("#E892A4"))
+			poly(ci, [Vector2(0, -18), Vector2(-14, -30), Vector2(0, -24), Vector2(14, -30)], col("#5FA84A"))
 		"sunflower_oil":
 			rrect(ci, Rect2(-13, -8, 26, 38), col("#F6F2E6"), 7)
 			rrect(ci, Rect2(-8, -22, 16, 16), col("#F6F2E6"), 4)

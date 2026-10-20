@@ -12,6 +12,11 @@ const WORLD_MARGIN_CELLS := 2
 ## Prozedural erzeugter Wildnisgürtel um die Karte. Er wird in Chunks
 ## gezeichnet, damit beim Schwenken und Zoomen kein leerer Rand entsteht.
 const SCENERY_MARGIN_CELLS := 24
+## Sammelstellen wachsen in einem Ring um die Farm: zwei Zellen Abstand zum Zaun,
+## höchstens so weit draußen, dass man sie noch gut erreichen kann.
+const FORAGE_BAND_CELLS := 7
+const FORAGE_EDGE_CELLS := 1
+const FORAGE_CHANCE := 0.09
 const WORLD_ORIGIN := Vector2i(0, 0)
 const START_LAND := Rect2i(8, 11, 8, 8)
 const TILL_COST := 10
@@ -64,6 +69,14 @@ const CROPS := {
 	"quinoa": {"name": "Quinoa", "grow": 720, "seed": 12, "yield": 5, "sell": 18, "xp": 13, "level": 18, "col": "#B66D70"},
 }
 
+## Wilde Lebensmittel außerhalb des Zauns. Sie wachsen nicht auf Feldern,
+## sondern an festen, prozedural bestimmten Sammelstellen nach.
+const FORAGE := {
+	"wild_herbs": {"name": "Wilde Kräuter", "level": 2, "sell": 6, "amount": 2, "respawn": 300.0, "xp": 2, "col": "#7FB56A"},
+	"mushroom": {"name": "Waldpilze", "level": 4, "sell": 9, "amount": 2, "respawn": 420.0, "xp": 3, "col": "#C08A62"},
+	"wild_berries": {"name": "Wildbeeren", "level": 6, "sell": 8, "amount": 3, "respawn": 360.0, "xp": 3, "col": "#C43A4E"},
+}
+
 ## Zutaten, die nicht angebaut, sondern im Shop gekauft werden.
 ## Derzeit keine: Zucker wird seit der Zuckermühle selbst aus Zuckerrohr gepresst.
 ## Die Liste bleibt für künftige Shop-Zutaten bestehen.
@@ -101,6 +114,9 @@ const RECIPES := {
 	"tofu": {"name": "Naturtofu", "building": "tofu", "inputs": {"soy": 4}, "time": 150, "sell": 42, "xp": 14, "level": 6, "col": "#F3E7C4"},
 	"smoked_tofu": {"name": "Räuchertofu", "building": "tofu", "inputs": {"tofu": 1, "corn": 1}, "time": 180, "sell": 64, "xp": 18, "level": 7, "col": "#B08A5A"},
 	"marinated_tofu": {"name": "Marinierter Tofu", "building": "tofu", "inputs": {"tofu": 1, "tomato_sauce": 1}, "time": 180, "sell": 92, "xp": 22, "level": 8, "col": "#D87A4A"},
+	"herb_potatoes": {"name": "Kräuterkartoffeln", "building": "kitchen", "inputs": {"potato": 2, "wild_herbs": 1}, "time": 90, "sell": 34, "xp": 10, "level": 3, "col": "#8FAE58"},
+	"mushroom_soup": {"name": "Pilzrahm-Suppe", "building": "kitchen", "inputs": {"mushroom": 2, "oat_milk": 1}, "time": 150, "sell": 78, "xp": 18, "level": 7, "col": "#C08A62"},
+	"wild_berry_compote": {"name": "Wildbeerenkompott", "building": "kitchen", "inputs": {"wild_berries": 2, "sugar": 1}, "time": 120, "sell": 64, "xp": 16, "level": 9, "col": "#C43A4E"},
 	"pumpkin_soup": {"name": "Kürbissuppe", "building": "kitchen", "inputs": {"pumpkin": 3}, "time": 180, "sell": 56, "xp": 17, "level": 9, "col": "#E8792F"},
 	"beet_spread": {"name": "Rote-Bete-Aufstrich", "building": "kitchen", "inputs": {"beet": 3}, "time": 180, "sell": 62, "xp": 18, "level": 10, "col": "#A93659"},
 	"garden_salad": {"name": "Gartensalat", "building": "kitchen", "inputs": {"lettuce": 2, "cucumber": 1, "pea": 1}, "time": 150, "sell": 48, "xp": 15, "level": 13, "col": "#76A94D"},
@@ -250,6 +266,7 @@ const QUESTS := [
 	{"id": "q_icecream", "text": "Stelle 5 Erdbeer-Eis her", "type": "stat", "key": "crafted_strawberry_ice", "target": 5, "coins": 190, "xp": 65},
 	{"id": "q_sugarmill", "text": "Baue eine Zuckermühle", "type": "building", "building": "sugarmill", "target": 1, "coins": 110, "xp": 35},
 	{"id": "q_sugar", "text": "Stelle 5 Zucker her", "type": "stat", "key": "crafted_sugar", "target": 5, "coins": 150, "xp": 50},
+	{"id": "q_forage5", "text": "Sammle 5 wilde Lebensmittel", "type": "stat", "key": "foraged", "target": 5, "coins": 80, "xp": 25},
 ]
 
 ## Dauerhafte Erfolge: Kriterium + einmalige Münz-/XP-Belohnung.
@@ -281,6 +298,7 @@ const ACHIEVEMENTS := [
 	{"id": "muesli_10", "text": "Frühstücksliebe", "description": "Stelle 10 Beeren-Müsli her.", "type": "stat", "key": "crafted_berry_muesli", "target": 10, "coins": 240, "xp": 32},
 	{"id": "build_sugarmill", "text": "Süß aus eigener Ernte", "description": "Baue eine Zuckermühle.", "type": "building", "key": "sugarmill", "target": 1, "coins": 120, "xp": 18},
 	{"id": "sugar_10", "text": "Zuckersüß", "description": "Stelle 10 Zucker her.", "type": "stat", "key": "crafted_sugar", "target": 10, "coins": 170, "xp": 26},
+	{"id": "forage_15", "text": "Wildnis-Körbchen", "description": "Sammle 15 wilde Lebensmittel außerhalb der Farm.", "type": "stat", "key": "foraged", "target": 15, "coins": 140, "xp": 22},
 ]
 
 
@@ -471,6 +489,9 @@ func _init() -> void:
 	for id in CROPS:
 		var c: Dictionary = CROPS[id]
 		items[id] = {"id": id, "name": c.name, "sell": c.sell, "col": c.col, "kind": "crop", "level": c.level}
+	for id in FORAGE:
+		var f: Dictionary = FORAGE[id]
+		items[id] = {"id": id, "name": f.name, "sell": f.sell, "col": f.col, "kind": "forage", "level": f.level}
 	for id in EXTRA_ITEMS:
 		var e: Dictionary = EXTRA_ITEMS[id]
 		items[id] = {"id": id, "name": e.name, "sell": e.sell, "col": e.col, "kind": "extra", "level": e.level}
@@ -486,10 +507,40 @@ static func xp_needed(lvl: int) -> int:
 	return 30 + 12 * lvl + 2 * lvl * lvl
 
 
+## Stabile, ortsgebundene Zufallszahl (0…1) für Gelände, Sammelstellen und Deko.
+## Gleiche Zelle + gleicher Salt ergibt immer denselben Wert – auch nach Neustart.
+static func cell_hash(x: int, y: int, salt: int = 0) -> float:
+	var n := (x * 73856093) ^ (y * 19349663) ^ (salt * 83492791)
+	n = (n ^ (n >> 13)) * 1274126177
+	n = n ^ (n >> 16)
+	return float(absi(n) % 10000) / 10000.0
+
+
 func item_name(id: String) -> String:
 	if items.has(id):
 		return items[id].name
 	return id
+
+
+## Sammelstelle für eine Zelle außerhalb der Farm. Deterministisch aus der
+## Zellposition abgeleitet, damit Fundstellen nach einem Neustart gleich bleiben.
+func forage_at(cell: Vector2i, land_rect: Rect2i) -> String:
+	if FORAGE.is_empty() or land_rect.has_point(cell):
+		return ""
+	if land_rect.grow(FORAGE_EDGE_CELLS).has_point(cell):
+		return ""
+	if not land_rect.grow(FORAGE_BAND_CELLS).has_point(cell):
+		return ""
+	if cell_hash(cell.x, cell.y, 71) >= FORAGE_CHANCE:
+		return ""
+	# Nicht in einen Baum setzen: das Gelände zeichnet dort eine Krone.
+	var world := Rect2i(WORLD_ORIGIN, Vector2i(WORLD_COLS, WORLD_ROWS))
+	var tree_chance := 0.5 if not world.has_point(cell) else 0.1
+	if cell_hash(cell.x, cell.y, 3) < tree_chance:
+		return ""
+	var ids: Array = FORAGE.keys()
+	var roll := cell_hash(cell.x, cell.y, 72)
+	return String(ids[mini(ids.size() - 1, int(roll * float(ids.size())))])
 
 
 func object_def(type: String) -> Dictionary:
@@ -530,6 +581,9 @@ func unlocks_at(lvl: int) -> Array:
 	for id in CROPS:
 		if CROPS[id].level == lvl:
 			out.append(CROPS[id].name)
+	for id in FORAGE:
+		if FORAGE[id].level == lvl:
+			out.append("Wildnis: " + String(FORAGE[id].name))
 	for id in RECIPES:
 		if RECIPES[id].level == lvl:
 			out.append(RECIPES[id].name)

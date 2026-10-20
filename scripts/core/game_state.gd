@@ -12,6 +12,7 @@ signal xp_changed
 signal level_up(new_level: int, unlocks: Array)
 signal inventory_changed
 signal world_changed
+signal forage_changed
 signal orders_changed
 signal animals_changed
 signal quests_changed
@@ -51,6 +52,7 @@ var level := 1
 var xp := 0
 var inventory: Dictionary = {}
 var fields: Dictionary = {}      ## Vector2i -> {"crop": String, "t": float}
+var forage: Dictionary = {}      ## Vector2i -> Zeitstempel, ab dem die Stelle wieder reif ist
 var objects: Array = []          ## {"uid","kind","type","cell","queue","upgrades"}
 var animals: Array = []          ## {uid,species,name,story,traits,hunger,happy,hearts,last,paddock,pet_at,activity_at,accessories}
 var rescue_case: Dictionary = {}
@@ -147,6 +149,7 @@ func reset_state() -> void:
 	xp = 0
 	inventory = {}
 	fields = {}
+	forage = {}
 	objects = []
 	animals = []
 	rescue_case = {}
@@ -194,6 +197,7 @@ func _emit_all() -> void:
 	xp_changed.emit()
 	inventory_changed.emit()
 	world_changed.emit()
+	forage_changed.emit()
 	orders_changed.emit()
 	animals_changed.emit()
 	quests_changed.emit()
@@ -599,6 +603,54 @@ func harvest(cell: Vector2i) -> bool:
 	sound.emit("harvest")
 	event("harvested", {"crop": crop, "cell": cell})
 	return true
+
+
+# --------------------------------------------------------------- Wildnis
+
+## Zelle trägt eine wilde Zutat (unabhängig von der aktuellen Stufe).
+func forage_spot_at(cell: Vector2i) -> String:
+	return GameData.forage_at(cell, land)
+
+
+## Stelle ist sichtbar und darf auf dieser Stufe gesammelt werden.
+func forage_available(cell: Vector2i) -> bool:
+	var id := forage_spot_at(cell)
+	return id != "" and level >= int(GameData.FORAGE[id]["level"])
+
+
+func forage_ready(cell: Vector2i) -> bool:
+	return forage_available(cell) and now() >= float(forage.get(cell, 0.0))
+
+
+func forage_remaining(cell: Vector2i) -> float:
+	return maxf(0.0, float(forage.get(cell, 0.0)) - now())
+
+
+## Sammelt eine reife Stelle und startet die Nachwuchszeit. Leeres Ergebnis,
+## wenn dort nichts wächst, die Stufe fehlt oder die Stelle noch nachwächst.
+func collect_forage(cell: Vector2i) -> Dictionary:
+	last_error = ""
+	var id := forage_spot_at(cell)
+	if id == "":
+		last_error = "Hier wächst nichts Wildes"
+		return {}
+	var definition: Dictionary = GameData.FORAGE[id]
+	if level < int(definition["level"]):
+		last_error = "%s ab Stufe %d" % [definition["name"], int(definition["level"])]
+		return {}
+	if now() < float(forage.get(cell, 0.0)):
+		last_error = "%s wächst nach · noch %s" % [definition["name"], GameData.format_time(forage_remaining(cell))]
+		return {}
+	var amount := int(definition["amount"])
+	add_item(id, amount)
+	add_xp(int(definition["xp"]))
+	forage[cell] = now() + float(definition["respawn"])
+	bump("foraged")
+	quests_changed.emit()
+	forage_changed.emit()
+	sound.emit("collect")
+	event("foraged", {"cell": cell, "id": id, "amount": amount})
+	return {"id": id, "amount": amount, "name": String(definition["name"])}
 
 
 # ----------------------------------------------------------- Produktion
@@ -1466,12 +1518,15 @@ func serialize() -> Dictionary:
 	for o in objects:
 		objs.append({"uid": o.uid, "kind": o.kind, "type": o.type, "x": o.cell.x, "y": o.cell.y,
 			"queue": (o.queue as Array).duplicate(true), "upgrades": o.upgrades})
+	var fo: Array = []
+	for cell in forage:
+		fo.append({"x": cell.x, "y": cell.y, "at": float(forage[cell])})
 	return {
 		"version": SAVE_VERSION,
 		"saved_at": now(),
 		"coins": coins, "level": level, "xp": xp,
 		"inventory": inventory.duplicate(),
-		"fields": f, "objects": objs,
+		"fields": f, "objects": objs, "forage": fo,
 		"animals": animals.duplicate(true),
 		"rescue_case": rescue_case.duplicate(true),
 		"next_rescue_at": next_rescue_at,
@@ -1555,6 +1610,13 @@ func deserialize(d: Dictionary) -> bool:
 		if saved_land.size.x > 0 and saved_land.size.y > 0 and world.encloses(saved_land):
 			land = saved_land
 	land_level = clampi(int(d.get("land_level", 0)), 0, GameData.LAND_EXPANSIONS.size())
+	for e in _save_array(d, "forage"):
+		if not _has_keys(e, ["x", "y", "at"]):
+			continue
+		var forage_cell := Vector2i(int(e["x"]), int(e["y"]))
+		if forage_spot_at(forage_cell) == "":
+			continue
+		forage[forage_cell] = maxf(0.0, float(e["at"]))
 	for e in _save_array(d, "fields"):
 		if not _has_keys(e, ["x", "y"]):
 			continue

@@ -10,6 +10,7 @@ const ENTITY_SCENE := preload("res://scenes/entity.tscn")
 const ANIMAL_SCENE := preload("res://scenes/animal.tscn")
 const TerrainScript := preload("res://scripts/world/terrain.gd")
 const FieldsScript := preload("res://scripts/world/fields_layer.gd")
+const ForageScript := preload("res://scripts/world/forage_layer.gd")
 const GhostScript := preload("res://scripts/world/ghost.gd")
 const OverlayScript := preload("res://scripts/world/overlay.gd")
 
@@ -34,6 +35,7 @@ var _ambient_night := false
 var _ambient_accumulator := 0.0
 var terrain: Node2D
 var fields_layer: Node2D
+var forage_layer: Node2D
 var entities: Node2D
 var ghost: Node2D
 var overlay: Node2D
@@ -78,6 +80,8 @@ func _ready() -> void:
 	add_child(terrain)
 	fields_layer = FieldsScript.new()
 	add_child(fields_layer)
+	forage_layer = ForageScript.new()
+	add_child(forage_layer)
 	entities = Node2D.new()
 	entities.z_index = 2
 	entities.z_as_relative = true
@@ -445,6 +449,8 @@ func _begin_single(p: Vector2) -> void:
 		_sweep_mode = "till"
 	elif tool_mode == "" and GameState.is_ready(cell):
 		_sweep_mode = "harvest"
+	elif tool_mode == "" and GameState.forage_ready(cell):
+		_sweep_mode = "forage"
 
 
 func _end_single(p: Vector2) -> void:
@@ -495,6 +501,9 @@ func _sweep_at(screen_p: Vector2) -> void:
 		"harvest":
 			if GameState.is_ready(cell):
 				GameState.harvest(cell)
+		"forage":
+			if GameState.forage_ready(cell):
+				GameState.collect_forage(cell)
 		"plant":
 			if GameState.fields.has(cell) and GameState.fields[cell].crop == "":
 				if not GameState.plant(cell, tool_crop):
@@ -555,6 +564,10 @@ func _handle_tap(p: Vector2) -> void:
 	if ent != null:
 		_tap_entity(ent)
 		return
+	var forage_id := GameState.forage_spot_at(cell)
+	if forage_id != "" and GameState.level >= int(GameData.FORAGE[forage_id]["level"]):
+		_tap_forage(cell)
+		return
 	if GameState.fields.has(cell):
 		_tap_field(cell)
 		return
@@ -572,6 +585,16 @@ func _tap_entity(ent: Node2D) -> void:
 				open_sheet.emit("production", {"uid": ent.uid})
 		"paddock":
 			open_sheet.emit("refuge", {"uid": ent.uid})
+
+
+func _tap_forage(cell: Vector2i) -> void:
+	var got := GameState.collect_forage(cell)
+	if got.is_empty():
+		GameState.sound.emit("tap")
+		GameState.toast.emit(GameState.last_error, "info")
+		return
+	var pos := Vector2(cell) * GameData.TILE + Vector2(GameData.TILE * 0.5, GameData.TILE * 0.6)
+	GameState.fx.emit("collect", pos, "+%d %s" % [int(got["amount"]), String(got["name"])])
 
 
 func _tap_field(cell: Vector2i) -> void:

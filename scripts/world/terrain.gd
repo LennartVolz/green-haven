@@ -156,10 +156,7 @@ func _refresh_chunks() -> void:
 # ---------------------------------------------------------------- Zeichnen
 
 static func hash_at(x: int, y: int, salt: int = 0) -> float:
-	var n := (x * 73856093) ^ (y * 19349663) ^ (salt * 83492791)
-	n = (n ^ (n >> 13)) * 1274126177
-	n = n ^ (n >> 16)
-	return float(absi(n) % 10000) / 10000.0
+	return GameData.cell_hash(x, y, salt)
 
 
 ## Grundfläche eines Chunks: gepflegter Rasen im Land, Wildnis außerhalb.

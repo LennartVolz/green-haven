@@ -75,7 +75,7 @@ func run() -> void:
 			ui.close_sheet()
 
 	# Zwei Gebäude mit je einer laufenden Produktion aufbauen.
-	gs.level = 4
+	gs.level = 5
 	gs.coins = 5000
 	var bakery: int = gs.place_object("bakery", Vector2i(8, 11))
 	var milkery: int = gs.place_object("milkery", Vector2i(10, 11))

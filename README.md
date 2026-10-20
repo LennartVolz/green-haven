@@ -10,13 +10,13 @@ geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfa
 
 ## Umfang
 
-- 23 Pflanzen mit mehreren Wachstumsstufen, stufenbasierter Progression und Freischaltsystem. Alle Pflanzen sind einjährig: Nach der Ernte wird das Feld frei und muss neu bestellt werden
-- Weitere Pflanzen: Kürbis, Rote Bete, Rhabarber, Zuckerrohr, Salat, Zucchini, Gurke, Erbsen, Heidelbeeren, Reis, Quinoa und Kaffee (für das Café)
-- Mandeln als Feldfrucht ab Stufe 5: pflanzbar, erntbar und Grundlage für Mandelmilch
-- 13 Produktionsgebäude (inkl. Gartencafé), 53 Rezepte, Warteschlangen, Ausbaustufen und Abholfunktion
-- Neue Produktionsketten: Blumenwerkstatt (8), Ölmühle (9), Zuckermühle (9), Konfitürenküche (9), Nudelwerkstatt (10), Eismanufaktur (11) und Müsli-Manufaktur (14)
-- Vollständig eigene Warenketten: Zuckerrohr wird ab Stufe 9 angebaut und in der Zuckermühle zu Zucker gepresst; Konfitüren, Karamellsirup und Karamell-Latte verarbeiten den Zucker weiter. Fertige Zutaten gibt es nicht mehr zu kaufen
-- Wilde Sammelstellen außerhalb des Zauns: Wilde Kräuter (ab 2), Waldpilze (ab 4) und Wildbeeren (ab 6) wachsen in einem Ring um die Farm in festen, ortsgebundenen Fundstellen nach. Tippen oder Wischen sammelt sie ein; in der Küche werden daraus Kräuterkartoffeln, Pilzrahm-Suppe und Wildbeerenkompott
+- 23 Pflanzen mit mehreren Wachstumsstufen, stufenbasierter Progression und Freischaltsystem. Jeder Aufstieg schaltet höchstens eine Pflanze frei. Alle Pflanzen sind einjährig: Nach der Ernte wird das Feld frei und muss neu bestellt werden
+- Weitere Pflanzen: Kürbis, Rote Bete, Rhabarber, Zuckerrohr, Salat, Zucchini, Gurke, Erbsen, Heidelbeeren, Reis, Quinoa und Kaffee (für das Café). Jede Stufe bringt genau eine neue Sorte, Quinoa bildet mit Stufe 23 den Abschluss
+- Mandeln als Feldfrucht ab Stufe 8: pflanzbar, erntbar und Grundlage für Mandelmilch
+- 14 Gebäude (13 Produktionsgebäude inkl. Gartencafé und ein Gehege), 53 Rezepte, Warteschlangen, Ausbaustufen und Abholfunktion. Auch hier schaltet jeder Aufstieg höchstens ein Gebäude frei
+- Neue Produktionsketten: Blumenwerkstatt (8), Ölmühle (9), Eismanufaktur (10), Gartencafé (11), Zuckermühle (12), Konfitürenküche (13), Nudelwerkstatt (14) und Müsli-Manufaktur (16)
+- Vollständig eigene Warenketten: Zuckerrohr wird ab Stufe 14 angebaut und in der Zuckermühle zu Zucker gepresst; Konfitüren, Karamellsirup und Karamell-Latte verarbeiten den Zucker weiter. Fertige Zutaten gibt es nicht mehr zu kaufen
+- Wilde Sammelstellen außerhalb des Zauns: Wilde Kräuter (ab 2), Waldpilze (ab 4) und Wildbeeren (ab 6) wachsen in einem Ring um die Farm in festen, ortsgebundenen Fundstellen nach. Tippen sammelt sie ein; in der Küche werden daraus Kräuterkartoffeln, Pilzrahm-Suppe und Wildbeerenkompott
 - Produktions-Dashboard: alle Gebäude mit Warteschlange, Restzeiten und abholbaren Produkten auf einen Blick, Sammelabholung und Badge in der Navigation
 - Kundenaufträge, Münzen, Erfahrungspunkte, Quests, Shop, Dekoration und Landerweiterung
 - Tierrefugium mit 5 Tierarten, eigenen Charakterzügen, optionalen artspezifischen Aktivitäten, wählbaren kosmetischen Belohnungen und Rettungsangeboten ohne Druck
@@ -30,7 +30,7 @@ geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfa
 - Kosmetisches Tier-Ambiente: Bei Regen gehen Tiere in den Gehege-Unterstand; nachts schlafen sie dort mit geschlossenen Augen, ruhiger Atmung und kleinen „Z“. Individuelle Schlafzeiten lassen nachts mindestens ein Tier wach; Streicheln weckt kurz auf. Nach Regen erscheint im Nebel für etwa 15 Sekunden ein ein-/ausblendender Regenbogen. Keine Auswirkung auf Werte oder Spielstände.
 - Prozedurale Umgebung in Chunks: Wiese und Wald rings um die Farm werden in 8×8-Zellen-Chunks erzeugt und nur im sichtbaren Kamerabereich gezeichnet. Beim Schwenken und Zoomen entsteht so kein leerer grüner Rand, und die Umgebung bleibt auch bei ausgebauter Farm performant
 - Stufenkurve mit langem Atem: frühe Stufen bleiben schnell erreichbar, spätere Ziele wachsen quadratisch. Erfolge sind eine willkommene Beschleunigung, tragen aber nicht mehr allein bis zur Maximalstufe
-- Touch-Steuerung: Tippen, Wischen zum Säen/Ernten, Kamera verschieben mit Trägheit, Pinch-Zoom, Platzieren per Ziehen
+- Touch-Steuerung: Tippen sät, legt Felder an und erntet; ein Finger zieht die Karte über die ganze Farm, auch über reifen Feldern und mit aktivem Werkzeug. Dazu Pinch-Zoom mit Trägheit und Platzieren per Ziehen
 - Lokales, versioniertes Speichersystem (geprüftes Laden, rotierendes Backup, Spielstände neuerer Versionen werden nie überschrieben); Wachstum, Produktion und wilde Fundstellen laufen offline weiter. Ältere Spielstände erhalten leere Sammelzeiten ohne Versionssprung
 - Spielstände als JSON exportieren und importieren (Import wird vor dem Ersetzen geprüft; bisheriger Stand wird als Backup gesichert)
 - Soundeffekte (zur Laufzeit erzeugt), Vibrations-Feedback und optionale Hintergrundmusik; Ton und Musik haben getrennte, selbst gezeichnete Lautstärkeregler (0–100 %, sichtbare Schiene mit großem Griff), Vibration lässt sich abschalten

@@ -67,6 +67,7 @@ func _initialize() -> void:
 	test_save_hardening()
 	test_logic_regressions()
 	test_data_consistency()
+	test_unlock_pacing()
 	test_economy()
 	test_new_crops()
 	test_new_production()
@@ -310,7 +311,7 @@ func test_production() -> void:
 
 func test_production_dashboard() -> void:
 	begin("Produktionsübersicht")
-	level_to(4)
+	level_to(5)
 	gs.coins = 5000
 	var bakery: int = gs.place_object("bakery", Vector2i(8, 11))
 	var milkery: int = gs.place_object("milkery", Vector2i(10, 11))
@@ -392,7 +393,7 @@ func test_orders() -> void:
 
 func test_delivery_stories() -> void:
 	begin("Erzählende Lieferaufträge")
-	level_to(8)
+	level_to(11)
 	check(gs.available_delivery_stories().has("lena_cafe"), "Geschichte wird ab ihrem Freischaltlevel angeboten")
 	check(not gs.start_delivery_story("jonas_autumn"), "höherstufige Geschichte bleibt gesperrt")
 	check(gs.start_delivery_story("lena_cafe"), "optionale Liefergeschichte startet")
@@ -445,12 +446,12 @@ func test_delivery_stories() -> void:
 
 func test_cafe() -> void:
 	begin("Veganes Gartencafé")
-	check(gd.BUILDINGS.has("cafe") and int(gd.BUILDINGS["cafe"]["level"]) == 8, "Café ab Stufe 8 freigeschaltet")
+	check(gd.BUILDINGS.has("cafe") and int(gd.BUILDINGS["cafe"]["level"]) == 11, "Café ab Stufe 11 freigeschaltet")
 	check(gd.CROPS.has("coffee") and not gd.CROPS["coffee"].has("perennial"), "Kaffee wird wie alle Pflanzen einjährig angebaut")
 	check(gd.RECIPES.has("roasted_coffee") and gd.RECIPES.has("filter_coffee") and gd.RECIPES.has("oat_latte"), "Kaffeekette mit Hafer-Latte")
 	check(gd.RECIPES.has("pumpkin_spice_latte") and gd.RECIPES.has("blueberry_coffee_cake"), "Tageskarte erhält spätere Café-Rezepte")
 	check(gs.daily_cafe_special().is_empty(), "Tagesgericht ohne Café noch nicht verfügbar")
-	level_to(8)
+	level_to(11)
 	gs.coins = 10000
 	var cafe_uid: int = gs.place_object("cafe", Vector2i(8, 11))
 	check(cafe_uid > 0, "Gartencafé bauen")
@@ -460,8 +461,8 @@ func test_cafe() -> void:
 		if str(achievement["id"]) == "cafe_open":
 			cafe_achievement = achievement
 	check(not cafe_achievement.is_empty() and gs.achievement_unlocked(cafe_achievement), "Café-Erfolg erkennt das Gebäude")
-	check(not gs.available_delivery_stories().has("cafe_opening"), "Café-Geschichte wartet auf Stufe 9, damit alle Lieferungen herstellbar sind")
-	level_to(9)
+	check(not gs.available_delivery_stories().has("cafe_opening"), "Café-Geschichte wartet auf Stufe 14, damit alle Lieferungen herstellbar sind")
+	level_to(14)
 	check(gs.available_delivery_stories().has("cafe_opening"), "Café-Geschichte wird mit Gebäude angeboten")
 	check(gs.start_delivery_story("cafe_opening"), "Café-Geschichte starten")
 	var cafe_story_order: Dictionary = {}
@@ -1088,13 +1089,61 @@ func test_economy() -> void:
 	check(seen.size() >= total, "jede Pflanze, jedes Rezept und jedes Tier hat ein Freischaltlevel")
 
 
+## Höchstens ein Gebäude und eine Pflanze pro Aufstieg. Rezepte und Geschichten
+## dürfen nie früher erscheinen als ihre Zutaten und ihr Gebäude.
+func test_unlock_pacing() -> void:
+	begin("Freischalt-Takt")
+	var crop_levels := {}
+	for id in gd.CROPS:
+		var lvl: int = int(gd.CROPS[id]["level"])
+		check(not crop_levels.has(lvl), "Stufe %d schaltet höchstens eine Pflanze frei (%s)" % [lvl, id])
+		crop_levels[lvl] = id
+	var building_levels := {}
+	for id in gd.BUILDINGS:
+		var lvl: int = int(gd.BUILDINGS[id]["level"])
+		check(not building_levels.has(lvl), "Stufe %d schaltet höchstens ein Gebäude frei (%s)" % [lvl, id])
+		building_levels[lvl] = id
+	check(crop_levels.size() == gd.CROPS.size(), "jede Pflanze hat eine eigene Stufe")
+	check(building_levels.size() == gd.BUILDINGS.size(), "jedes Gebäude hat eine eigene Stufe")
+	var late_crops := ["coffee", "pumpkin", "sugarcane", "beet", "rhubarb", "lettuce", "zucchini", "cucumber", "pea", "blueberry", "rice", "quinoa"]
+	for id in late_crops:
+		check(int(gd.CROPS[id]["level"]) >= 12, "%s wandert in die zweite Spielhälfte" % id)
+	check(int(gd.CROPS["quinoa"]["level"]) == 23, "Quinoa ist die letzte Pflanze")
+	for id in gd.RECIPES:
+		var r: Dictionary = gd.RECIPES[id]
+		var need: int = int(gd.BUILDINGS[r["building"]]["level"])
+		for k in r["inputs"]:
+			need = maxi(need, int(gd.items[k].get("level", 1)))
+		check(int(r["level"]) >= need, "%s startet nicht vor Zutaten und Gebäude" % id)
+	for id in gd.DELIVERY_STORIES:
+		var story: Dictionary = gd.DELIVERY_STORIES[id]
+		var need := 1
+		for stage in story["stages"]:
+			for item in stage["items"]:
+				need = maxi(need, int(gd.items[item].get("level", 1)))
+		if story.has("requires_building"):
+			need = maxi(need, int(gd.BUILDINGS[String(story["requires_building"])]["level"]))
+		check(int(story["level"]) >= need, "%s beginnt erst mit allen Zutaten" % id)
+	# Eine Stufe darf auch zusammen mit Tier und Deko nicht mehr als ein Gebäude und eine Pflanze nennen.
+	for lvl in range(1, gd.MAX_LEVEL + 1):
+		var crops_here := 0
+		var buildings_here := 0
+		for id in gd.CROPS:
+			if int(gd.CROPS[id]["level"]) == lvl:
+				crops_here += 1
+		for id in gd.BUILDINGS:
+			if int(gd.BUILDINGS[id]["level"]) == lvl:
+				buildings_here += 1
+		check(crops_here <= 1 and buildings_here <= 1, "Stufe %d bleibt bei höchstens einer Pflanze und einem Gebäude" % lvl)
+
+
 func test_new_crops() -> void:
 	begin("Neue Pflanzen")
 	gs.coins = 100000
 	var cell: Vector2i = gs.fields.keys()[0]
 	var new_crops := {
-		"almond": 5, "coffee": 8, "pumpkin": 9, "beet": 10, "rhubarb": 10, "lettuce": 11, "zucchini": 11,
-		"cucumber": 12, "pea": 13, "blueberry": 14, "rice": 16, "quinoa": 18,
+		"almond": 8, "coffee": 12, "pumpkin": 13, "beet": 15, "rhubarb": 16, "lettuce": 17, "zucchini": 18,
+		"cucumber": 19, "pea": 20, "blueberry": 21, "rice": 22, "quinoa": 23,
 	}
 	for crop in new_crops:
 		var level: int = int(new_crops[crop])
@@ -1112,8 +1161,8 @@ func test_new_crops() -> void:
 		check(gd.items.has(recipe), "%s ist als Tagesgericht-Produkt registriert" % recipe)
 	for recipe in ["pumpkin_soup", "beet_spread", "garden_salad", "blueberry_smoothie", "rice_milk", "quinoa_bowl"]:
 		check(gd.items.has(recipe), "%s ist als Produkt im Inventar registriert" % recipe)
-	check(gd.unlocks_at(18).has("Quinoa"), "Quinoa wird auf Stufe 18 freigeschaltet")
-	check(gd.unlocks_at(5).has("Mandeln"), "Mandeln werden auf Stufe 5 freigeschaltet")
+	check(gd.unlocks_at(23).has("Quinoa"), "Quinoa wird auf Stufe 23 freigeschaltet")
+	check(gd.unlocks_at(8).has("Mandeln"), "Mandeln werden auf Stufe 8 freigeschaltet")
 	var perennial_crops := false
 	for crop in gd.CROPS:
 		if gd.CROPS[crop].has("perennial"):
@@ -1155,7 +1204,7 @@ func test_new_production() -> void:
 				achievement = entry
 		check(not achievement.is_empty() and gs.achievement_unlocked(achievement), "Erfolg %s zählt das neue Gebäude" % id)
 	check(gd.unlocks_at(8).has("Blumenwerkstatt") and gd.unlocks_at(9).has("Ölmühle"), "neue Gebäude sind sinnvoll gestaffelt")
-	check(gd.unlocks_at(10).has("Rhabarber") and gd.unlocks_at(11).has("Zucchini"), "neue Pflanzen erscheinen auf ihrer Freischaltstufe")
+	check(gd.unlocks_at(16).has("Rhabarber") and gd.unlocks_at(18).has("Zucchini"), "neue Pflanzen erscheinen auf ihrer Freischaltstufe")
 	check(not gd.EXTRA_ITEMS.has("sugar") and not gs.buy_item("sugar"), "Zucker ist keine einzelne Shop-Zutat mehr")
 	# Zucker für die Konfitüre entsteht in der eigenen Kette aus Zuckerrohr.
 	var sugar_mill: int = gs.place_object("sugarmill", Vector2i(14, 17))
@@ -1183,7 +1232,7 @@ func test_new_production() -> void:
 	check(gs.start_recipe(int(uids["preserves"]), "strawberry_jam"), "Erdbeerkonfitüre starten")
 	gs.time_offset += 121.0
 	check(gs.collect_ready(int(uids["preserves"])).size() == 1 and gs.item_count("strawberry_jam") == 1, "Konfitüre abholen")
-	check(gd.items.has("apple_rice_pudding") and gd.RECIPES["quinoa_bar"]["level"] == 18, "späte Rezepte bleiben bis Stufe 18 sinnvoll")
+	check(gd.items.has("apple_rice_pudding") and gd.RECIPES["quinoa_bar"]["level"] == 23, "späte Rezepte bleiben bis Stufe 23 sinnvoll")
 	check(gd.RECIPES["strawberry_ice"]["inputs"].has("oat_milk"), "Eis verbindet Obst und Pflanzenmilch")
 
 
@@ -1197,9 +1246,9 @@ func _achievement(id: String) -> Dictionary:
 func test_sugar_chain() -> void:
 	begin("Zuckerkette")
 	gs.coins = 100000
-	level_to(9)
-	check(gd.CROPS.has("sugarcane") and int(gd.CROPS["sugarcane"]["level"]) == 9, "Zuckerrohr wächst ab Stufe 9")
-	check(gd.BUILDINGS.has("sugarmill") and int(gd.BUILDINGS["sugarmill"]["level"]) == 9, "Zuckermühle gibt es ab Stufe 9")
+	level_to(14)
+	check(gd.CROPS.has("sugarcane") and int(gd.CROPS["sugarcane"]["level"]) == 14, "Zuckerrohr wächst ab Stufe 14")
+	check(gd.BUILDINGS.has("sugarmill") and int(gd.BUILDINGS["sugarmill"]["level"]) == 12, "Zuckermühle gibt es ab Stufe 12")
 	check(gd.RECIPES.has("sugar") and gd.RECIPES["sugar"]["building"] == "sugarmill", "Zucker entsteht in der Zuckermühle")
 	check(gd.RECIPES["sugar"]["inputs"] == {"sugarcane": 3}, "Zucker wird aus Zuckerrohr gepresst")
 	check(gd.items.has("sugar") and gd.items["sugar"]["kind"] == "product", "Zucker ist ein hergestelltes Produkt")

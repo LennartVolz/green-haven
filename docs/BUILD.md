@@ -150,9 +150,8 @@ Oberfläche (`ui_root.gd`) nur über Signale und Methodenaufrufe benutzt.
 
 | Geste | Wirkung |
 | --- | --- |
-| Tippen auf Feld | Saat wählen, pflanzen oder ernten |
-| Wischen über Felder (mit Saat-/Leerwerkzeug) | Mehrere Felder in einem Zug säen oder ernten |
-| Wischen auf freier Fläche | Kamera verschieben (mit Trägheit) |
+| Tippen auf Feld | Saat wählen, ein Feld säen, anlegen oder ernten |
+| Ziehen auf der Karte | Kamera verschieben (mit Trägheit), auch über Feldern und mit aktivem Werkzeug |
 | Zwei Finger | Pinch-Zoom |
 | Tippen auf Gebäude / Tier | Produktions- bzw. Tiermenü |
 | Platzieren | Finger ziehen, Vorschau zeigt Grün/Rot, „Platzieren“ bestätigt |

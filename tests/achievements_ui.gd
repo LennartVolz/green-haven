@@ -100,7 +100,7 @@ func run() -> void:
 		await frames(2)
 		check(gs.item_count(forage_id) == forage_before + int(forage_data.FORAGE[forage_id]["amount"]), "Tippen in der Wildnis sammelt die Ware ein")
 		check(int(gs.stats.get("foraged", 0)) == 1, "Sammeln wird in der Statistik gezählt")
-	# Wischen über eine zweite reife Stelle sammelt ohne einzelnes Tippen.
+	# Ziehen verschiebt immer die Kamera und erntet nicht nebenbei – auch mit aktivem Werkzeug.
 	var swipe_cell := Vector2i(-999, -999)
 	for y in range(gs.land.position.y - band, gs.land.end.y + band):
 		for x in range(gs.land.position.x - band, gs.land.end.x + band):
@@ -114,16 +114,70 @@ func run() -> void:
 		var swipe_id: String = gs.forage_spot_at(swipe_cell)
 		var swipe_before: int = gs.item_count(swipe_id)
 		var foraged_before: int = int(gs.stats.get("foraged", 0))
-		var swipe_start := world_to_screen(world, Vector2(swipe_cell) * 128.0 + Vector2(20, 90))
-		var swipe_end := world_to_screen(world, Vector2(swipe_cell) * 128.0 + Vector2(108, 98))
-		world._begin_single(swipe_start)
-		world._moved = true
-		world._last_sweep_pos = swipe_start
-		world._sweep_to(swipe_end)
-		world._end_single(swipe_end)
+		world.ui_blocker = Callable()
+		world.reset_camera()
+		# Im Testfenster ist der Viewport quadratisch; erst mit engerem Zoom ist die
+		# Startfarm größer als die Anzeige und damit wirklich verschiebbar.
+		world.cam.zoom = Vector2(1.5, 1.5)
+		world._clamp_camera()
+		var cam_before: Vector2 = world.cam.position
+		var drag_start := world_to_screen(world, Vector2(swipe_cell) * 128.0 + Vector2(64, 96))
+		var press := InputEventScreenTouch.new()
+		press.index = 0
+		press.position = drag_start
+		press.pressed = true
+		world._on_touch(press)
+		var motion := InputEventScreenDrag.new()
+		motion.index = 0
+		motion.position = drag_start + Vector2(0, 150)
+		world._on_drag(motion)
+		check(world.cam.position.distance_to(cam_before) > 10.0, "Ziehen verschiebt die Kamera über der Farm")
+		var release := InputEventScreenTouch.new()
+		release.index = 0
+		release.position = motion.position
+		release.pressed = false
+		world._on_touch(release)
 		await frames(2)
-		check(gs.item_count(swipe_id) == swipe_before + int(forage_data.FORAGE[swipe_id]["amount"]), "Wischen in der Wildnis sammelt die Ware ein")
-		check(int(gs.stats.get("foraged", 0)) == foraged_before + 1, "Wisch-Ernte zählt in der Statistik")
+		check(gs.item_count(swipe_id) == swipe_before and int(gs.stats.get("foraged", 0)) == foraged_before, "Ziehen erntet keine reife Stelle")
+		# Mit aktivem Werkzeug bleibt das Verschieben möglich, ohne Felder zu bepflanzen.
+		world.set_plant_tool("wheat")
+		world.reset_camera()
+		world.cam.zoom = Vector2(1.5, 1.5)
+		world._clamp_camera()
+		var cam_before_tool: Vector2 = world.cam.position
+		var planted_before: int = int(gs.stats.get("planted", 0))
+		var empty_cell := Vector2i(-1, -1)
+		for c in gs.fields:
+			if gs.fields[c].crop == "":
+				empty_cell = c
+				break
+		check(empty_cell.x != -1, "es gibt ein leeres Feld für die Werkzeugprobe")
+		var field_start := world_to_screen(world, gs.cell_center(empty_cell))
+		var press_tool := InputEventScreenTouch.new()
+		press_tool.index = 0
+		press_tool.position = field_start
+		press_tool.pressed = true
+		world._on_touch(press_tool)
+		var motion_tool := InputEventScreenDrag.new()
+		motion_tool.index = 0
+		motion_tool.position = field_start + Vector2(0, 150)
+		world._on_drag(motion_tool)
+		check(world.cam.position.distance_to(cam_before_tool) > 10.0, "Ziehen verschiebt die Karte auch mit aktivem Sä-Werkzeug")
+		var release_tool := InputEventScreenTouch.new()
+		release_tool.index = 0
+		release_tool.position = motion_tool.position
+		release_tool.pressed = false
+		world._on_touch(release_tool)
+		await frames(2)
+		check(int(gs.stats.get("planted", 0)) == planted_before, "Ziehen sät keine Felder")
+		# Tippen bleibt die Aktion zum Säen.
+		world._handle_tap(world_to_screen(world, gs.cell_center(empty_cell)))
+		await frames(2)
+		check(int(gs.stats.get("planted", 0)) == planted_before + 1 and gs.fields[empty_cell].crop == "wheat", "Tippen sät weiterhin ein Feld")
+		world.clear_tool()
+		world.ui_blocker = Callable(ui, "is_over_ui")
+		world.reset_camera()
+		await frames(2)
 	# Die Saat-Auswahl zeigt den aktuellen Wettereffekt und wetterbasierte Reifezeiten.
 	gs.level = 1
 	var weather_duration: float = root.get_node("GameData").WEATHER_DURATION_SECONDS
@@ -149,8 +203,8 @@ func run() -> void:
 			check(contains_label(ui.content, "Reif in ca. %s" % root.get_node("GameData").format_time(rain_seconds)), "offene Saat-Auswahl aktualisiert Reifezeiten beim Wetterwechsel")
 		ui.close_sheet()
 	gs.time_offset = 0.0
-	# Mandeln sind ab Stufe 5 eine Feldfrucht und tauchen nicht mehr unter Land auf.
-	gs.level = 5
+	# Mandeln sind ab Stufe 8 eine Feldfrucht und tauchen nicht mehr unter Land auf.
+	gs.level = 8
 	ui.act_open("crops", {})
 	await frames()
 	check(contains_label(ui.content, "Mandeln"), "Mandeln sind in der Pflanzenauswahl integriert")
@@ -286,7 +340,7 @@ func run() -> void:
 
 	# Der Gartentag bekommt im HUD und Auftragsbuch echte Sichtbarkeit.
 	gs.new_game()
-	gs.level = 10
+	gs.level = 11
 	gs.coins = 5000
 	var event_cafe_uid: int = gs.place_object("cafe", Vector2i(8, 11))
 	check(event_cafe_uid > 0, "Café kann für Gartentag-UI-Test gebaut werden")
@@ -302,7 +356,7 @@ func run() -> void:
 
 	# Café-Besuchsgeschichte erscheint im Auftragsbuch an der echten Oberfläche.
 	gs.new_game()
-	gs.level = 8
+	gs.level = 13
 	gs.coins = 5000
 	var cafe_uid: int = gs.place_object("cafe", Vector2i(8, 11))
 	check(cafe_uid > 0, "Café kann für UI-Test gebaut werden")

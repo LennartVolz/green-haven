@@ -29,7 +29,7 @@ static func build(ui, _args: Dictionary) -> void:
 
 
 static func _crops(ui, c: VBoxContainer) -> void:
-	c.add_child(UiKit.wrap_label("Saatgut wird beim Pflanzen bezahlt. Wähle eine Sorte und tippe oder wische über leere Felder.", 26, UiKit.earth_dark()))
+	c.add_child(UiKit.wrap_label("Saatgut wird beim Pflanzen bezahlt. Wähle eine Sorte und tippe auf leere Felder.", 26, UiKit.earth_dark()))
 	var ids: Array = GameData.CROPS.keys()
 	ids.sort_custom(func(a: String, b: String) -> bool: return int(GameData.CROPS[a]["level"]) < int(GameData.CROPS[b]["level"]))
 	for id in ids:
@@ -123,7 +123,7 @@ static func _land(ui, c: VBoxContainer) -> void:
 	var card := UiKit.card(14)
 	var v := UiKit.vbox(8)
 	v.add_child(UiKit.label("Neue Felder anlegen", 34))
-	v.add_child(UiKit.wrap_label("Tippe oder wische über freie Wiese. Jedes Feld kostet %d Münzen." % GameData.TILL_COST, 26, UiKit.earth_dark()))
+	v.add_child(UiKit.wrap_label("Tippe auf freie Wiese. Jedes Feld kostet %d Münzen." % GameData.TILL_COST, 26, UiKit.earth_dark()))
 	var b := UiKit.button("Felder anlegen", "primary", 30)
 	b.pressed.connect(ui.act_till)
 	v.add_child(b)
@@ -135,7 +135,7 @@ static func _land(ui, c: VBoxContainer) -> void:
 	var v2 := UiKit.vbox(8)
 	v2.add_child(UiKit.label("Farm erweitern", 34))
 	var land_size: Vector2i = GameState.land.size
-	v2.add_child(UiKit.wrap_label("Eine zusammenhängende Farm, die du durch Wischen erkundest. Aktuell %d × %d Felder." % [land_size.x, land_size.y], 26, UiKit.earth_dark()))
+	v2.add_child(UiKit.wrap_label("Eine zusammenhängende Farm, die du mit einem Finger über die Karte erkundest. Aktuell %d × %d Felder." % [land_size.x, land_size.y], 26, UiKit.earth_dark()))
 	if ex.is_empty():
 		v2.add_child(UiKit.wrap_label("Deine Farm ist vollständig auf 24 × 24 Felder ausgebaut. Wunderschön!", 26, UiKit.earth_dark()))
 	else:

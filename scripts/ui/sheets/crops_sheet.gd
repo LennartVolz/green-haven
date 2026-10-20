@@ -17,7 +17,7 @@ static func build(ui, args: Dictionary) -> void:
 	ui.set_title("Was soll wachsen?")
 	var c: VBoxContainer = ui.content
 	var cell: Vector2i = args.get("cell", Vector2i(-1, -1))
-	c.add_child(UiKit.wrap_label("Tippe auf eine Sorte. Danach kannst du mit dem Finger über viele Felder wischen.", 26, UiKit.earth_dark()))
+	c.add_child(UiKit.wrap_label("Tippe auf eine Sorte. Danach tippst du auf leere Felder, um zu säen; mit einem Finger ziehst du die Karte.", 26, UiKit.earth_dark()))
 	var weather_card := UiKit.card(12)
 	var weather_content := UiKit.vbox(4)
 	var weather_label := UiKit.label(_weather_text(), 28, UiKit.sage_dark())

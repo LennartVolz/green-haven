@@ -1,6 +1,6 @@
 extends Node2D
 ## Die interaktive Farmwelt: Kamera (Verschieben, Pinch-Zoom, Trägheit),
-## Touch-Eingabe (Tippen, Wischen zum Pflanzen/Ernten), Platzieren und Bearbeiten.
+## Touch-Eingabe (Tippen zum Pflanzen/Ernten, Ziehen zum Verschieben), Platzieren und Bearbeiten.
 
 signal open_sheet(sheet_name: String, args: Dictionary)
 signal close_sheets
@@ -56,10 +56,6 @@ var _start: Dictionary = {}
 var _ui_touches: Dictionary = {}
 var _moved := false
 var _gesture := ""
-var _sweep_mode := ""
-var _last_sweep_pos := Vector2.ZERO
-var _sweep_cells: Dictionary = {}
-var _sweep_error_shown := false
 var _pinch_dist := 1.0
 var _pinch_mid := Vector2.ZERO
 var _pan_vel := Vector2.ZERO
@@ -398,10 +394,8 @@ func _on_touch(e: InputEventScreenTouch) -> void:
 		elif _touches.size() == 1:
 			_moved = true
 			_gesture = "pan"
-			_sweep_mode = ""
 		if _touches.is_empty():
 			_gesture = ""
-			_sweep_mode = ""
 
 
 func _on_drag(e: InputEventScreenDrag) -> void:
@@ -417,11 +411,9 @@ func _on_drag(e: InputEventScreenDrag) -> void:
 		return
 	if not _moved and e.position.distance_to(_start[e.index]) > DRAG_THRESHOLD:
 		_moved = true
-		if _sweep_mode != "":
-			_gesture = "sweep"
-			_last_sweep_pos = _start[e.index]
-		else:
-			_gesture = "pan"
+		# Ziehen verschiebt immer die Karte – auch über reifen Feldern und mit
+		# aktivem Werkzeug. Säen, Anlegen und Ernten laufen über das Tippen.
+		_gesture = "pan"
 	if _gesture == "pan":
 		var d: Vector2 = e.position - old
 		cam.position -= d / cam.zoom.x
@@ -430,27 +422,12 @@ func _on_drag(e: InputEventScreenDrag) -> void:
 		var dt := maxf(0.008, float(now_ms - _last_drag_ms) / 1000.0)
 		_last_drag_ms = now_ms
 		_pan_vel = _pan_vel.lerp(d / dt, 0.5)
-	elif _gesture == "sweep":
-		_sweep_to(e.position)
 
 
 func _begin_single(p: Vector2) -> void:
-	_sweep_mode = ""
-	_sweep_cells.clear()
-	_sweep_error_shown = false
 	if tool_mode == "place":
 		_gesture = "place"
 		_update_ghost(p)
-		return
-	var cell := world_to_cell(screen_to_world(p))
-	if tool_mode == "plant" and GameState.fields.has(cell):
-		_sweep_mode = "plant"
-	elif tool_mode == "till":
-		_sweep_mode = "till"
-	elif tool_mode == "" and GameState.is_ready(cell):
-		_sweep_mode = "harvest"
-	elif tool_mode == "" and GameState.forage_ready(cell):
-		_sweep_mode = "forage"
 
 
 func _end_single(p: Vector2) -> void:
@@ -480,45 +457,6 @@ func _do_pinch() -> void:
 	_pinch_dist = dist
 	_pinch_mid = mid
 	_clamp_camera()
-
-
-# ------------------------------------------------------- Wischen (Pflanzen/Ernte)
-
-func _sweep_to(p: Vector2) -> void:
-	var dist := _last_sweep_pos.distance_to(p)
-	var steps := maxi(1, int(dist / 40.0))
-	for i in range(1, steps + 1):
-		_sweep_at(_last_sweep_pos.lerp(p, float(i) / float(steps)))
-	_last_sweep_pos = p
-
-
-func _sweep_at(screen_p: Vector2) -> void:
-	var cell := world_to_cell(screen_to_world(screen_p))
-	if _sweep_cells.has(cell):
-		return
-	_sweep_cells[cell] = true
-	match _sweep_mode:
-		"harvest":
-			if GameState.is_ready(cell):
-				GameState.harvest(cell)
-		"forage":
-			if GameState.forage_ready(cell):
-				GameState.collect_forage(cell)
-		"plant":
-			if GameState.fields.has(cell) and GameState.fields[cell].crop == "":
-				if not GameState.plant(cell, tool_crop):
-					_error_once()
-		"till":
-			if GameState.can_till(cell):
-				if not GameState.till(cell):
-					_error_once()
-
-
-func _error_once() -> void:
-	if _sweep_error_shown:
-		return
-	_sweep_error_shown = true
-	_error()
 
 
 func _error() -> void:

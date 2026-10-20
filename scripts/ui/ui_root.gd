@@ -18,8 +18,8 @@ const AchievementsSheet := preload("res://scripts/ui/sheets/achievements_sheet.g
 
 const TUTORIAL := [
 	"Willkommen auf Green Haven! Tippe auf ein leeres Feld und wähle Weizen.",
-	"Prima! Wähle eine Sorte und wische mit dem Finger über mehrere Felder, um schnell zu säen.",
-	"Warte, bis der Weizen reif ist (ca. 30 Sekunden). Tippe oder wische dann über die Pflanzen, um zu ernten.",
+	"Prima! Tippe auf leere Felder, um zu säen. Mit einem Finger ziehst du die Karte über die ganze Farm.",
+	"Warte, bis der Weizen reif ist (ca. 30 Sekunden). Tippe dann auf die reifen Pflanzen, um zu ernten.",
 	"Öffne unten das Auftragsbuch und erfülle deinen ersten Kundenauftrag.",
 	"Gut gemacht! Verkaufe Überschüsse im Vorrat, baue ab Stufe 2 eine Bäckerei und rette später Tiere. Mit einem Finger verschiebst du die Kamera, mit zwei zoomst du.",
 ]
@@ -663,7 +663,7 @@ func _update_toolbar(mode: String, data: Dictionary) -> void:
 			var tv := UiKit.vbox(0)
 			tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			tv.add_child(UiKit.label("Säen: %s" % String(d["name"]), 32))
-			tv.add_child(UiKit.label("Tippe oder wische über leere Felder · Saat %d" % int(d["seed"]), 22, UiKit.earth_dark()))
+			tv.add_child(UiKit.label("Tippe auf leere Felder · Saat %d · Ziehen verschiebt die Karte" % int(d["seed"]), 22, UiKit.earth_dark()))
 			h.add_child(tv)
 			var sw := UiKit.button("Sorte", "light", 26)
 			sw.custom_minimum_size = Vector2(140, 88)
@@ -678,7 +678,7 @@ func _update_toolbar(mode: String, data: Dictionary) -> void:
 			var tv2 := UiKit.vbox(0)
 			tv2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			tv2.add_child(UiKit.label("Felder anlegen", 32))
-			tv2.add_child(UiKit.label("Tippe oder wische über freie Wiese · %d Münzen pro Feld" % GameData.TILL_COST, 22, UiKit.earth_dark()))
+			tv2.add_child(UiKit.label("Tippe auf freie Wiese · %d Münzen pro Feld · Ziehen verschiebt die Karte" % GameData.TILL_COST, 22, UiKit.earth_dark()))
 			h.add_child(tv2)
 			var done2 := UiKit.button("Fertig", "primary", 28)
 			done2.custom_minimum_size = Vector2(160, 88)

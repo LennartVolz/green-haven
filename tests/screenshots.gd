@@ -141,11 +141,12 @@ func run() -> void:
 	ui.act_plant_pick("wheat", cell)
 	await frames(3)
 	log.append("tool after pick: %s, planted=%s" % [world.tool_mode, gs.stats.get("planted", 0)])
-	# Über die anderen Felder wischen
+	# Felder einzeln antippen
 	var cells: Array = gs.fields.keys()
-	await drag(world_to_screen(gs.cell_center(cells[0]) + Vector2(-60, 0)), world_to_screen(gs.cell_center(cells[3]) + Vector2(60, 0)), 14)
-	log.append("planted after swipe: %s" % gs.stats.get("planted", 0))
-	await shot("planted_swipe")
+	for i in range(mini(4, cells.size())):
+		await tap(world_to_screen(gs.cell_center(cells[i])))
+	log.append("planted after taps: %s" % gs.stats.get("planted", 0))
+	await shot("planted_taps")
 	world.clear_tool()
 	gs.time_offset += 16.0
 	await frames(3)
@@ -153,9 +154,10 @@ func run() -> void:
 	gs.time_offset += 20.0
 	await frames(3)
 	await shot("ripe")
-	# Ernte per Wischen
-	await drag(world_to_screen(gs.cell_center(cells[0]) + Vector2(-60, 0)), world_to_screen(gs.cell_center(cells[3]) + Vector2(60, 0)), 14)
-	log.append("harvested after swipe: %s wheat=%s" % [gs.stats.get("harvested", 0), gs.item_count("wheat")])
+	# Ernte per Tippen
+	for i in range(mini(4, cells.size())):
+		await tap(world_to_screen(gs.cell_center(cells[i])))
+	log.append("harvested after taps: %s wheat=%s" % [gs.stats.get("harvested", 0), gs.item_count("wheat")])
 	await shot("harvested")
 
 	# Headless hat ein quadratisches Dummy-Viewport ohne Kamerabewegung; visuelle

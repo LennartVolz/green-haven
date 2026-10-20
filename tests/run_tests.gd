@@ -66,6 +66,8 @@ func _initialize() -> void:
 	test_data_consistency()
 	test_economy()
 	test_new_crops()
+	section = "Tierverhalten bei Wetter und Nacht"
+	load("res://tests/suites/animal_weather.gd").new().run(self, world_script, gs, gd)
 	section = "Spielstand-Export/Import"
 	load("res://tests/suites/save_transfer.gd").new().run(self)
 	ss.delete_save()
@@ -76,10 +78,14 @@ func _initialize() -> void:
 
 func test_day_night() -> void:
 	begin("Tag-Nacht-Zyklus")
+	check(gs.SAVE_VERSION == 8, "Tag-Nacht-Ambiente ändert die Save-Version nicht")
 	check(world_script.daylight_at(0.0) < 0.01, "Mitternacht ist dunkel")
 	check(world_script.daylight_at(12.0 * 3600.0) > 0.99, "Mittag ist hell")
 	check(world_script.daylight_at(6.0 * 3600.0) < world_script.daylight_at(9.0 * 3600.0), "Sonnenaufgang wird heller")
 	check(world_script.daylight_at(18.0 * 3600.0) > world_script.daylight_at(21.0 * 3600.0), "Sonnenuntergang wird dunkler")
+	check(not world_script.is_night_at(6.0 * 3600.0) and not world_script.is_night_at(17.999 * 3600.0), "Tageszeit reicht von 06:00 bis 18:00")
+	check(world_script.is_night_at(18.0 * 3600.0) and world_script.is_night_at(5.999 * 3600.0), "Nacht reicht ab 18:00 bis vor 06:00")
+	check(world_script.is_night_at(-1.0) and not world_script.is_night_at(24.0 * 3600.0 + 6.0 * 3600.0), "Nachtprüfung normalisiert negative und mehrtägige Zeiten")
 	check(world_script.clock_text_at(8.0 * 3600.0) == "08:00 · Tag", "Uhr zeigt Tageszeit")
 	check(world_script.clock_text_at(20.0 * 3600.0) == "20:00 · Nacht", "Uhr zeigt Nachtzeit")
 	check(world_script.weather_at(0.0) == "Sonnig", "Wetterzyklus startet sonnig")
@@ -87,6 +93,13 @@ func test_day_night() -> void:
 	check(world_script.weather_at(240.0) == "Regen", "Wetter wechselt zu Regen")
 	check(world_script.weather_at(360.0) == "Nebel", "Wetter wechselt zu Nebel")
 	check(world_script.weather_at(480.0) == "Sonnig", "Wetterzyklus wiederholt sich")
+	check(gd.seconds_into_weather(365.0) == 5.0, "Wetterphasenzeit beginnt nach dem Phasenwechsel bei null")
+	check(gd.seconds_into_weather(-1.0) == GameData.WEATHER_DURATION_SECONDS - 1.0, "Wetterphasenzeit normalisiert negative Zeit")
+	check(gd.rainbow_strength_at(360.0) == 0.0 and gd.rainbow_strength_at(365.0) > 0.0, "Regenbogen beginnt im Nebel mit Einblenden")
+	check(gd.rainbow_strength_at(367.0) == 1.0 and gd.rainbow_strength_at(373.0) == 1.0, "Regenbogen erreicht und hält kurz volle Deckkraft")
+	check(gd.rainbow_strength_at(375.0) == 0.0 and gd.rainbow_strength_at(485.0) == 0.0, "Regenbogen endet nach etwa 15 Sekunden und erscheint nicht bei Sonne")
+	check(gd.rainbow_strength_at(365.0, true) == 0.0, "Regenbogen ist nachts ausgeblendet")
+	check(gs.SAVE_VERSION == 8, "Ambient-Verhalten erfordert keine Spielstand-Migration")
 	check(world_script.weather_tint_at("Regen") != Color.WHITE, "Regen verändert die Lichtfarbe")
 	check(gd.weather_effect_text("Regen").contains("+25%") and gd.weather_growth_rate("Regen") == 1.25, "Regen zeigt seinen Wachstumseffekt klar an")
 	check(gd.weather_effect_text("Bewölkt").contains("−10%") and gd.weather_growth_rate("Bewölkt") == 0.9, "Bewölkung zeigt langsameres Wachstum an")

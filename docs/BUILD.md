@@ -115,13 +115,20 @@ Oberfläche (`ui_root.gd`) nur über Signale und Methodenaufrufe benutzt.
   Produktion offline „weiter“: beim Start wird aus der verstrichenen Zeit der Zustand abgeleitet.
   Das Pflanzenwachstum berücksichtigt dabei den Wetterverlauf der verstrichenen Zeit
 
-## Wetter und Tageszeit
+## Wetter, Tageszeit und Tier-Ambiente
 
 - Wetter (`GameData`): Sonnig, Bewölkt, Regen und Nebel wechseln in dieser Reihenfolge alle 120 Sekunden
   (`WEATHER_DURATION_SECONDS`). Wachstumsfaktoren: Sonnig 1,0, Bewölkt 0,9, Regen 1,25, Nebel 1,0
   (`WEATHER_GROWTH_RATES`). Das Wetter hängt von der Spielzeit ab, nicht vom Spielstand-Inhalt.
+- Nach Regen erscheint im ersten Nebelabschnitt für etwa 15 Sekunden ein ein- und ausblendender Regenbogen;
+  nachts bleibt er unsichtbar.
 - Tag-Nacht-Zyklus (`world.gd`): Ein Spieltag dauert 8 Minuten echter Zeit (`REAL_DAY_LENGTH_SECONDS`).
-  Er beeinflusst nur Farbstimmung und Uhrzeitanzeige, nicht das Wachstum.
+  Nachts gehen Tiere in den Gehege-Unterstand und schlafen mit geschlossenen Augen; versetzte Schlafpläne
+  lassen mindestens ein Tier wach. Streicheln weckt ein schlafendes Tier kurz. Bei Regen suchen die Tiere
+  denselben Unterstand auf, bis es wieder trocken ist. Alle diese Reaktionen sind kosmetisch und werden
+  weder gespeichert noch auf Hunger, Wohlbefinden oder Freundschaft angerechnet; `SAVE_VERSION` bleibt 8.
+- Screenshots `animals_rain_shelter`, `animals_sleeping` und `after_rain_rainbow` in
+  `tests/screenshots.gd` sind für manuelle Sichtprüfung vorgesehen und laufen nicht in der CI.
 
 ## Audio
 

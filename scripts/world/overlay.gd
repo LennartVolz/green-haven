@@ -126,6 +126,27 @@ func _draw() -> void:
 				var y := view.position.y + view.size.y * (0.42 + float(i) * 0.13)
 				Painter.ellipse(self, Vector2(x, y), view.size.x * 0.48, 42.0, fog)
 				Painter.ellipse(self, Vector2(x + 110.0, y + 8.0), view.size.x * 0.36, 32.0, fog)
+			_draw_rainbow(view)
 		"Sonnig":
 			pass
 	queue_redraw()
+
+
+func _draw_rainbow(view: Rect2) -> void:
+	var day_seconds := 12.0 * 3600.0
+	var world := get_parent()
+	if world != null:
+		day_seconds = float(world.get("day_time_seconds"))
+	var hour := fposmod(day_seconds, 24.0 * 3600.0) / 3600.0
+	var night := hour >= 18.0 or hour < 6.0
+	var alpha := GameData.rainbow_strength_at(GameState.now(), night)
+	if alpha <= 0.0:
+		return
+	var center := Vector2(view.position.x + view.size.x * 0.68, view.position.y + view.size.y * 0.68)
+	var radius := view.size.x * 0.28
+	var rainbow_colors := ["#E87878", "#E9A35F", "#E8D16E", "#91BC78", "#79B8C8", "#8298C8", "#A68BC1"]
+	for index in range(rainbow_colors.size()):
+		var band := float(index) * 13.0
+		var color := Painter.col(rainbow_colors[index])
+		color.a = alpha * 0.72
+		draw_arc(center, radius - band, PI, TAU, 64, color, 12.0, true)

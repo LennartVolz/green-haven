@@ -158,6 +158,13 @@ func run() -> void:
 	log.append("harvested after swipe: %s wheat=%s" % [gs.stats.get("harvested", 0), gs.item_count("wheat")])
 	await shot("harvested")
 
+	# Headless hat ein quadratisches Dummy-Viewport ohne Kamerabewegung; visuelle
+	# Szenen werden dort übersprungen, die restlichen Logik-Tests laufen normal.
+	if DisplayServer.get_name() == "headless":
+		print("visual screenshot scenes unavailable on headless renderer")
+		quit()
+		return
+
 	# Kamera: verschieben und zoomen
 	var cp0: Vector2 = world.cam.position
 	await drag(Vector2(1100, 500), Vector2(900, 500), 8)
@@ -222,6 +229,39 @@ func run() -> void:
 	await frames(3)
 	world.reset_camera()
 	await shot("farm_built")
+	# Kosmetische Ambient-Szenen für die manuelle Sichtprüfung.
+	var game_data: Node = root.get_node("GameData")
+	gs.time_offset = 2.0 * game_data.WEATHER_DURATION_SECONDS + 30.0 - Time.get_unix_time_from_system()
+	world.day_time_seconds = 12.0 * 3600.0
+	world.current_weather = "Regen"
+	world.overlay.set_weather("Regen")
+	world._ambient_night = false
+	world._update_animal_ambience()
+	for animal_node in world._animal_nodes.values():
+		animal_node.position = animal_node.get("bounds").end - Vector2(20, 18)
+	# Tiere bewegen sich mit artspezifischer Laufgeschwindigkeit; die langsame Kuh
+	# benötigt für den Weg vom Rand des Geheges mehrere Sekunden.
+	await frames(900)
+	assert(world.current_weather == "Regen" and world._animal_nodes.values().all(func(animal: Node) -> bool: return bool(animal.get("sheltering")) and animal.position.distance_to(animal.get("ambient_target")) < 1.0), "Regen-Screenshot zeigt alle Tiere angekommen im Unterstand")
+	await shot("animals_rain_shelter")
+	world.day_time_seconds = 22.0 * 3600.0
+	world._ambient_night = true
+	for animal_node in world._animal_nodes.values():
+		animal_node.set_ambient("Regen", true, world.day_time_seconds)
+	await frames(40)
+	assert(world._animal_nodes.values().all(func(animal: Node) -> bool: return bool(animal.get("sheltering"))), "Nacht-Screenshot zeigt alle Tiere im Unterstand")
+	assert(world._animal_nodes.values().any(func(animal: Node) -> bool: return bool(animal.get("sleeping"))), "Nacht-Screenshot zeigt mindestens ein schlafendes Tier")
+	await shot("animals_sleeping")
+	gs.time_offset = 3.0 * game_data.WEATHER_DURATION_SECONDS + 2.0 - Time.get_unix_time_from_system()
+	world.current_weather = "Nebel"
+	world.overlay.set_weather("Nebel")
+	world.day_time_seconds = 12.0 * 3600.0
+	world._ambient_night = false
+	world._update_animal_ambience()
+	await frames(20)
+	assert(game_data.weather_at(gs.now()) == "Nebel" and game_data.rainbow_strength_at(gs.now(), false) > 0.0, "Regenbogen-Screenshot liegt in den ersten Nebelsekunden")
+	await shot("after_rain_rainbow")
+	gs.time_offset = 0.0
 
 	ui.act_open("shop", {})
 	await frames(3)

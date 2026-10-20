@@ -24,7 +24,7 @@ static func _erot(ci: CanvasItem, c: Vector2, rx: float, ry: float, rot: float, 
 
 
 ## flip: nach links schauen. peck: 0..1 Pick-/Schnupper-Bewegung.
-static func draw(ci: CanvasItem, species: String, t: float, flip: bool, walking: bool, cosmetics: Array, peck: float = 0.0, scale_f: float = 1.0) -> void:
+static func draw(ci: CanvasItem, species: String, t: float, flip: bool, walking: bool, cosmetics: Array, peck: float = 0.0, scale_f: float = 1.0, sleeping: bool = false) -> void:
 	var sx := -scale_f if flip else scale_f
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2(sx, scale_f))
 	Painter.shadow(ci, Vector2(0, -2), 50.0, 11.0)
@@ -32,9 +32,9 @@ static func draw(ci: CanvasItem, species: String, t: float, flip: bool, walking:
 	if walking:
 		bob = absf(sin(t * 9.0)) * (13.0 if species == "rabbit" else 4.0)
 	else:
-		bob = sin(t * 2.0) * 1.3
+		bob = sin(t * (1.25 if sleeping else 2.0)) * (2.2 if sleeping else 1.3)
 	ci.draw_set_transform(Vector2(0, -bob * scale_f), 0.0, Vector2(sx, scale_f))
-	var blink := fmod(t + float(species.length()), 4.3) < 0.14
+	var blink := sleeping or fmod(t + float(species.length()), 4.3) < 0.14
 	var sw := sin(t * 9.0) * 6.0 if walking else 0.0
 	match species:
 		"cow":
@@ -48,6 +48,8 @@ static func draw(ci: CanvasItem, species: String, t: float, flip: bool, walking:
 		"rabbit":
 			_rabbit(ci, blink, sw)
 	_accessories(ci, species, cosmetics, t, peck)
+	if sleeping:
+		Painter.ellipse(ci, Vector2(0, -8), 15.0, 7.0 + sin(t * 1.25) * 1.5, Color(1.0, 1.0, 1.0, 0.18))
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 

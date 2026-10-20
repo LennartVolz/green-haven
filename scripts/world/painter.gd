@@ -731,6 +731,18 @@ static func draw_paddock_back(ci: CanvasItem, rect: Rect2) -> void:
 	_fence_h(ci, rect.position.x + 8.0, rect.end.x - 8.0, top)
 	_post_line(ci, rect.position.x + 10.0, top, rect.end.y - 10.0)
 	_post_line(ci, rect.end.x - 10.0, top, rect.end.y - 10.0)
+	# Offener, kleiner Unterstand an der Gehegerückwand; Tiere stehen im Vordergrund.
+	var cx := rect.position.x + rect.size.x * 0.5
+	var shed_width := minf(380.0, rect.size.x * 0.82)
+	var shed_top := rect.position.y + 22.0
+	var shed_bottom := shed_top + 112.0
+	shadow(ci, Vector2(cx, shed_bottom - 2.0), shed_width * 0.52, 12.0)
+	rrect(ci, Rect2(cx - shed_width * 0.5, shed_top + 28.0, shed_width, 76.0), col("#C99C69"), 8)
+	for x in [cx - shed_width * 0.5 + 14.0, cx + shed_width * 0.5 - 14.0]:
+		rrect(ci, Rect2(x - 9.0, shed_top + 10.0, 18.0, 98.0), col("#8E6240"), 5)
+	poly(ci, [Vector2(cx - shed_width * 0.5 - 24.0, shed_top + 32.0), Vector2(cx - shed_width * 0.5 + 4.0, shed_top - 18.0), Vector2(cx + shed_width * 0.5 - 4.0, shed_top - 18.0), Vector2(cx + shed_width * 0.5 + 24.0, shed_top + 32.0)], col("#9B6540"))
+	poly(ci, [Vector2(cx - shed_width * 0.5 - 18.0, shed_top + 27.0), Vector2(cx, shed_top - 8.0), Vector2(cx + shed_width * 0.5 + 18.0, shed_top + 27.0)], col("#B88050"))
+	ci.draw_line(Vector2(cx - shed_width * 0.5 - 18.0, shed_top + 27.0), Vector2(cx + shed_width * 0.5 + 18.0, shed_top + 27.0), col("#805437"), 8.0, true)
 
 
 static func _post_line(ci: CanvasItem, x: float, y0: float, y1: float) -> void:

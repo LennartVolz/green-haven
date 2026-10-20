@@ -10,6 +10,7 @@ const QuestsSheet := preload("res://scripts/ui/sheets/quests_sheet.gd")
 const SettingsSheet := preload("res://scripts/ui/sheets/settings_sheet.gd")
 const CropsSheet := preload("res://scripts/ui/sheets/crops_sheet.gd")
 const ProductionSheet := preload("res://scripts/ui/sheets/production_sheet.gd")
+const ProductionOverviewSheet := preload("res://scripts/ui/sheets/production_overview_sheet.gd")
 const RefugeSheet := preload("res://scripts/ui/sheets/refuge_sheet.gd")
 const AnimalSheet := preload("res://scripts/ui/sheets/animal_sheet.gd")
 const DiarySheet := preload("res://scripts/ui/sheets/diary_sheet.gd")
@@ -53,6 +54,7 @@ var _tut_label: Label
 var _tut_button: Button
 var _modal: Control
 var _nav_buttons: Dictionary = {}
+var _badge_values: Dictionary = {}
 var _sheet_name := ""
 var _sheet_args: Dictionary = {}
 var _refresh_queued := false
@@ -60,6 +62,7 @@ var _scroll_restore_generation := 0
 var _pending_scroll_position := 0
 var _pending_scroll_restore := false
 var _tick_acc := 0.0
+var _ready_seen := 0
 var _coin_shown := -1.0
 var _displayed_coins := 0.0
 var _modal_queue: Array = []
@@ -91,6 +94,7 @@ func _ready() -> void:
 	_displayed_coins = float(GameState.coins)
 	_on_coins()
 	_on_xp()
+	_ready_seen = GameState.total_ready_products()
 	_update_badges()
 	_update_tutorial()
 	_update_toolbar("", {})
@@ -293,6 +297,7 @@ func _build_bottom() -> void:
 	var defs := [
 		["shop", "shop", "Shop"],
 		["orders", "scroll", "Aufträge"],
+		["production_overview", "factory", "Produktion"],
 		["inventory", "crate", "Vorrat"],
 		["refuge", "paw", "Refugium"],
 		["quests", "flag", "Ziele"],
@@ -469,6 +474,8 @@ func _rebuild() -> void:
 			SettingsSheet.build(self, _sheet_args)
 		"production":
 			ProductionSheet.build(self, _sheet_args)
+		"production_overview":
+			ProductionOverviewSheet.build(self, _sheet_args)
 		"refuge":
 			RefugeSheet.build(self, _sheet_args)
 		"diary":
@@ -487,6 +494,9 @@ func _rebuild() -> void:
 
 
 func _on_state_changed() -> void:
+	# Signale aktualisieren Badge und offene Sheets bereits; den Vergleichswert
+	# mitziehen, damit die zeitgesteuerte Prüfung keine Doppel-Refreshs auslöst.
+	_ready_seen = GameState.total_ready_products()
 	_update_badges()
 	_update_tutorial()
 	if _sheet_name == "" or _refresh_queued:
@@ -515,6 +525,15 @@ func _process(delta: float) -> void:
 			_event_label.text = "Gartentag!" if GameState.neighborhood_event_active() else "Gartentag in %s" % GameData.format_time(GameState.neighborhood_event_seconds_left())
 		else:
 			_event_label.text = ""
+		# Fertige Produktionen lösen kein Signal aus. Deshalb hier regelmäßig prüfen,
+		# damit Badge und offene Übersicht auch ohne Eingriff aktuell werden.
+		var ready_now := GameState.total_ready_products()
+		if ready_now != _ready_seen:
+			var newly_ready := ready_now > _ready_seen
+			_ready_seen = ready_now
+			_update_badges()
+			if newly_ready and (_sheet_name == "production_overview" or _sheet_name == "production"):
+				refresh_sheet()
 		if _sheet_name != "":
 			_tick()
 	# Münzanzeige zählt sanft hoch
@@ -541,12 +560,25 @@ func _update_nav_highlight() -> void:
 		UiKit.style_button(_nav_buttons[k], "warm" if k == _sheet_name else "light")
 
 
+## Badges werden nur neu gebaut, wenn sich ihre Zahl ändert. Die Prüfung läuft
+## regelmäßig, damit auch zeitgesteuert fertige Produktionen sichtbar werden.
 func _update_badges() -> void:
 	if _nav_buttons.is_empty():
 		return
-	UiKit.badge(_nav_buttons["orders"], GameState.fulfillable_orders())
-	UiKit.badge(_nav_buttons["quests"], GameState.claimable_quests())
-	UiKit.badge(_nav_buttons["achievements"], GameState.claimable_achievements())
+	var counts := {
+		"orders": GameState.fulfillable_orders(),
+		"quests": GameState.claimable_quests(),
+		"achievements": GameState.claimable_achievements(),
+		"production_overview": GameState.total_ready_products(),
+	}
+	for key in counts:
+		if not _nav_buttons.has(key):
+			continue
+		var value := int(counts[key])
+		if int(_badge_values.get(key, -1)) == value:
+			continue
+		_badge_values[key] = value
+		UiKit.badge(_nav_buttons[key], value)
 
 
 # ------------------------------------------------------------------ HUD
@@ -798,6 +830,18 @@ func act_collect(uid: int) -> void:
 	var got := GameState.collect_ready(uid)
 	if got.is_empty():
 		_check(false)
+
+
+func act_collect_all() -> void:
+	var result: Dictionary = GameState.collect_all_ready()
+	var count := int(result.get("count", 0))
+	if count <= 0:
+		show_toast("Gerade ist nichts fertig", "info")
+		return
+	var buildings := int(result.get("buildings", 0))
+	var what := "Produkt" if count == 1 else "Produkte"
+	var where := "Gebäude" if buildings == 1 else "Gebäuden"
+	show_toast("%d %s aus %d %s abgeholt" % [count, what, buildings, where], "good")
 
 
 func act_upgrade(uid: int) -> void:

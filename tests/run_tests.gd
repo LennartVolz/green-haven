@@ -47,6 +47,7 @@ func _initialize() -> void:
 	test_inventory()
 	test_levels()
 	test_production()
+	test_production_dashboard()
 	test_orders()
 	test_delivery_stories()
 	test_cafe()
@@ -258,6 +259,48 @@ func test_production() -> void:
 	gs.collect_ready(uid)
 	check(gs.sell_object(uid), "Verkauf möglich")
 	check(gs.object_at(Vector2i(8, 11)).is_empty(), "Fläche wieder frei")
+
+
+func test_production_dashboard() -> void:
+	begin("Produktionsübersicht")
+	level_to(4)
+	gs.coins = 5000
+	var bakery: int = gs.place_object("bakery", Vector2i(8, 11))
+	var milkery: int = gs.place_object("milkery", Vector2i(10, 11))
+	check(bakery > 0 and milkery > 0, "zwei Produktionsgebäude gebaut")
+	check(gs.production_buildings().size() == 2, "Übersicht listet alle Produktionsgebäude")
+	check(gs.total_ready_products() == 0 and gs.active_product_count() == 0, "leere Produktion")
+	gs.add_item("wheat", 3)
+	gs.add_item("oat", 3)
+	check(gs.start_recipe(bakery, "bread"), "Brot starten")
+	check(gs.start_recipe(milkery, "oat_milk"), "Hafermilch starten")
+	check(gs.active_product_count() == 2, "beide Produktionen laufen")
+	var none: Dictionary = gs.collect_all_ready()
+	check(int(none["count"]) == 0 and int(none["buildings"]) == 0, "Sammelabholung ohne fertige Ware")
+	gs.time_offset += 61.0
+	check(gs.total_ready_products() == 1, "ein Produkt fertig")
+	check(gs.active_product_count() == 1, "eine Produktion läuft weiter")
+	var first: Dictionary = gs.collect_all_ready()
+	check(int(first["count"]) == 1 and int(first["buildings"]) == 1, "Sammelabholung meldet ein Produkt aus einem Gebäude")
+	check(int(first["items"].get("bread", 0)) == 1, "Sammelabholung meldet die Sorte")
+	check(gs.item_count("bread") == 1 and gs.item_count("oat_milk") == 0, "nur fertige Ware wird abgeholt")
+	check(gs.total_ready_products() == 0, "Zähler nach Abholung leer")
+	gs.time_offset += 30.0
+	check(gs.total_ready_products() == 1, "zweites Produkt fertig")
+	var second: Dictionary = gs.collect_all_ready()
+	check(int(second["count"]) == 1 and int(second["buildings"]) == 1 and gs.item_count("oat_milk") == 1, "zweite Sammelabholung")
+	check(int(gs.collect_all_ready()["count"]) == 0, "keine doppelte Abholung")
+	check(int(gs.stats.get("crafted", 0)) == 2, "Sammelabholung zählt beide Produkte")
+	# Zwei Gebäude gleichzeitig fertig: eine Sammelabholung räumt beide ab.
+	gs.add_item("wheat", 3)
+	gs.add_item("oat", 3)
+	check(gs.start_recipe(bakery, "bread") and gs.start_recipe(milkery, "oat_milk"), "zweite Runde gestartet")
+	gs.time_offset += 91.0
+	var both: Dictionary = gs.collect_all_ready()
+	check(int(both["count"]) == 2 and int(both["buildings"]) == 2, "Sammelabholung über zwei Gebäude")
+	check(int(both["items"].get("bread", 0)) == 1 and int(both["items"].get("oat_milk", 0)) == 1, "beide Sorten werden gemeldet")
+	check(gs.item_count("bread") == 2 and gs.item_count("oat_milk") == 2, "beide Vorräte ergänzt")
+	check(int(gs.stats.get("crafted", 0)) == 4, "alle vier Produkte gezählt")
 
 
 func test_orders() -> void:

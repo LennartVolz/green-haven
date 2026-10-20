@@ -11,6 +11,10 @@ static func build(ui, args: Dictionary) -> void:
 	var d: Dictionary = GameData.BUILDINGS[o.type]
 	ui.set_title(String(d["name"]))
 	var c: VBoxContainer = ui.content
+	if bool(args.get("from_overview", false)):
+		var back := UiKit.button("Zur Produktionsübersicht", "light", 26)
+		back.pressed.connect(ui.act_open.bind("production_overview", {}))
+		c.add_child(back)
 	var ready := GameState.ready_count(o)
 	if ready > 0:
 		var cb := UiKit.button("Abholen (%d)" % ready, "warm", 36)

@@ -882,12 +882,26 @@ func act_pet(uid: int) -> void:
 	_check(GameState.pet_animal(uid))
 
 
-func act_toggle(key: String) -> void:
-	GameState.settings[key] = not bool(GameState.settings.get(key, true))
+func act_set_volume(key: String, value: float) -> void:
+	if key != "sound" and key != "music":
+		return
+	var volume := clampf(value, 0.0, 1.0)
+	GameState.settings[key + "_volume"] = volume
+	# An/Aus bleibt als abwärtskompatibler Spiegel erhalten.
+	GameState.settings[key] = volume > 0.0
 	if key == "music":
 		BackgroundMusic.refresh()
 	else:
-		GameState.sound.emit("tap")
+		Sfx.refresh_volume()
+
+
+func act_toggle(key: String) -> void:
+	if key == "sound" or key == "music":
+		act_set_volume(key, 0.0 if bool(GameState.settings.get(key, true)) else 1.0)
+		refresh_sheet()
+		return
+	GameState.settings[key] = not bool(GameState.settings.get(key, true))
+	GameState.sound.emit("tap")
 	refresh_sheet()
 
 
@@ -1007,6 +1021,8 @@ func act_load() -> void:
 	if SaveSystem.load_game():
 		world.clear_tool()
 		world.reset_camera()
+		Sfx.refresh_volume()
+		BackgroundMusic.refresh()
 		show_toast("Spielstand geladen", "good")
 		close_sheet()
 	elif SaveSystem.last_load_error == "newer":

@@ -12,8 +12,12 @@ var _exit_armed_until_msec := 0
 func _enter_tree() -> void:
 	get_tree().auto_accept_quit = false
 	if SaveSystem.has_save() and SaveSystem.load_game():
+		Sfx.refresh_volume()
+		BackgroundMusic.refresh()
 		return
 	GameState.new_game()
+	Sfx.refresh_volume()
+	BackgroundMusic.refresh()
 
 
 func _notification(what: int) -> void:

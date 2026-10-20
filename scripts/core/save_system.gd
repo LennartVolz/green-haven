@@ -362,6 +362,18 @@ func migrate(data: Dictionary) -> Dictionary:
 		data["last_day_recap"] = 1
 		data["day_stats_snapshot"] = day_snapshot.duplicate(true)
 		data["version"] = 9
+	# Lautstärken sind optionale Einstellungen. Ältere Stände kannten nur An/Aus;
+	# sie werden auf 0 % bzw. 100 % abgebildet, ohne die Save-Version zu erhöhen.
+	var settings_value: Variant = data.get("settings", {})
+	if typeof(settings_value) == TYPE_DICTIONARY:
+		var migrated_settings: Dictionary = settings_value
+		var legacy_sound := bool(migrated_settings.get("sound", true))
+		var legacy_music := bool(migrated_settings.get("music", true))
+		migrated_settings["sound_volume"] = clampf(float(migrated_settings.get("sound_volume", 1.0 if legacy_sound else 0.0)), 0.0, 1.0)
+		migrated_settings["music_volume"] = clampf(float(migrated_settings.get("music_volume", 1.0 if legacy_music else 0.0)), 0.0, 1.0)
+		migrated_settings["sound"] = float(migrated_settings["sound_volume"]) > 0.0
+		migrated_settings["music"] = float(migrated_settings["music_volume"]) > 0.0
+		data["settings"] = migrated_settings
 	return data
 
 

@@ -3,6 +3,7 @@ extends Node
 ## plus Vibrations-Feedback auf Smartphones.
 
 const RATE := 22050
+const BASE_VOLUME_DB := -7.0
 
 var _streams: Dictionary = {}
 var _players: Array = []
@@ -12,7 +13,7 @@ var _next := 0
 func _ready() -> void:
 	for i in range(6):
 		var p := AudioStreamPlayer.new()
-		p.volume_db = -7.0
+		p.volume_db = BASE_VOLUME_DB
 		add_child(p)
 		_players.append(p)
 	_streams = {
@@ -26,6 +27,23 @@ func _ready() -> void:
 		"build": _make([[160.0, 0.09], [240.0, 0.14]], 0.6),
 	}
 	GameState.sound.connect(play)
+	refresh_volume()
+
+
+func sound_volume() -> float:
+	return clampf(float(GameState.settings.get("sound_volume", 1.0)), 0.0, 1.0)
+
+
+func volume_db_for(value: float) -> float:
+	var volume := clampf(value, 0.0, 1.0)
+	return BASE_VOLUME_DB + linear_to_db(volume) if volume > 0.0 else -80.0
+
+
+## Wendet die Lautstärke auf alle Effekt-Player an; 0 % schaltet sie stumm.
+func refresh_volume() -> void:
+	var db := volume_db_for(sound_volume())
+	for p in _players:
+		p.volume_db = db
 
 
 func _make(notes: Array, vol: float) -> AudioStreamWAV:
@@ -54,9 +72,11 @@ func _make(notes: Array, vol: float) -> AudioStreamWAV:
 func play(sound_name: String) -> void:
 	if not _streams.has(sound_name):
 		return
-	if bool(GameState.settings.get("sound", true)) and not _players.is_empty():
+	var volume := sound_volume()
+	if volume > 0.0 and not _players.is_empty():
 		var p: AudioStreamPlayer = _players[_next]
 		_next = (_next + 1) % _players.size()
+		p.volume_db = volume_db_for(volume)
 		p.stream = _streams[sound_name]
 		p.play()
 	if bool(GameState.settings.get("vibration", true)) and OS.has_feature("mobile"):

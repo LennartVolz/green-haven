@@ -141,22 +141,32 @@ func run() -> void:
 		check(has_story_order, "Reihe erzeugt Story-Auftrag")
 		print("delivery story UI checked")
 
-	# Wetterhinweis und Musikschalter erscheinen in den echten Einstellungen.
+	# Ton und Hintergrundmusik werden über echte Lautstärkeregler gesteuert.
 	ui.act_open("settings", {})
 	await frames()
 	var music_available: bool = load("res://scripts/core/background_music.gd").track_available()
-	check(find_button(ui.content, "Hintergrundmusik:") == null if not music_available else find_button(ui.content, "Hintergrundmusik: An") != null, "Musikoption erscheint nur, wenn der Track vorhanden ist")
-	var music_button := find_button(ui.content, "Hintergrundmusik:")
-	if music_available and check(music_button != null, "Musik lässt sich über die Einstellungen umschalten"):
-		music_button.pressed.emit()
+	var sound_slider := ui.content.find_child("Volume_sound", true, false) as HSlider
+	var music_slider := ui.content.find_child("Volume_music", true, false) as HSlider
+	check(sound_slider != null, "Tonlautstärke ist ein Regler")
+	check(music_slider != null, "Musiklautstärke ist ein Regler")
+	if sound_slider != null:
+		sound_slider.value = 0.4
 		await frames()
-		check(find_button(ui.content, "Hintergrundmusik: Aus") != null and not bool(gs.settings.get("music", true)), "Musikschalter aktualisiert Einstellung und Anzeige")
-		ui.act_open("settings", {})
+		check(is_equal_approx(float(gs.settings.get("sound_volume", -1.0)), 0.4), "Tonregler speichert 40 %")
+		sound_slider.value = 0.0
 		await frames()
-		music_button = find_button(ui.content, "Hintergrundmusik:")
-		if music_button != null:
-			music_button.pressed.emit()
+		check(is_equal_approx(float(gs.settings.get("sound_volume", -1.0)), 0.0), "Tonregler kann stumm schalten")
+		sound_slider.value = 1.0
 		await frames()
+	if music_slider != null:
+		if music_available:
+			music_slider.value = 0.3
+			await frames()
+			check(is_equal_approx(float(gs.settings.get("music_volume", -1.0)), 0.3), "Musikregler speichert Lautstärke")
+			music_slider.value = 1.0
+			await frames()
+		else:
+			check(not music_slider.editable, "Musikregler ist ohne Track deaktiviert")
 
 	# Neue Gebäude und Pflanzen erscheinen in Shop und Produktionsansicht.
 	gs.level = 18

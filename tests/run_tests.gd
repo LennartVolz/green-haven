@@ -61,6 +61,7 @@ func _initialize() -> void:
 	test_land_and_objects()
 	test_land_expansion_chain()
 	test_save_roundtrip()
+	test_audio_volumes()
 	test_offline_progress()
 	test_corrupt_and_migration()
 	test_save_hardening()
@@ -919,6 +920,8 @@ func test_save_roundtrip() -> void:
 	gs.claimed_achievements.append("orders_2")
 	gs.settings["sound"] = false
 	gs.settings["music"] = false
+	gs.settings["sound_volume"] = 0.0
+	gs.settings["music_volume"] = 0.0
 	var before := _snapshot()
 	check(ss.save_game(), "speichern")
 	check(FileAccess.file_exists("user://test_save.json"), "Datei existiert")
@@ -932,7 +935,7 @@ func test_save_roundtrip() -> void:
 	check(gs.animals.size() == 1 and int(gs.animals[0].paddock) == pad, "Tier im Gehege erhalten")
 	check(gs.claimed_quests.has("q_plant5"), "Quest-Status erhalten")
 	check(gs.claimed_achievements.has("orders_2"), "Erfolgs-Status erhalten")
-	check(gs.settings["sound"] == false and gs.settings["music"] == false, "Ton- und Musikeinstellung bleiben erhalten")
+	check(gs.settings["sound"] == false and gs.settings["music"] == false and gs.settings["sound_volume"] == 0.0 and gs.settings["music_volume"] == 0.0, "Ton- und Musiklautstärke bleiben erhalten")
 	check(not gs.object_at(Vector2i(8, 11)).is_empty(), "Belegung neu aufgebaut")
 	check(not gs.can_place("tree", Vector2i(8, 11)), "belegte Fläche bleibt belegt")
 	var uid: int = gs.place_object("tree", Vector2i(14, 16))
@@ -940,6 +943,23 @@ func test_save_roundtrip() -> void:
 	var d: Dictionary = gs.serialize()
 	check(int(d.version) == gs.SAVE_VERSION, "Version im Spielstand")
 	check(gs.SAVE_VERSION == 9, "Gartentage und Tageszähler verwenden Save-Version 9")
+
+
+func test_audio_volumes() -> void:
+	begin("Lautstärke")
+	var sfx: Node = root.get_node("Sfx")
+	var music: Node = root.get_node("BackgroundMusic")
+	var previous: Dictionary = gs.settings.duplicate()
+	check(gs.settings.has("sound_volume") and gs.settings.has("music_volume"), "Lautstärken sind Teil der Einstellungen")
+	gs.settings["sound_volume"] = 0.5
+	check(is_equal_approx(sfx.volume_db_for(0.5), -7.0 + linear_to_db(0.5)), "Tonregler skaliert die Effektlautstärke")
+	check(sfx.volume_db_for(0.0) <= -80.0, "Tonregler auf 0 % schaltet Effekte stumm")
+	gs.settings["music_volume"] = 0.5
+	check(is_equal_approx(music.volume_db_for(0.5), -14.0 + linear_to_db(0.5)), "Musikregler skaliert die Musiklautstärke")
+	check(music.volume_db_for(0.0) <= -80.0, "Musikregler auf 0 % schaltet Musik stumm")
+	gs.settings = previous
+	sfx.refresh_volume()
+	music.refresh()
 
 
 func test_offline_progress() -> void:
@@ -1002,6 +1022,14 @@ func test_corrupt_and_migration() -> void:
 	check(int(v2_migrated.version) == 9 and v2_migrated.diary.is_empty() and v2_migrated.claimed_achievements.is_empty(), "Version 2 erhält Story-, Erfolgs-, Café-, Wetter-, Event- und Tages-Migration")
 	var v3_migrated: Dictionary = ss.migrate({"version": 3, "animals": []})
 	check(int(v3_migrated.version) == 9 and v3_migrated.claimed_achievements.is_empty(), "Version 3 erhält leere Erfolgs-, Café-, Wetter-, Event- und Tages-Historie")
+	# Alte Stände kannten nur An/Aus; daraus werden 0 % bzw. 100 % Lautstärke.
+	var legacy_audio: Dictionary = ss.migrate({"version": 8, "settings": {"sound": false, "music": true, "vibration": false}})
+	var legacy_settings: Dictionary = legacy_audio["settings"]
+	check(is_equal_approx(float(legacy_settings.get("sound_volume", -1.0)), 0.0), "alter Ton-Aus-Stand wird zu 0 % Lautstärke")
+	check(is_equal_approx(float(legacy_settings.get("music_volume", -1.0)), 1.0), "alter Musik-An-Stand wird zu 100 % Lautstärke")
+	check(not bool(legacy_settings.get("sound", true)) and bool(legacy_settings.get("music", false)), "An/Aus-Spiegel bleibt beim Migrieren stimmig")
+	check(gs.deserialize({"version": 2, "settings": {"sound": false, "music": true}}), "Altstand mit An/Aus-Einstellungen laden")
+	check(is_equal_approx(float(gs.settings.get("sound_volume", -1.0)), 0.0) and is_equal_approx(float(gs.settings.get("music_volume", -1.0)), 1.0), "Laden bildet An/Aus auf Lautstärken ab")
 	var legacy_animal := {"uid": 10, "species": "rabbit", "name": "Alt-Tier", "hunger": 60, "happy": 55, "last": gs.now(), "paddock": 1}
 	var migrated: Dictionary = ss.migrate({"version": 1, "animals": [legacy_animal]})
 	check(legacy_animal.has("traits") and legacy_animal.has("accessories") and legacy_animal.has("activity_at"), "Tierfelder aus altem Spielstand ergänzt")

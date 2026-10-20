@@ -224,6 +224,24 @@ static func badge(b: Button, count: int) -> void:
 	p.position += Vector2(-4, -12)
 
 
+## Touch-freundlicher Lautstärkeregler von 0 bis 1.
+static func slider(value: float, step: float = 0.05) -> HSlider:
+	var s := HSlider.new()
+	s.min_value = 0.0
+	s.max_value = 1.0
+	s.step = step
+	s.value = clampf(value, 0.0, 1.0)
+	s.custom_minimum_size = Vector2(0, 64)
+	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	s.focus_mode = Control.FOCUS_NONE
+	s.add_theme_stylebox_override("slider", style(Painter.col("#D9D2BF"), 12))
+	s.add_theme_stylebox_override("grabber_area", style(sage(), 12))
+	s.add_theme_stylebox_override("grabber_area_highlight", style(sage_dark(), 12))
+	s.add_theme_constant_override("center_grabber", 1)
+	return s
+
+
 static func progress(ratio: float, fill: Color, height: int = 22) -> ProgressBar:
 	var p := ProgressBar.new()
 	p.min_value = 0.0

@@ -6,16 +6,15 @@ static func build(ui, _args: Dictionary) -> void:
 	ui.set_title("Einstellungen")
 	var c: VBoxContainer = ui.content
 	var MusicScript := load("res://scripts/core/background_music.gd")
-	var snd: bool = GameState.settings.get("sound", true)
+	var sound_volume := clampf(float(GameState.settings.get("sound_volume", 1.0)), 0.0, 1.0)
+	var music_volume := clampf(float(GameState.settings.get("music_volume", 1.0)), 0.0, 1.0)
 	var vib: bool = GameState.settings.get("vibration", true)
-	var music: bool = GameState.settings.get("music", true)
-	var b1 := UiKit.button("Ton: %s" % ("An" if snd else "Aus"), "primary" if snd else "light", 32)
-	b1.pressed.connect(ui.act_toggle.bind("sound"))
-	c.add_child(b1)
-	if MusicScript.track_available():
-		var music_button := UiKit.button("Hintergrundmusik: %s" % ("An" if music else "Aus"), "primary" if music else "light", 32)
-		music_button.pressed.connect(ui.act_toggle.bind("music"))
-		c.add_child(music_button)
+	var music_available: bool = MusicScript.track_available()
+	c.add_child(UiKit.label("Lautstärke", 30, UiKit.earth_dark()))
+	c.add_child(_volume_row(ui, "sound", "Ton", sound_volume))
+	c.add_child(_volume_row(ui, "music", "Hintergrundmusik", music_volume, music_available))
+	if not music_available:
+		c.add_child(UiKit.wrap_label("Für Hintergrundmusik ist auf diesem Gerät kein Track verfügbar.", 22, UiKit.earth_dark()))
 	var b2 := UiKit.button("Vibration: %s" % ("An" if vib else "Aus"), "primary" if vib else "light", 32)
 	b2.pressed.connect(ui.act_toggle.bind("vibration"))
 	c.add_child(b2)
@@ -66,3 +65,26 @@ static func build(ui, _args: Dictionary) -> void:
 	var ver := UiKit.label("Green Haven · Version %s · Spielstand-Format %d" % [ProjectSettings.get_setting("application/config/version", "0.1.0"), GameState.SAVE_VERSION], 22, UiKit.earth_dark())
 	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	c.add_child(ver)
+
+
+static func _volume_row(ui, key: String, title: String, value: float, enabled: bool = true) -> HBoxContainer:
+	var row := UiKit.hbox(14)
+	var name_label := UiKit.label(title, 30)
+	name_label.custom_minimum_size = Vector2(250, 0)
+	row.add_child(name_label)
+	var slider := UiKit.slider(value)
+	slider.name = "Volume_" + key
+	slider.editable = enabled
+	if not enabled:
+		slider.tooltip_text = "Kein Hintergrundmusik-Track verfügbar"
+	row.add_child(slider)
+	var percent := UiKit.label("%d%%" % roundi(value * 100.0), 28, UiKit.earth_dark())
+	percent.custom_minimum_size = Vector2(90, 0)
+	percent.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(percent)
+	slider.value_changed.connect(func(v: float) -> void:
+		percent.text = "%d%%" % roundi(v * 100.0)
+		if enabled:
+			ui.act_set_volume(key, v)
+	)
+	return row

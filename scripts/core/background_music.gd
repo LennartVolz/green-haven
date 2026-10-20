@@ -32,10 +32,23 @@ func _ready() -> void:
 	call_deferred("refresh")
 
 
+func music_volume() -> float:
+	return clampf(float(GameState.settings.get("music_volume", 1.0)), 0.0, 1.0)
+
+
+func volume_db_for(value: float) -> float:
+	var volume := clampf(value, 0.0, 1.0)
+	return MUSIC_VOLUME_DB + linear_to_db(volume) if volume > 0.0 else -80.0
+
+
 func refresh() -> void:
-	if not has_track or player == null:
+	if player == null:
 		return
-	if bool(GameState.settings.get("music", true)):
+	var volume := music_volume()
+	player.volume_db = volume_db_for(volume)
+	if not has_track:
+		return
+	if volume > 0.0:
 		if not player.playing:
 			player.play()
 	elif player.playing:

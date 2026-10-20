@@ -29,7 +29,7 @@ geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfa
 - Touch-Steuerung: Tippen, Wischen zum Säen/Ernten, Kamera verschieben mit Trägheit, Pinch-Zoom, Platzieren per Ziehen
 - Lokales, versioniertes Speichersystem (geprüftes Laden, rotierendes Backup, Spielstände neuerer Versionen werden nie überschrieben); Wachstum und Produktion laufen offline weiter
 - Spielstände als JSON exportieren und importieren (Import wird vor dem Ersetzen geprüft; bisheriger Stand wird als Backup gesichert)
-- Soundeffekte (zur Laufzeit erzeugt), Vibrations-Feedback und optionale Hintergrundmusik; Ton, Musik und Vibration lassen sich in den Einstellungen abschalten
+- Soundeffekte (zur Laufzeit erzeugt), Vibrations-Feedback und optionale Hintergrundmusik; Ton und Musik haben getrennte Lautstärkeregler, Vibration lässt sich abschalten
 
 ## Schnellstart
 

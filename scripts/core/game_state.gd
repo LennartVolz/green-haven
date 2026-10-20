@@ -69,7 +69,7 @@ var diary: Array = []
 var stats: Dictionary = {}
 var claimed_quests: Array = []
 var claimed_achievements: Array = []
-var settings: Dictionary = {"sound": true, "music": true, "vibration": true}
+var settings: Dictionary = {"sound": true, "music": true, "vibration": true, "sound_volume": 1.0, "music_volume": 1.0}
 var tutorial_step := 0
 var next_uid := 1
 var next_order_at := 0.0
@@ -1734,8 +1734,14 @@ func deserialize(d: Dictionary) -> bool:
 					claimed_achievements.append(str(achievement_id))
 				break
 	var s := _save_dict(d, "settings")
-	settings["sound"] = bool(s.get("sound", true))
-	settings["music"] = bool(s.get("music", true))
+	# Ältere Stände speichern nur An/Aus. Deren Zustand wird auf 0 % bzw. 100 %
+	# Lautstärke abgebildet; neue Stände liefern die Feinregelung direkt mit.
+	var legacy_sound := bool(s.get("sound", true))
+	var legacy_music := bool(s.get("music", true))
+	settings["sound_volume"] = clampf(float(s.get("sound_volume", 1.0 if legacy_sound else 0.0)), 0.0, 1.0)
+	settings["music_volume"] = clampf(float(s.get("music_volume", 1.0 if legacy_music else 0.0)), 0.0, 1.0)
+	settings["sound"] = float(settings["sound_volume"]) > 0.0
+	settings["music"] = float(settings["music_volume"]) > 0.0
 	settings["vibration"] = bool(s.get("vibration", true))
 	tutorial_step = int(d.get("tutorial_step", 0))
 	# next_uid darf nie auf eine bereits vergebene ID zeigen, auch nicht bei beschädigten Ständen.

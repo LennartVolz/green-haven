@@ -21,6 +21,7 @@ geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfa
 - Belegungs- und Wohlbefinden-Übersicht pro Gehege; Tierprofile, Tagebuch und Geschichtenfortschritt sind Teil der versionierten Spielstände
 - Wetter: Sonnig, Bewölkt, Regen und Nebel wechseln alle 120 Sekunden. Bewölkt verlangsamt das Wachstum um 10 %, Regen beschleunigt es um 25 %. Die Wachstumszeiten berücksichtigen den Wetterverlauf, auch während der Offline-Zeit
 - Tag-Nacht-Zyklus mit Uhrzeitanzeige: ein Spieltag dauert 8 Minuten echter Zeit, mit Dämmerung und Farbstimmung
+- Kosmetisches Tier-Ambiente: Bei Regen gehen Tiere in den Gehege-Unterstand; nachts schlafen sie dort mit geschlossenen Augen, ruhiger Atmung und kleinen „Z“. Individuelle Schlafzeiten lassen nachts mindestens ein Tier wach; Streicheln weckt kurz auf. Nach Regen erscheint im Nebel für etwa 15 Sekunden ein ein-/ausblendender Regenbogen. Keine Auswirkung auf Werte oder Spielstände; Save-Version bleibt 8.
 - Touch-Steuerung: Tippen, Wischen zum Säen/Ernten, Kamera verschieben mit Trägheit, Pinch-Zoom, Platzieren per Ziehen
 - Lokales, versioniertes Speichersystem (geprüftes Laden, rotierendes Backup, Spielstände neuerer Versionen werden nie überschrieben); Wachstum und Produktion laufen offline weiter
 - Spielstände als JSON exportieren und importieren (Import wird vor dem Ersetzen geprüft; bisheriger Stand wird als Backup gesichert)
@@ -48,6 +49,6 @@ scripts/world/   Welt, Kamera/Touch, Gelände, Felder, Objekte, Tiere, Painter
 scripts/ui/      UiRoot (HUD, Aktionen), UiKit, Icons, sheets/ (Menüs)
 scenes/          main, world, ui_root, entity, animal
 tests/           run_tests.gd, achievements_ui.gd, save_transfer_ui.gd, screenshots.gd,
-                 suites/ (Testgruppen), fixtures/ (Test-Spielstände)
+                 suites/ (inkl. Tier-Wetter-Ambiente), fixtures/ (Test-Spielstände)
 docs/            BUILD.md
 ```

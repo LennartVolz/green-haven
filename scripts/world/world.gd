@@ -31,6 +31,8 @@ var weather_elapsed_seconds := 0.0
 var current_weather := "Sonnig"
 var _weather_index := 0
 var _weather_accumulator := 0.0
+var _ambient_night := false
+var _ambient_accumulator := 0.0
 var terrain: Node2D
 var fields_layer: Node2D
 var entities: Node2D
@@ -69,6 +71,7 @@ func _ready() -> void:
 	weather_elapsed_seconds = fposmod(GameState.now(), weather_cycle)
 	_weather_index = GameData.weather_index_at(weather_elapsed_seconds)
 	current_weather = GameData.WEATHER_TYPES[_weather_index]
+	_ambient_night = is_night_at(day_time_seconds)
 	day_modulate = CanvasModulate.new()
 	day_modulate.color = day_color_at(day_time_seconds)
 	add_child(day_modulate)
@@ -148,11 +151,17 @@ func _sync() -> void:
 			entities.add_child(n)
 			_animal_nodes[uid] = n
 		n.setup(a, pad)
+		n.set_ambient(current_weather, _ambient_night, day_time_seconds)
 	for uid in _animal_nodes.keys():
 		if not seen_a.has(uid):
 			_animal_nodes[uid].queue_free()
 			_animal_nodes.erase(uid)
 	_update_highlight()
+
+
+func _update_animal_ambience() -> void:
+	for animal in _animal_nodes.values():
+		animal.set_ambient(current_weather, _ambient_night, day_time_seconds)
 
 
 func _update_highlight() -> void:
@@ -197,6 +206,11 @@ static func day_color_at(seconds: float) -> Color:
 	var tint := Color(0.42, 0.52, 0.78).lerp(Color.WHITE, daylight)
 	var twilight := clampf(1.0 - absf(solar_height) / 0.3, 0.0, 1.0)
 	return tint.lerp(Color(1.0, 0.72, 0.52), twilight * 0.28)
+
+
+static func is_night_at(seconds: float) -> bool:
+	var hour := fposmod(seconds, DAY_LENGTH_SECONDS) / 3600.0
+	return hour >= 18.0 or hour < 6.0
 
 
 static func clock_text_at(seconds: float) -> String:
@@ -286,6 +300,13 @@ func zoom_at(screen_pos: Vector2, factor: float) -> void:
 
 func _process(delta: float) -> void:
 	day_time_seconds = fposmod(day_time_seconds + delta * DAY_LENGTH_SECONDS / REAL_DAY_LENGTH_SECONDS, DAY_LENGTH_SECONDS)
+	_ambient_accumulator += delta
+	if _ambient_accumulator >= 0.25:
+		_ambient_accumulator = 0.0
+		var night_now := is_night_at(day_time_seconds)
+		if night_now != _ambient_night:
+			_ambient_night = night_now
+		_update_animal_ambience()
 	var daylight_color := day_color_at(day_time_seconds)
 	var weather_strength := 0.0
 	match current_weather:
@@ -306,6 +327,9 @@ func _process(delta: float) -> void:
 		if next_weather_index != _weather_index:
 			_weather_index = next_weather_index
 			current_weather = GameData.WEATHER_TYPES[_weather_index]
+			overlay.set_weather(current_weather)
+			_update_animal_ambience()
+		elif current_weather == "Nebel" and fposmod(weather_elapsed_seconds, GameData.WEATHER_DURATION_SECONDS) < 16.0:
 			overlay.set_weather(current_weather)
 	if _touches.is_empty() and _pan_vel.length() > 25.0:
 		cam.position -= _pan_vel * delta / cam.zoom.x

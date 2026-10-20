@@ -323,6 +323,19 @@ func weather_at(seconds: float) -> String:
 	return WEATHER_TYPES[weather_index_at(seconds)]
 
 
+func seconds_into_weather(seconds: float) -> float:
+	return fposmod(seconds, WEATHER_DURATION_SECONDS)
+
+
+func rainbow_strength_at(seconds: float, night: bool = false) -> float:
+	if night or weather_at(seconds) != "Nebel":
+		return 0.0
+	var elapsed := seconds_into_weather(seconds)
+	if elapsed >= 15.0:
+		return 0.0
+	return clampf(minf(elapsed / 2.0, (15.0 - elapsed) / 2.0), 0.0, 1.0)
+
+
 func weather_growth_rate(weather: String) -> float:
 	return float(WEATHER_GROWTH_RATES.get(weather, 1.0))
 

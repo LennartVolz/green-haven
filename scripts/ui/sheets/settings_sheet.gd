@@ -13,6 +13,7 @@ static func build(ui, _args: Dictionary) -> void:
 	c.add_child(UiKit.label("Lautstärke", 30, UiKit.earth_dark()))
 	c.add_child(_volume_row(ui, "sound", "Ton", sound_volume))
 	c.add_child(_volume_row(ui, "music", "Hintergrundmusik", music_volume, music_available))
+	c.add_child(UiKit.wrap_label("Ziehe den Griff oder tippe direkt auf die Leiste.", 22, UiKit.earth_dark()))
 	if not music_available:
 		c.add_child(UiKit.wrap_label("Für Hintergrundmusik ist auf diesem Gerät kein Track verfügbar.", 22, UiKit.earth_dark()))
 	var b2 := UiKit.button("Vibration: %s" % ("An" if vib else "Aus"), "primary" if vib else "light", 32)
@@ -70,9 +71,9 @@ static func build(ui, _args: Dictionary) -> void:
 static func _volume_row(ui, key: String, title: String, value: float, enabled: bool = true) -> HBoxContainer:
 	var row := UiKit.hbox(14)
 	var name_label := UiKit.label(title, 30)
-	name_label.custom_minimum_size = Vector2(250, 0)
+	name_label.custom_minimum_size = Vector2(230, 0)
 	row.add_child(name_label)
-	var slider := UiKit.slider(value)
+	var slider = UiKit.volume_slider(value)
 	slider.name = "Volume_" + key
 	slider.editable = enabled
 	if not enabled:

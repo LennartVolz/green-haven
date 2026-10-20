@@ -70,6 +70,9 @@ func _initialize() -> void:
 	test_economy()
 	test_new_crops()
 	test_new_production()
+	test_sugar_chain()
+	test_level_curve()
+	test_landscape_chunks()
 	section = "Tierverhalten bei Wetter und Nacht"
 	load("res://tests/suites/animal_weather.gd").new().run(self, world_script, gs, gd)
 	section = "Spielstand-Export/Import"
@@ -1058,7 +1061,7 @@ func test_economy() -> void:
 	for id in gd.CROPS:
 		var c: Dictionary = gd.CROPS[id]
 		check(int(c["yield"]) * int(c.sell) > int(c.seed), "%s: Ernte lohnt sich" % id)
-	check(gd.CROPS.size() == 22, "22 Pflanzen einschließlich Mandel, Rhabarber und Zucchini")
+	check(gd.CROPS.size() == 23, "23 Pflanzen einschließlich Mandel, Rhabarber, Zucchini und Zuckerrohr")
 	check(gd.RECIPES.size() >= 8, "mindestens acht Rezepte")
 	# Erste Minuten: Spieler erreicht Stufe 2 nach wenigen Ernten
 	gs.new_game()
@@ -1152,7 +1155,14 @@ func test_new_production() -> void:
 		check(not achievement.is_empty() and gs.achievement_unlocked(achievement), "Erfolg %s zählt das neue Gebäude" % id)
 	check(gd.unlocks_at(8).has("Blumenwerkstatt") and gd.unlocks_at(9).has("Ölmühle"), "neue Gebäude sind sinnvoll gestaffelt")
 	check(gd.unlocks_at(10).has("Rhabarber") and gd.unlocks_at(11).has("Zucchini"), "neue Pflanzen erscheinen auf ihrer Freischaltstufe")
-	check(gd.EXTRA_ITEMS.has("sugar") and gs.buy_item("sugar", 1), "Zucker ist als Shop-Zutat verfügbar")
+	check(not gd.EXTRA_ITEMS.has("sugar") and not gs.buy_item("sugar"), "Zucker ist keine einzelne Shop-Zutat mehr")
+	# Zucker für die Konfitüre entsteht in der eigenen Kette aus Zuckerrohr.
+	var sugar_mill: int = gs.place_object("sugarmill", Vector2i(14, 17))
+	check(sugar_mill > 0, "Zuckermühle bauen")
+	gs.add_item("sugarcane", 3)
+	check(gs.start_recipe(sugar_mill, "sugar"), "Zucker aus Zuckerrohr starten")
+	gs.time_offset += 121.0
+	check(gs.collect_ready(sugar_mill).size() == 1 and gs.item_count("sugar") == 1, "Zucker selbst herstellen")
 	# Öl, Nudeln und Konfitüre über die echten Produktionswege herstellen.
 	gs.add_item("sunflower", 4)
 	check(gs.start_recipe(int(uids["oilmill"]), "sunflower_oil"), "Sonnenblumenöl starten")
@@ -1174,6 +1184,97 @@ func test_new_production() -> void:
 	check(gs.collect_ready(int(uids["preserves"])).size() == 1 and gs.item_count("strawberry_jam") == 1, "Konfitüre abholen")
 	check(gd.items.has("apple_rice_pudding") and gd.RECIPES["quinoa_bar"]["level"] == 18, "späte Rezepte bleiben bis Stufe 18 sinnvoll")
 	check(gd.RECIPES["strawberry_ice"]["inputs"].has("oat_milk"), "Eis verbindet Obst und Pflanzenmilch")
+
+
+func _achievement(id: String) -> Dictionary:
+	for entry in gd.ACHIEVEMENTS:
+		if str(entry["id"]) == id:
+			return entry
+	return {}
+
+
+func test_sugar_chain() -> void:
+	begin("Zuckerkette")
+	gs.coins = 100000
+	level_to(9)
+	check(gd.CROPS.has("sugarcane") and int(gd.CROPS["sugarcane"]["level"]) == 9, "Zuckerrohr wächst ab Stufe 9")
+	check(gd.BUILDINGS.has("sugarmill") and int(gd.BUILDINGS["sugarmill"]["level"]) == 9, "Zuckermühle gibt es ab Stufe 9")
+	check(gd.RECIPES.has("sugar") and gd.RECIPES["sugar"]["building"] == "sugarmill", "Zucker entsteht in der Zuckermühle")
+	check(gd.RECIPES["sugar"]["inputs"] == {"sugarcane": 3}, "Zucker wird aus Zuckerrohr gepresst")
+	check(gd.items.has("sugar") and gd.items["sugar"]["kind"] == "product", "Zucker ist ein hergestelltes Produkt")
+	check(not gd.EXTRA_ITEMS.has("sugar") and not gs.buy_item("sugar", 1), "Zucker lässt sich nicht mehr fertig kaufen")
+	check(gd.items["sugar"]["level"] <= int(gd.RECIPES["strawberry_jam"]["level"]), "Zucker ist rechtzeitig für die Konfitüre verfügbar")
+	var cell: Vector2i = gs.fields.keys()[0]
+	check(gs.plant(cell, "sugarcane"), "Zuckerrohr pflanzen")
+	gs.time_offset += gd.real_seconds_for_crop_growth(gs.now(), float(gd.CROPS["sugarcane"]["grow"])) + 0.01
+	check(gs.harvest(cell), "Zuckerrohr nach der Wachstumszeit ernten")
+	check(gs.item_count("sugarcane") == int(gd.CROPS["sugarcane"]["yield"]), "Zuckerrohr landet im Vorrat")
+	var mill: int = gs.place_object("sugarmill", Vector2i(8, 11))
+	check(mill > 0, "Zuckermühle bauen")
+	check(gs.start_recipe(mill, "sugar"), "Zucker pressen starten")
+	gs.time_offset += 121.0
+	check(gs.collect_ready(mill).size() == 1 and gs.item_count("sugar") == 1, "Zucker aus eigener Ernte herstellen")
+	check(int(gs.stats.get("crafted_sugar", 0)) == 1, "Zucker zählt die Erfolgsstatistik")
+	var built: Dictionary = _achievement("build_sugarmill")
+	var sweet: Dictionary = _achievement("sugar_10")
+	check(not built.is_empty() and gs.achievement_unlocked(built), "Erfolg für die Zuckermühle wird freigeschaltet")
+	check(not sweet.is_empty() and gs.achievement_progress(sweet) == 1 and not gs.achievement_unlocked(sweet), "Zucker-Erfolg zählt hergestellte Ware")
+	var preserves: int = gs.place_object("preserves", Vector2i(10, 11))
+	gs.add_item("strawberry", 4)
+	check(gs.start_recipe(preserves, "strawberry_jam"), "Konfitüre aus eigener Zuckerkette starten")
+	gs.time_offset += 121.0
+	check(gs.collect_ready(preserves).size() == 1 and gs.item_count("strawberry_jam") == 1, "Konfitüre mit eigenem Zucker abholen")
+	check(gd.RECIPES.has("cane_syrup") and gd.RECIPES.has("caramel_syrup") and gd.RECIPES.has("caramel_latte"), "Zuckermühle hat eine kleine eigene Rezeptkette")
+
+
+func test_level_curve() -> void:
+	begin("Stufenkurve")
+	var total := 0
+	for l in range(1, gd.MAX_LEVEL):
+		total += gd.xp_needed(l)
+		check(gd.xp_needed(l) > 0, "Stufe %d hat ein XP-Ziel" % l)
+	check(gd.xp_needed(2) > gd.xp_needed(1), "spätere Stufen brauchen mehr Erfahrung")
+	check(gd.xp_needed(1) <= 60, "die zweite Stufe bleibt am Anfang schnell erreichbar")
+	check(total >= 20000, "die Maximalstufe ist ein langfristiges Ziel (%d XP)" % total)
+	var achievement_xp := 0
+	for achievement in gd.ACHIEVEMENTS:
+		achievement_xp += int(achievement["xp"])
+	check(achievement_xp <= 800, "Erfolge geben zusammen höchstens 800 XP (%d)" % achievement_xp)
+	check(achievement_xp * 3 < total, "Erfolge allein tragen nicht bis zur Maximalstufe")
+
+
+func test_landscape_chunks() -> void:
+	begin("Gelände-Chunks")
+	var terrain_script: GDScript = load("res://scripts/world/terrain.gd")
+	var world := Rect2i(gd.WORLD_ORIGIN, Vector2i(gd.WORLD_COLS, gd.WORLD_ROWS))
+	var scenery: Rect2i = terrain_script.scenery_bounds()
+	check(scenery.encloses(world), "Wildnisgürtel umschließt die Karte")
+	check(gd.SCENERY_MARGIN_CELLS >= 16, "der Gürtel ist breit genug für weite Kameraausschnitte")
+	var chunk_cells: int = terrain_script.CHUNK_CELLS
+	check(chunk_cells >= 4 and chunk_cells <= 16, "Chunkgröße bleibt handlich")
+	var coords: Array = terrain_script.chunk_coords_for(Rect2(Vector2(scenery.position) * gd.TILE, Vector2(scenery.size) * gd.TILE))
+	check(coords.size() > 0, "für den Gürtel werden Chunks erzeugt")
+	var total := 0
+	var inside := true
+	for coord in coords:
+		var b: Rect2i = terrain_script.chunk_bounds(coord)
+		total += b.size.x * b.size.y
+		inside = inside and scenery.encloses(b) and b.has_area()
+	check(inside, "jeder Chunk liegt vollständig im Gürtel")
+	check(total == scenery.size.x * scenery.size.y, "Chunks decken den Gürtel lückenlos ab (%d Zellen)" % total)
+	var view := Rect2(Vector2(gs.land.position) * gd.TILE, Vector2(gs.land.size) * gd.TILE)
+	var near: Array = terrain_script.chunk_coords_for(view, 0)
+	var covered := true
+	for corner in [view.position + Vector2(1, 1), view.end - Vector2(1, 1)]:
+		var cell := Vector2i(floori(corner.x / gd.TILE), floori(corner.y / gd.TILE))
+		var found := false
+		for coord in near:
+			if terrain_script.chunk_bounds(coord).has_point(cell):
+				found = true
+				break
+		covered = covered and found
+	check(covered, "sichtbare Farmecken liegen in angeforderten Chunks")
+	check(terrain_script.chunk_coords_for(Rect2(-100000, -100000, 10, 10)).is_empty(), "weit außerhalb entstehen keine Chunks")
 
 
 func _write_text(path: String, text: String) -> void:

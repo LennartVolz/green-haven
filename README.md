@@ -10,26 +10,29 @@ geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfa
 
 ## Umfang
 
-- 22 Pflanzen mit mehreren Wachstumsstufen, stufenbasierter Progression und Freischaltsystem. Alle Pflanzen sind einjährig: Nach der Ernte wird das Feld frei und muss neu bestellt werden
-- Weitere Pflanzen: Kürbis, Rote Bete, Rhabarber, Salat, Zucchini, Gurke, Erbsen, Heidelbeeren, Reis, Quinoa und Kaffee (für das Café)
+- 23 Pflanzen mit mehreren Wachstumsstufen, stufenbasierter Progression und Freischaltsystem. Alle Pflanzen sind einjährig: Nach der Ernte wird das Feld frei und muss neu bestellt werden
+- Weitere Pflanzen: Kürbis, Rote Bete, Rhabarber, Zuckerrohr, Salat, Zucchini, Gurke, Erbsen, Heidelbeeren, Reis, Quinoa und Kaffee (für das Café)
 - Mandeln als Feldfrucht ab Stufe 5: pflanzbar, erntbar und Grundlage für Mandelmilch
-- 12 Produktionsgebäude (inkl. Gartencafé), 46 Rezepte, Warteschlangen, Ausbaustufen und Abholfunktion
-- Neue Produktionsketten: Blumenwerkstatt (8), Ölmühle (9), Konfitürenküche (9), Nudelwerkstatt (10), Eismanufaktur (11) und Müsli-Manufaktur (14); Zucker für Konfitüren gibt es im Land-Shop
+- 13 Produktionsgebäude (inkl. Gartencafé), 50 Rezepte, Warteschlangen, Ausbaustufen und Abholfunktion
+- Neue Produktionsketten: Blumenwerkstatt (8), Ölmühle (9), Zuckermühle (9), Konfitürenküche (9), Nudelwerkstatt (10), Eismanufaktur (11) und Müsli-Manufaktur (14)
+- Vollständig eigene Warenketten: Zuckerrohr wird ab Stufe 9 angebaut und in der Zuckermühle zu Zucker gepresst; Konfitüren, Karamellsirup und Karamell-Latte verarbeiten den Zucker weiter. Fertige Zutaten gibt es nicht mehr zu kaufen
 - Produktions-Dashboard: alle Gebäude mit Warteschlange, Restzeiten und abholbaren Produkten auf einen Blick, Sammelabholung und Badge in der Navigation
 - Kundenaufträge, Münzen, Erfahrungspunkte, Quests, Shop, Dekoration und Landerweiterung
 - Tierrefugium mit 5 Tierarten, eigenen Charakterzügen, optionalen artspezifischen Aktivitäten, wählbaren kosmetischen Belohnungen und Rettungsangeboten ohne Druck
 - Refugium-Tagebuch für Rettungen und gemeinsame Momente, Freundschaftsstufen mit animierten Reaktionen und Profilgeschichten
 - Optionale mehrteilige Nachbarschafts-Lieferungsgeschichten mit gespeichertem Fortschritt und Abschlussbelohnungen
-- 25 einlösbare Erfolge für Aufträge, Ernten, Herstellung, Tierpflege, Freundschaft, Geschichten, Café, neue Produktionsketten und Farmerweiterung
+- 27 einlösbare Erfolge für Aufträge, Ernten, Herstellung, Tierpflege, Freundschaft, Geschichten, Café, neue Produktionsketten, Zuckermühle und Farmerweiterung
 - Belegungs- und Wohlbefinden-Übersicht pro Gehege; Tierprofile, Tagebuch und Geschichtenfortschritt sind Teil der versionierten Spielstände
 - Wetter: Sonnig, Bewölkt, Regen und Nebel wechseln alle 120 Sekunden. Bewölkt verlangsamt das Wachstum um 10 %, Regen beschleunigt es um 25 %. Die Wachstumszeiten berücksichtigen den Wetterverlauf, auch während der Offline-Zeit
 - Tag-Nacht-Zyklus mit Uhrzeitanzeige: ein Spieltag dauert 8 Minuten echter Zeit, mit Dämmerung und Farbstimmung
 - Tageszähler und Tagesrückblick: „Tag N“ steht im HUD. Beim Tageswechsel und nach einer längeren Pause zeigt ein kurzer Rückblick Ernten, erfüllte Aufträge, Tiermomente und hergestellte Produkte. Alte Spielstände starten ohne rückwirkende Tageshistorie und werden automatisch migriert (Save-Version 9)
 - Kosmetisches Tier-Ambiente: Bei Regen gehen Tiere in den Gehege-Unterstand; nachts schlafen sie dort mit geschlossenen Augen, ruhiger Atmung und kleinen „Z“. Individuelle Schlafzeiten lassen nachts mindestens ein Tier wach; Streicheln weckt kurz auf. Nach Regen erscheint im Nebel für etwa 15 Sekunden ein ein-/ausblendender Regenbogen. Keine Auswirkung auf Werte oder Spielstände.
+- Prozedurale Umgebung in Chunks: Wiese und Wald rings um die Farm werden in 8×8-Zellen-Chunks erzeugt und nur im sichtbaren Kamerabereich gezeichnet. Beim Schwenken und Zoomen entsteht so kein leerer grüner Rand, und die Umgebung bleibt auch bei ausgebauter Farm performant
+- Stufenkurve mit langem Atem: frühe Stufen bleiben schnell erreichbar, spätere Ziele wachsen quadratisch. Erfolge sind eine willkommene Beschleunigung, tragen aber nicht mehr allein bis zur Maximalstufe
 - Touch-Steuerung: Tippen, Wischen zum Säen/Ernten, Kamera verschieben mit Trägheit, Pinch-Zoom, Platzieren per Ziehen
 - Lokales, versioniertes Speichersystem (geprüftes Laden, rotierendes Backup, Spielstände neuerer Versionen werden nie überschrieben); Wachstum und Produktion laufen offline weiter
 - Spielstände als JSON exportieren und importieren (Import wird vor dem Ersetzen geprüft; bisheriger Stand wird als Backup gesichert)
-- Soundeffekte (zur Laufzeit erzeugt), Vibrations-Feedback und optionale Hintergrundmusik; Ton und Musik haben getrennte Lautstärkeregler, Vibration lässt sich abschalten
+- Soundeffekte (zur Laufzeit erzeugt), Vibrations-Feedback und optionale Hintergrundmusik; Ton und Musik haben getrennte, selbst gezeichnete Lautstärkeregler (0–100 %, sichtbare Schiene mit großem Griff), Vibration lässt sich abschalten
 
 ## Schnellstart
 

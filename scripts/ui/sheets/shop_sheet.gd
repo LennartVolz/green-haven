@@ -1,5 +1,5 @@
 extends RefCounted
-## Shop: Pflanzen, Gebäude, Dekoration sowie Land und Zutaten.
+## Shop: Pflanzen, Gebäude, Dekoration sowie Land.
 
 
 static func build(ui, _args: Dictionary) -> void:

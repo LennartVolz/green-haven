@@ -10,9 +10,9 @@ geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfa
 
 ## Umfang
 
-- 20 Pflanzen mit mehreren Wachstumsstufen, stufenbasierter Progression und Freischaltsystem
-- Weitere Pflanzen: Kürbis, Rote Bete, Salat, Gurke, Erbsen, mehrjährige Heidelbeeren, Reis, Quinoa und mehrjähriger Kaffee (für das Café)
-- Mandeln als mehrjährige Feldfrucht ab Stufe 5: pflanzbar, erntbar und Grundlage für Mandelmilch
+- 20 Pflanzen mit mehreren Wachstumsstufen, stufenbasierter Progression und Freischaltsystem. Alle Pflanzen sind einjährig: Nach der Ernte wird das Feld frei und muss neu bestellt werden
+- Weitere Pflanzen: Kürbis, Rote Bete, Salat, Gurke, Erbsen, Heidelbeeren, Reis, Quinoa und Kaffee (für das Café)
+- Mandeln als Feldfrucht ab Stufe 5: pflanzbar, erntbar und Grundlage für Mandelmilch
 - 6 Produktionsgebäude (inkl. Gartencafé), 26 Rezepte, Warteschlangen, Ausbaustufen und Abholfunktion
 - Produktions-Dashboard: alle Gebäude mit Warteschlange, Restzeiten und abholbaren Produkten auf einen Blick, Sammelabholung und Badge in der Navigation
 - Kundenaufträge, Münzen, Erfahrungspunkte, Quests, Shop, Dekoration und Landerweiterung
@@ -23,7 +23,8 @@ geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfa
 - Belegungs- und Wohlbefinden-Übersicht pro Gehege; Tierprofile, Tagebuch und Geschichtenfortschritt sind Teil der versionierten Spielstände
 - Wetter: Sonnig, Bewölkt, Regen und Nebel wechseln alle 120 Sekunden. Bewölkt verlangsamt das Wachstum um 10 %, Regen beschleunigt es um 25 %. Die Wachstumszeiten berücksichtigen den Wetterverlauf, auch während der Offline-Zeit
 - Tag-Nacht-Zyklus mit Uhrzeitanzeige: ein Spieltag dauert 8 Minuten echter Zeit, mit Dämmerung und Farbstimmung
-- Kosmetisches Tier-Ambiente: Bei Regen gehen Tiere in den Gehege-Unterstand; nachts schlafen sie dort mit geschlossenen Augen, ruhiger Atmung und kleinen „Z“. Individuelle Schlafzeiten lassen nachts mindestens ein Tier wach; Streicheln weckt kurz auf. Nach Regen erscheint im Nebel für etwa 15 Sekunden ein ein-/ausblendender Regenbogen. Keine Auswirkung auf Werte oder Spielstände; Save-Version bleibt 8.
+- Tageszähler und Tagesrückblick: „Tag N“ steht im HUD. Beim Tageswechsel und nach einer längeren Pause zeigt ein kurzer Rückblick Ernten, erfüllte Aufträge, Tiermomente und hergestellte Produkte. Alte Spielstände starten ohne rückwirkende Tageshistorie und werden automatisch migriert (Save-Version 9)
+- Kosmetisches Tier-Ambiente: Bei Regen gehen Tiere in den Gehege-Unterstand; nachts schlafen sie dort mit geschlossenen Augen, ruhiger Atmung und kleinen „Z“. Individuelle Schlafzeiten lassen nachts mindestens ein Tier wach; Streicheln weckt kurz auf. Nach Regen erscheint im Nebel für etwa 15 Sekunden ein ein-/ausblendender Regenbogen. Keine Auswirkung auf Werte oder Spielstände.
 - Touch-Steuerung: Tippen, Wischen zum Säen/Ernten, Kamera verschieben mit Trägheit, Pinch-Zoom, Platzieren per Ziehen
 - Lokales, versioniertes Speichersystem (geprüftes Laden, rotierendes Backup, Spielstände neuerer Versionen werden nie überschrieben); Wachstum und Produktion laufen offline weiter
 - Spielstände als JSON exportieren und importieren (Import wird vor dem Ersetzen geprüft; bisheriger Stand wird als Backup gesichert)

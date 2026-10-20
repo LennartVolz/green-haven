@@ -20,7 +20,7 @@ signal game_event(event_name: String, data: Dictionary)
 signal fx(kind: String, world_pos: Vector2, text: String)
 signal sound(sound_name: String)
 
-const SAVE_VERSION := 8
+const SAVE_VERSION := 9
 const MAX_ORDERS := 4
 const NEIGHBORHOOD_EVENT_CYCLE_SECONDS := 3.0 * 60.0 * 60.0
 const NEIGHBORHOOD_EVENT_DURATION_SECONDS := 30.0 * 60.0
@@ -74,6 +74,10 @@ var tutorial_step := 0
 var next_uid := 1
 var next_order_at := 0.0
 var away_seconds := 0.0
+## Landwirtschaftlicher Kalender: Beginn von Tag 1 und letzter angezeigter Rückblick.
+var day_anchor := 0.0
+var last_day_recap := 1
+var day_stats_snapshot: Dictionary = {}
 
 var _occ: Dictionary = {}        ## Vector2i -> uid
 var _refresh_acc := 0.0
@@ -87,6 +91,40 @@ func _ready() -> void:
 
 func now() -> float:
 	return Time.get_unix_time_from_system() + time_offset
+
+
+## Fortlaufende Nummer des Spieltags, beginnend bei 1.
+func day_number() -> int:
+	if day_anchor <= 0.0:
+		return 1
+	return maxi(1, floori((now() - day_anchor) / GameData.REAL_DAY_SECONDS) + 1)
+
+
+func day_recap_due() -> bool:
+	return day_number() > last_day_recap
+
+
+## Liefert einmalig den Rückblick auf den vergangenen Tag und setzt den
+## Vergleichsstand auf die aktuellen Lebenszeit-Statistiken.
+func take_day_recap() -> Dictionary:
+	var day := day_number()
+	if day <= last_day_recap:
+		return {}
+	var recap := {
+		"day": day,
+		"days_elapsed": day - last_day_recap,
+		"harvested": _stat_delta("harvested"),
+		"orders": _stat_delta("orders"),
+		"animal_moments": _stat_delta("pets") + _stat_delta("fed") + _stat_delta("activities"),
+		"crafted": _stat_delta("crafted"),
+	}
+	last_day_recap = day
+	day_stats_snapshot = stats.duplicate()
+	return recap
+
+
+func _stat_delta(key: String) -> int:
+	return maxi(0, int(stats.get(key, 0)) - int(day_stats_snapshot.get(key, 0)))
 
 
 func _process(delta: float) -> void:
@@ -131,6 +169,9 @@ func reset_state() -> void:
 	next_uid = 1
 	next_order_at = 0.0
 	away_seconds = 0.0
+	day_anchor = 0.0
+	last_day_recap = 1
+	day_stats_snapshot = {}
 	_occ = {}
 
 
@@ -140,6 +181,9 @@ func new_game() -> void:
 	for dx in range(2):
 		for dy in range(2):
 			fields[Vector2i(land.position.x + 3 + dx, land.position.y + 3 + dy)] = {"crop": "", "t": 0.0}
+	day_anchor = now()
+	last_day_recap = 1
+	day_stats_snapshot = {}
 	loaded = true
 	_fill_orders()
 	_emit_all()
@@ -548,10 +592,8 @@ func harvest(cell: Vector2i) -> bool:
 	add_item(crop, amount)
 	add_xp(int(c["xp"]))
 	bump("harvested")
-	if c["perennial"]:
-		fields[cell] = {"crop": crop, "t": now()}
-	else:
-		fields[cell] = {"crop": "", "t": 0.0}
+	# Alle Pflanzen sind einjährig: Nach der Ernte ist das Feld wieder frei.
+	fields[cell] = {"crop": "", "t": 0.0}
 	world_changed.emit()
 	fx.emit("harvest", cell_center(cell), "+%d %s" % [amount, c["name"]])
 	sound.emit("harvest")
@@ -1450,6 +1492,9 @@ func serialize() -> Dictionary:
 		"tutorial_step": tutorial_step,
 		"next_uid": next_uid,
 		"next_order_at": next_order_at,
+		"day_anchor": day_anchor,
+		"last_day_recap": last_day_recap,
+		"day_stats_snapshot": day_stats_snapshot.duplicate(),
 	}
 
 
@@ -1631,6 +1676,22 @@ func deserialize(d: Dictionary) -> bool:
 	var st := _save_dict(d, "stats")
 	for k in st:
 		stats[k] = int(st[k])
+	var saved_at := float(d.get("saved_at", now()))
+	day_anchor = float(d.get("day_anchor", saved_at))
+	if not is_finite(day_anchor) or day_anchor <= 0.0:
+		day_anchor = saved_at if saved_at > 0.0 else now()
+	var current_day := day_number()
+	if d.has("last_day_recap") and d.has("day_stats_snapshot"):
+		last_day_recap = clampi(int(d.get("last_day_recap", current_day)), 1, maxi(1, current_day))
+		day_stats_snapshot = {}
+		var saved_day_stats := _save_dict(d, "day_stats_snapshot")
+		for k in saved_day_stats:
+			day_stats_snapshot[str(k)] = int(saved_day_stats[k])
+	else:
+		# Ältere Stände starten mit ihrem aktuellen Stand, damit nicht die
+		# gesamte Spielhistorie als ein einziger Tag im Rückblick erscheint.
+		last_day_recap = current_day
+		day_stats_snapshot = stats.duplicate()
 	daily_cafe_special_id = str(d.get("daily_cafe_special_id", ""))
 	daily_cafe_special_at = maxf(0.0, float(d.get("daily_cafe_special_at", 0.0)))
 	if not GameData.CAFE_MENU.has(daily_cafe_special_id):
@@ -1688,7 +1749,7 @@ func deserialize(d: Dictionary) -> bool:
 		max_uid = maxi(max_uid, int(neighborhood_event_order.id))
 	next_uid = maxi(maxi(int(d.get("next_uid", 1)), 1), max_uid + 1)
 	next_order_at = float(d.get("next_order_at", 0.0))
-	away_seconds = maxf(0.0, now() - float(d.get("saved_at", now())))
+	away_seconds = maxf(0.0, now() - saved_at)
 	rebuild_occupancy()
 	loaded = true
 	_fill_orders()

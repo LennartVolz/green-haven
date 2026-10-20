@@ -48,6 +48,31 @@ func run() -> void:
 	gs = root.get_node("GameState")
 	ui = main.get_node("UI")
 	await frames(5)
+	# Die Saat-Auswahl zeigt den aktuellen Wettereffekt und wetterbasierte Reifezeiten.
+	gs.level = 1
+	var weather_duration: float = root.get_node("GameData").WEATHER_DURATION_SECONDS
+	for weather_case in [
+		{"name": "Bewölkt", "time": weather_duration + 30.0, "effect": "Wachstum −10%", "rate": 0.9},
+		{"name": "Regen", "time": 2.0 * weather_duration + 30.0, "effect": "Wachstum +25%", "rate": 1.25},
+	]:
+		gs.time_offset = float(weather_case["time"]) - Time.get_unix_time_from_system()
+		ui.act_open("crops", {})
+		await frames()
+		check(contains_label(ui.content, "Wetter: %s" % weather_case["name"]), "Saat-Auswahl zeigt aktuelles Wetter (%s)" % weather_case["name"])
+		check(contains_label(ui.content, String(weather_case["effect"])), "Saat-Auswahl zeigt Wachstumsbonus (%s)" % weather_case["name"])
+		var wheat_grow: float = root.get_node("GameData").CROPS["wheat"]["grow"]
+		var wheat_seconds: float = root.get_node("GameData").real_seconds_for_crop_growth(gs.now(), wheat_grow)
+		check(contains_label(ui.content, "Reif in ca. %s" % root.get_node("GameData").format_time(wheat_seconds)), "Weizen-Reifezeit entspricht dem Wetterverlauf (%s)" % weather_case["name"])
+		var weather_expected := wheat_grow / float(weather_case["rate"])
+		check(is_equal_approx(wheat_seconds, weather_expected), "Wachstumsberechnung nutzt Wetterrate (%s)" % weather_case["name"])
+		if String(weather_case["name"]) == "Bewölkt":
+			gs.time_offset = 2.0 * weather_duration + 30.0 - Time.get_unix_time_from_system()
+			ui._tick()
+			var rain_seconds: float = root.get_node("GameData").real_seconds_for_crop_growth(gs.now(), wheat_grow)
+			check(contains_label(ui.content, "Wetter: Regen · Wachstum +25%"), "offene Saat-Auswahl aktualisiert den Wetterhinweis beim Wetterwechsel")
+			check(contains_label(ui.content, "Reif in ca. %s" % root.get_node("GameData").format_time(rain_seconds)), "offene Saat-Auswahl aktualisiert Reifezeiten beim Wetterwechsel")
+		ui.close_sheet()
+	gs.time_offset = 0.0
 	gs.level = 10
 	gs.add_diary_entry("Testeintrag aus einer Rettung", 1)
 

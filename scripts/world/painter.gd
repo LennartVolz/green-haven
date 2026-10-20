@@ -106,6 +106,8 @@ static func draw_crop(ci: CanvasItem, id: String, stage: int, center: Vector2, t
 				_sunflower(ci, stage, t)
 			"apple":
 				_apple_tree(ci, stage, t)
+			"almond":
+				_almond_tree(ci, stage, t)
 			"pumpkin":
 				_pumpkin(ci, stage, t)
 			"beet":
@@ -367,6 +369,20 @@ static func _apple_tree(ci: CanvasItem, stage: int, t: float) -> void:
 		for p in [Vector2(-26, cy + 8), Vector2(20, cy + 14), Vector2(-4, cy - 16), Vector2(30, cy - 4), Vector2(-14, cy + 22)]:
 			ci.draw_circle(p, 8.0, col("#C9362D"))
 			ci.draw_circle(p + Vector2(-2.5, -2.5), 2.5, Color(1, 1, 1, 0.5))
+
+
+## Mandelbaum: schlanker Stamm, hellgrüne Krone und hellbraune Nüsse.
+static func _almond_tree(ci: CanvasItem, stage: int, t: float) -> void:
+	var g: float = [0.0, 0.35, 0.7, 1.0][stage]
+	rrect(ci, Rect2(-6, -52.0 * g - 2.0, 12, 52.0 * g + 4.0), col("#8A5A36"), 5)
+	var cy := -58.0 * g - 18.0
+	ellipse(ci, Vector2(-19.0 * g, cy + 8.0 * g), 24.0 * g + 4.0, 21.0 * g + 3.0, col("#6FA356"))
+	ellipse(ci, Vector2(19.0 * g, cy + 8.0 * g), 24.0 * g + 4.0, 21.0 * g + 3.0, col("#7BB262"))
+	ellipse(ci, Vector2(sway(t, 0, 1.2), cy - 10.0 * g), 28.0 * g + 4.0, 25.0 * g + 3.0, col("#8CC273"))
+	if stage == 3:
+		for p in [Vector2(-22, cy + 10), Vector2(16, cy + 15), Vector2(-2, cy - 15), Vector2(27, cy - 2), Vector2(-12, cy + 23)]:
+			ellipse(ci, p, 5.0, 7.5, col("#D8B98A"))
+			ci.draw_line(p + Vector2(0, -4), p + Vector2(0, 4), col("#A07C4E"), 1.5, true)
 
 
 # ---------------------------------------------------------- Gegenstände

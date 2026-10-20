@@ -10,8 +10,9 @@ geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfa
 
 ## Umfang
 
-- 19 Pflanzen mit mehreren Wachstumsstufen, stufenbasierter Progression und Freischaltsystem
+- 20 Pflanzen mit mehreren Wachstumsstufen, stufenbasierter Progression und Freischaltsystem
 - Weitere Pflanzen: Kürbis, Rote Bete, Salat, Gurke, Erbsen, mehrjährige Heidelbeeren, Reis, Quinoa und mehrjähriger Kaffee (für das Café)
+- Mandeln als mehrjährige Feldfrucht ab Stufe 5: pflanzbar, erntbar und Grundlage für Mandelmilch
 - 6 Produktionsgebäude (inkl. Gartencafé), 26 Rezepte, Warteschlangen, Ausbaustufen und Abholfunktion
 - Produktions-Dashboard: alle Gebäude mit Warteschlange, Restzeiten und abholbaren Produkten auf einen Blick, Sammelabholung und Badge in der Navigation
 - Kundenaufträge, Münzen, Erfahrungspunkte, Quests, Shop, Dekoration und Landerweiterung

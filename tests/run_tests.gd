@@ -51,6 +51,7 @@ func _initialize() -> void:
 	test_delivery_stories()
 	test_cafe()
 	test_neighborhood_event()
+	test_story_during_event()
 	test_achievements()
 	test_quests()
 	test_animals()
@@ -512,6 +513,34 @@ func test_neighborhood_event() -> void:
 	gs.new_game()
 	check(gs.deserialize(saved_order), "offene Event-Bestellung erneut laden")
 	check(gs.orders.any(func(order: Dictionary) -> bool: return int(order.get("id", -1)) == 9123), "Sonderbestellungs-ID und Auftrag bleiben erhalten")
+
+
+## Regression: Eine Lieferungsgeschichte, die während des Gartentags beginnt, bekommt ihre
+## Bestellung sofort. Die Event-Bestellung darf ihr den Platz nicht wegnehmen.
+## Die Uhr wird fest in das Event-Fenster gelegt, damit der Test nicht von der echten Uhrzeit abhängt.
+func test_story_during_event() -> void:
+	begin("Geschichte während des Gartentags")
+	var cycle_length: float = gs.NEIGHBORHOOD_EVENT_CYCLE_SECONDS
+	gs.level = 14
+	gs.coins = 100000
+	check(gs.place_object("cafe", Vector2i(8, 11)) > 0, "Café für den Gartentag bauen")
+	gs.time_offset = 2.0 * cycle_length - Time.get_unix_time_from_system() + 10.0
+	check(gs.neighborhood_event_active(), "Gartentag ist aktiv")
+	gs.neighborhood_event_stage = 0
+	gs.next_order_at = 0.0
+	gs._fill_orders()
+	check(gs.orders.size() == gs.MAX_ORDERS, "Auftragsbrett ist voll")
+	check(gs.start_delivery_story("cafe_opening"), "Café-Geschichte starten")
+	var has_story := false
+	var has_event := false
+	for order in gs.orders:
+		if str(order.get("story_id", "")) == "cafe_opening":
+			has_story = true
+		if order.has("neighborhood_event_cycle"):
+			has_event = true
+	check(has_story, "Geschichtenbestellung erscheint sofort trotz aktivem Gartentag")
+	check(has_event, "Event-Bestellung bleibt neben der Geschichte erhalten")
+	check(gs.orders.size() <= gs.MAX_ORDERS, "Auftragsbrett läuft nicht über")
 
 
 func test_achievements() -> void:

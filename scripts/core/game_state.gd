@@ -842,6 +842,18 @@ func _fill_orders() -> void:
 	for existing_index in range(orders.size() - 1, -1, -1):
 		if int(orders[existing_index].get("neighborhood_event_cycle", -1)) == event_cycle:
 			orders[existing_index]["neighborhood_event_cafe"] = has_building("cafe")
+	# Die Geschichtenbestellung kommt vor der Event-Bestellung: Eine gerade angenommene Reihe
+	# soll sofort beginnen, auch wenn gleichzeitig der Gartentag läuft. Reicht der Platz dann
+	# nicht für beide, weicht unten eine gewöhnliche Bestellung der Event-Bestellung.
+	if not active_delivery_story.is_empty() and orders.size() < MAX_ORDERS and not _has_story_order():
+		var campaign: Dictionary = GameData.DELIVERY_STORIES.get(active_delivery_story, {})
+		var stages: Array = campaign.get("stages", [])
+		if delivery_story_stage < stages.size():
+			var stage: Dictionary = stages[delivery_story_stage]
+			orders.append({"id": _new_uid(), "customer": String(campaign["customer"]),
+				"items": (stage["items"] as Dictionary).duplicate(), "coins": int(stage["coins"]), "xp": int(stage["xp"]),
+				"story_id": active_delivery_story, "story_stage": delivery_story_stage, "story_text": String(stage["text"])})
+			changed = true
 	if reserve_event_slot and orders.size() >= MAX_ORDERS:
 		var evicted_order := false
 		for overflow_index in range(orders.size() - 1, -1, -1):
@@ -860,15 +872,6 @@ func _fill_orders() -> void:
 		event_order["neighborhood_event_cafe"] = bool(neighborhood_event_order.cafe)
 		orders.append(event_order)
 		changed = true
-	if not active_delivery_story.is_empty() and orders.size() < MAX_ORDERS and not _has_story_order():
-		var campaign: Dictionary = GameData.DELIVERY_STORIES.get(active_delivery_story, {})
-		var stages: Array = campaign.get("stages", [])
-		if delivery_story_stage < stages.size():
-			var stage: Dictionary = stages[delivery_story_stage]
-			orders.append({"id": _new_uid(), "customer": String(campaign["customer"]),
-				"items": (stage["items"] as Dictionary).duplicate(), "coins": int(stage["coins"]), "xp": int(stage["xp"]),
-				"story_id": active_delivery_story, "story_stage": delivery_story_stage, "story_text": String(stage["text"])})
-			changed = true
 	if changed:
 		orders_changed.emit()
 

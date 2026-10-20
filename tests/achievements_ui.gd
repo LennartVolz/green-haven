@@ -73,6 +73,18 @@ func run() -> void:
 			check(contains_label(ui.content, "Reif in ca. %s" % root.get_node("GameData").format_time(rain_seconds)), "offene Saat-Auswahl aktualisiert Reifezeiten beim Wetterwechsel")
 		ui.close_sheet()
 	gs.time_offset = 0.0
+	# Mandeln sind ab Stufe 5 eine Feldfrucht und tauchen nicht mehr unter Land auf.
+	gs.level = 5
+	ui.act_open("crops", {})
+	await frames()
+	check(contains_label(ui.content, "Mandeln"), "Mandeln sind in der Pflanzenauswahl integriert")
+	ui.act_open("shop", {"tab": "crops"})
+	await frames()
+	check(contains_label(ui.content, "Mandeln"), "Mandeln stehen im Shop unter Pflanzen")
+	ui.act_open("shop", {"tab": "land"})
+	await frames()
+	check(not contains_label(ui.content, "Mandeln"), "Mandeln erscheinen nicht mehr unter Land")
+	ui.close_sheet()
 	gs.level = 10
 	gs.add_diary_entry("Testeintrag aus einer Rettung", 1)
 

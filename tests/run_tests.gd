@@ -189,14 +189,11 @@ func test_inventory() -> void:
 	check(gs.sell_item("wheat", 5) == 3, "Verkauf begrenzt auf Bestand")
 	check(gs.coins == c0 + 3, "Münzen aus Verkauf")
 	check(gs.sell_item("wheat", 1) == 0, "nichts mehr zu verkaufen")
-	check(not gs.buy_item("almond", 1), "Mandeln erst ab Stufe 5")
-	level_to(5)
 	gs.coins = 100
-	check(gs.buy_item("almond", 2), "Mandeln kaufen")
-	check(gs.coins == 100 - 24, "Mandelpreis")
-	check(gs.item_count("almond") == 2, "Mandeln im Inventar")
+	check(not gs.buy_item("almond", 1), "Mandeln sind keine Shop-Zutat mehr")
+	check(gs.coins == 100, "Feldfrüchte lassen sich nicht direkt kaufen")
 	check(not gs.spend_coins(1000), "zu teuer")
-	check(gs.coins == 76, "Münzen unverändert bei Fehlschlag")
+	check(gs.coins == 100, "Münzen unverändert bei Fehlschlag")
 
 
 func test_levels() -> void:
@@ -988,7 +985,7 @@ func test_economy() -> void:
 	for id in gd.CROPS:
 		var c: Dictionary = gd.CROPS[id]
 		check(int(c["yield"]) * int(c.sell) > int(c.seed), "%s: Ernte lohnt sich" % id)
-	check(gd.CROPS.size() == 19, "neunzehn Pflanzen einschließlich Kaffeepflanze")
+	check(gd.CROPS.size() == 20, "zwanzig Pflanzen einschließlich Mandel und Kaffeepflanze")
 	check(gd.RECIPES.size() >= 8, "mindestens acht Rezepte")
 	# Erste Minuten: Spieler erreicht Stufe 2 nach wenigen Ernten
 	gs.new_game()
@@ -1019,7 +1016,7 @@ func test_new_crops() -> void:
 	gs.coins = 100000
 	var cell: Vector2i = gs.fields.keys()[0]
 	var new_crops := {
-		"coffee": 8, "pumpkin": 9, "beet": 10, "lettuce": 11, "cucumber": 12,
+		"almond": 5, "coffee": 8, "pumpkin": 9, "beet": 10, "lettuce": 11, "cucumber": 12,
 		"pea": 13, "blueberry": 14, "rice": 16, "quinoa": 18,
 	}
 	for crop in new_crops:
@@ -1030,7 +1027,7 @@ func test_new_crops() -> void:
 		gs.time_offset += gd.real_seconds_for_crop_growth(gs.now(), float(definition["grow"])) + 0.01
 		check(gs.harvest(cell), "%s nach effektiver Wetter-Wachstumszeit erntbar" % crop)
 		check(gs.item_count(crop) == int(definition["yield"]), "%s liefert Inventar-Ertrag" % crop)
-		if crop == "coffee" or crop == "blueberry":
+		if crop == "coffee" or crop == "blueberry" or crop == "almond":
 			check(gs.fields[cell].crop == crop, "%s wächst nach Ernte weiter" % crop)
 			gs.time_offset += gd.real_seconds_for_crop_growth(gs.now(), float(definition["grow"])) + 0.01
 			check(gs.harvest(cell), "%s kann nach effektiver Wetter-Wachstumszeit erneut geerntet werden" % crop)
@@ -1041,6 +1038,18 @@ func test_new_crops() -> void:
 	for recipe in ["pumpkin_soup", "beet_spread", "garden_salad", "blueberry_smoothie", "rice_milk", "quinoa_bowl"]:
 		check(gd.items.has(recipe), "%s ist als Produkt im Inventar registriert" % recipe)
 	check(gd.unlocks_at(18).has("Quinoa"), "Quinoa wird auf Stufe 18 freigeschaltet")
+	check(gd.unlocks_at(5).has("Mandeln"), "Mandeln werden auf Stufe 5 freigeschaltet")
+	check(gd.CROPS.has("almond") and bool(gd.CROPS["almond"]["perennial"]), "Mandeln wachsen als mehrjährige Pflanze")
+	check(gd.CROPS["almond"]["level"] == gd.RECIPES["almond_milk"]["level"], "Mandel und Mandelmilch starten auf derselben Stufe")
+	check(gd.items["almond"]["kind"] == "crop", "Mandeln sind als Feldfrucht registriert")
+	check(not gd.EXTRA_ITEMS.has("almond"), "Mandeln sind keine reine Shop-Zutat mehr")
+	# Vom Feld in die Manufaktur: geerntete Mandeln werden zu Mandelmilch.
+	var almond_milkery: int = gs.place_object("milkery", Vector2i(10, 11))
+	check(almond_milkery > 0, "Pflanzenmilch-Manufaktur für Mandelmilch bauen")
+	check(gs.item_count("almond") >= 3, "geerntete Mandeln liegen im Vorrat")
+	check(gs.start_recipe(almond_milkery, "almond_milk"), "Mandelmilch aus eigener Ernte starten")
+	gs.time_offset += 121.0
+	check(gs.collect_ready(almond_milkery).size() == 1 and gs.item_count("almond_milk") == 1, "Mandelmilch aus geernteten Mandeln herstellen")
 	check(gd.LAND_EXPANSIONS.size() >= 8, "acht Landstufen erreichen gemeinsam den Vollausbau")
 	check(gd.items.has("pumpkin") and gd.items.has("blueberry"), "neue Ernten als handelbare Items registriert")
 

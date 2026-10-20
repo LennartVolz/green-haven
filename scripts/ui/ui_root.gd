@@ -63,6 +63,7 @@ var _pending_scroll_position := 0
 var _pending_scroll_restore := false
 var _tick_acc := 0.0
 var _ready_seen := 0
+var _welcome_checked := false
 var _coin_shown := -1.0
 var _displayed_coins := 0.0
 var _modal_queue: Array = []
@@ -164,8 +165,9 @@ func _build_top() -> void:
 	h.add_child(lv)
 	var day_panel := UiKit.panel(Color(0, 0, 0, 0.16), 24, 10)
 	var day_info := UiKit.vbox(0)
-	_day_label = UiKit.label("08:00 · Tag", 25, UiKit.cream())
+	_day_label = UiKit.label("Tag %d · 08:00" % GameState.day_number(), 25, UiKit.cream())
 	_day_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_day_label.tooltip_text = "Ein Spieltag dauert 8 Minuten."
 	day_info.add_child(_day_label)
 	_event_label = UiKit.label("", 18, UiKit.yellow())
 	_event_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -519,7 +521,7 @@ func _process(delta: float) -> void:
 	_tick_acc += delta
 	if _tick_acc >= 0.25:
 		_tick_acc = 0.0
-		_day_label.text = world.day_clock_text()
+		_day_label.text = "Tag %d · %s" % [GameState.day_number(), world.day_time_text()]
 		_weather_label.text = GameData.weather_effect_text(world.current_weather)
 		if GameState.has_building("cafe"):
 			_event_label.text = "Gartentag!" if GameState.neighborhood_event_active() else "Gartentag in %s" % GameData.format_time(GameState.neighborhood_event_seconds_left())
@@ -534,6 +536,8 @@ func _process(delta: float) -> void:
 			_update_badges()
 			if newly_ready and (_sheet_name == "production_overview" or _sheet_name == "production"):
 				refresh_sheet()
+		if _welcome_checked and GameState.day_recap_due():
+			_show_day_recap_modal(GameState.take_day_recap())
 		if _sheet_name != "":
 			_tick()
 	# Münzanzeige zählt sanft hoch
@@ -1143,8 +1147,11 @@ func _on_level_up(level: int, unlocks: Array) -> void:
 
 
 func _show_welcome_back() -> void:
+	_welcome_checked = true
+	var recap := GameState.take_day_recap()
 	var away := GameState.away_seconds
 	if away < 120.0:
+		_show_day_recap_modal(recap)
 		return
 	var rep := GameState.offline_report()
 	var lines: Array = []
@@ -1163,6 +1170,42 @@ func _show_welcome_back() -> void:
 			sleepy += 1
 	if sleepy > 0:
 		lines.append("Deine Tiere freuen sich über Besuch.")
+	if not recap.is_empty() and _day_recap_has_activity(recap):
+		lines.append("")
+		lines.append("Tag %d · dein Rückblick:" % int(recap["day"]))
+		lines.append_array(_day_recap_lines(recap))
 	if lines.size() == 1:
 		lines.append("Auf deiner Farm ist alles ruhig.")
 	_show_modal("Willkommen zurück!", lines, "Los geht's", "leaf")
+
+
+func _show_day_recap_modal(recap: Dictionary) -> void:
+	if recap.is_empty():
+		return
+	var day := int(recap.get("day", 1))
+	if not _day_recap_has_activity(recap):
+		show_toast("Tag %d beginnt" % day, "info")
+		return
+	_show_modal("Tag %d · Rückblick" % day, _day_recap_lines(recap), "Weiter", "clock")
+
+
+func _day_recap_has_activity(recap: Dictionary) -> bool:
+	return (int(recap.get("harvested", 0)) > 0 or int(recap.get("orders", 0)) > 0
+		or int(recap.get("animal_moments", 0)) > 0 or int(recap.get("crafted", 0)) > 0)
+
+
+func _day_recap_lines(recap: Dictionary) -> Array:
+	var lines: Array = []
+	if int(recap.get("days_elapsed", 1)) > 1:
+		lines.append("Seit deinem letzten Rückblick:")
+	else:
+		lines.append("Dein Rückblick auf den letzten Tag:")
+	if int(recap.get("harvested", 0)) > 0:
+		lines.append("Ernten: %d" % int(recap["harvested"]))
+	if int(recap.get("orders", 0)) > 0:
+		lines.append("Erfüllte Aufträge: %d" % int(recap["orders"]))
+	if int(recap.get("animal_moments", 0)) > 0:
+		lines.append("Tiermomente: %d" % int(recap["animal_moments"]))
+	if int(recap.get("crafted", 0)) > 0:
+		lines.append("Hergestellte Produkte: %d" % int(recap["crafted"]))
+	return lines

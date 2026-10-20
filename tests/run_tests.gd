@@ -42,6 +42,7 @@ func _initialize() -> void:
 	ss.delete_save()
 	test_new_game()
 	test_day_night()
+	test_day_counter_and_recap()
 	test_weather_growth()
 	test_farming()
 	test_inventory()
@@ -79,7 +80,7 @@ func _initialize() -> void:
 
 func test_day_night() -> void:
 	begin("Tag-Nacht-Zyklus")
-	check(gs.SAVE_VERSION == 8, "Tag-Nacht-Ambiente ändert die Save-Version nicht")
+	check(gs.SAVE_VERSION == 9, "Save-Version 9 enthält den Tageszähler")
 	check(world_script.daylight_at(0.0) < 0.01, "Mitternacht ist dunkel")
 	check(world_script.daylight_at(12.0 * 3600.0) > 0.99, "Mittag ist hell")
 	check(world_script.daylight_at(6.0 * 3600.0) < world_script.daylight_at(9.0 * 3600.0), "Sonnenaufgang wird heller")
@@ -100,11 +101,54 @@ func test_day_night() -> void:
 	check(gd.rainbow_strength_at(367.0) == 1.0 and gd.rainbow_strength_at(373.0) == 1.0, "Regenbogen erreicht und hält kurz volle Deckkraft")
 	check(gd.rainbow_strength_at(375.0) == 0.0 and gd.rainbow_strength_at(485.0) == 0.0, "Regenbogen endet nach etwa 15 Sekunden und erscheint nicht bei Sonne")
 	check(gd.rainbow_strength_at(365.0, true) == 0.0, "Regenbogen ist nachts ausgeblendet")
-	check(gs.SAVE_VERSION == 8, "Ambient-Verhalten erfordert keine Spielstand-Migration")
+	check(gs.SAVE_VERSION == 9, "Ambient-Verhalten erfordert keine zusätzliche Migration")
 	check(world_script.weather_tint_at("Regen") != Color.WHITE, "Regen verändert die Lichtfarbe")
 	check(gd.weather_effect_text("Regen").contains("+25%") and gd.weather_growth_rate("Regen") == 1.25, "Regen zeigt seinen Wachstumseffekt klar an")
 	check(gd.weather_effect_text("Bewölkt").contains("−10%") and gd.weather_growth_rate("Bewölkt") == 0.9, "Bewölkung zeigt langsameres Wachstum an")
 	check(gd.weather_growth_rate("Nebel") == 1.0 and gd.weather_growth_rate("Sonnig") == 1.0, "Nebel und Sonne behalten normales Wachstum")
+
+
+func test_day_counter_and_recap() -> void:
+	begin("Tageszähler und Tagesrückblick")
+	var prior_offset: float = gs.time_offset
+	gs.new_game()
+	gs.day_anchor = gs.now()
+	check(gs.day_number() == 1, "neue Farm startet an Tag 1")
+	check(not gs.day_recap_due(), "am ersten Tag steht kein Rückblick an")
+	gs.time_offset += gd.REAL_DAY_SECONDS - 1.0
+	check(gs.day_number() == 1, "kurz vor dem Tageswechsel noch Tag 1")
+	gs.time_offset += 2.0
+	check(gs.day_number() == 2 and gs.day_recap_due(), "nach acht Minuten beginnt Tag 2")
+	gs.bump("harvested", 4)
+	gs.bump("orders", 2)
+	gs.bump("pets", 1)
+	gs.bump("fed", 2)
+	gs.bump("activities", 3)
+	gs.bump("crafted", 5)
+	var recap: Dictionary = gs.take_day_recap()
+	check(int(recap.get("day", 0)) == 2 and int(recap.get("days_elapsed", 0)) == 1, "Rückblick gehört zu Tag 2")
+	check(int(recap.get("harvested", 0)) == 4, "Rückblick zählt Ernten")
+	check(int(recap.get("orders", 0)) == 2, "Rückblick zählt Aufträge")
+	check(int(recap.get("animal_moments", 0)) == 6, "Rückblick zählt Tiermomente")
+	check(int(recap.get("crafted", 0)) == 5, "Rückblick zählt hergestellte Produkte")
+	check(not gs.day_recap_due() and gs.take_day_recap().is_empty(), "Rückblick erscheint nur einmal")
+	gs.time_offset += gd.REAL_DAY_SECONDS
+	gs.bump("harvested", 2)
+	var next_recap: Dictionary = gs.take_day_recap()
+	check(int(next_recap.get("day", 0)) == 3 and int(next_recap.get("harvested", 0)) == 2, "nächster Rückblick zählt nur neue Aktionen")
+	var saved: Dictionary = gs.serialize()
+	check(int(saved.get("version", 0)) == gs.SAVE_VERSION, "Tageszähler wird in der aktuellen Save-Version gespeichert")
+	check(saved.has("day_anchor") and saved.has("last_day_recap") and saved.has("day_stats_snapshot"), "Tagesfelder sind im Spielstand")
+	var saved_anchor: float = gs.day_anchor
+	check(gs.deserialize(saved), "Spielstand mit Tageszähler laden")
+	check(is_equal_approx(gs.day_anchor, saved_anchor) and gs.day_number() == 3 and gs.last_day_recap == 3, "Tag und Anker bleiben beim Laden erhalten")
+	var old_save := {"version": 8, "saved_at": gs.now(), "stats": {"harvested": 9}, "animals": []}
+	var migrated: Dictionary = ss.migrate(old_save)
+	check(int(migrated.get("version", 0)) == 9 and int(migrated.get("day_stats_snapshot", {}).get("harvested", 0)) == 9, "alter Stand startet mit aktuellem Statistik-Schnappschuss")
+	check(gs.deserialize(migrated), "migrierten alten Stand laden")
+	check(gs.take_day_recap().is_empty(), "alter Stand zeigt nicht die gesamte Historie als Tagesrückblick")
+	gs.time_offset = prior_offset
+	gs.new_game()
 
 
 func test_weather_growth() -> void:
@@ -489,7 +533,7 @@ func test_cafe() -> void:
 	var v5_save: Dictionary = gs.serialize()
 	v5_save["version"] = 5
 	var migrated_v5: Dictionary = ss.migrate(v5_save)
-	check(int(migrated_v5["version"]) == 8 and migrated_v5.has("daily_cafe_special_id"), "Version 5 wird auf Tagesgericht-, Wetter- und Eventschema migriert")
+	check(int(migrated_v5["version"]) == 9 and migrated_v5.has("daily_cafe_special_id"), "Version 5 wird auf Tagesgericht-, Wetter- und Eventschema migriert")
 	check(int(migrated_v5["stats"].get("cafe_special_orders", -1)) == int(gs.stats.get("cafe_special_orders", 0)), "Café-Tagesgericht-Statistik wird migriert")
 	var old_cafe_save: Dictionary = gs.serialize()
 	old_cafe_save["version"] = 5
@@ -498,9 +542,9 @@ func test_cafe() -> void:
 	check(int(migrated_old_cafe["stats"]["cafe_orders"]) == int(gs.stats.get("cafe_orders", 0)), "Café-Altstatistik bleibt erhalten")
 	check(int(migrated_old_cafe["stats"]["cafe_special_orders"]) == 0, "Tagesgericht-Statistik startet bei alten Ständen bei null")
 	var v6_migrated: Dictionary = ss.migrate({"version": 6, "settings": {"sound": false}, "animals": []})
-	check(int(v6_migrated["version"]) == 8 and bool(v6_migrated["settings"]["sound"]) == false, "Version 6 wird ohne Verlust vorhandener Einstellungen migriert")
+	check(int(v6_migrated["version"]) == 9 and bool(v6_migrated["settings"]["sound"]) == false, "Version 6 wird ohne Verlust vorhandener Einstellungen migriert")
 	var v7_migrated: Dictionary = ss.migrate({"version": 7, "settings": {"music": false}, "animals": []})
-	check(int(v7_migrated["version"]) == 8 and v7_migrated["neighborhood_event_order"].is_empty(), "Version 7 erhält leere Event-Migration")
+	check(int(v7_migrated["version"]) == 9 and v7_migrated["neighborhood_event_order"].is_empty(), "Version 7 erhält leere Event-Migration")
 
 
 func test_neighborhood_event() -> void:
@@ -553,7 +597,7 @@ func test_neighborhood_event() -> void:
 	check(gs.deserialize(saved), "Eventfortschritt und Abschluss speichern/laden")
 	check(gs.neighborhood_event_completed_cycle == event_cycle and int(gs.stats.get("neighborhood_events_completed", 0)) == 1, "Abgeschlossener Event-Zyklus bleibt gespeichert")
 	var v7_event_migration: Dictionary = ss.migrate({"version": 7, "settings": {"music": false}, "animals": []})
-	check(int(v7_event_migration["version"]) == 8 and v7_event_migration["neighborhood_event_order"].is_empty(), "Version 7 erhält leere Event-Migration")
+	check(int(v7_event_migration["version"]) == 9 and v7_event_migration["neighborhood_event_order"].is_empty(), "Version 7 erhält leere Event-Migration")
 	var order_save: Dictionary = saved.duplicate(true)
 	order_save["neighborhood_event_completed_cycle"] = -1
 	order_save["neighborhood_event_stage"] = 1
@@ -628,7 +672,7 @@ func test_achievements() -> void:
 	check(gs.deserialize(encoded), "Erfolgs-Status laden")
 	check(gs.claimed_achievements.has("orders_2") and not gs.claim_achievement("orders_2"), "abgeholte Erfolge bleiben dauerhaft gespeichert")
 	check(gs.claimed_achievements.size() == 1, "unbekannte Erfolgs-IDs werden nicht gespeichert")
-	check(gs.SAVE_VERSION == 8, "Gartentage verwenden Save-Version 8")
+	check(gs.SAVE_VERSION == 9, "Gartentage und Tageszähler verwenden Save-Version 9")
 	var cafe_orders_achievement: Dictionary = {}
 	for achievement in gd.ACHIEVEMENTS:
 		if str(achievement["id"]) == "cafe_orders_10":
@@ -758,7 +802,7 @@ func test_animal_extensions() -> void:
 	check(gs.equipped_cosmetics_of(animal).has("flower"), "Accessoire wird getragen")
 	check(not gs.set_animal_cosmetic(rescued, "unknown", true), "unbekanntes Accessoire ablehnen")
 	var encoded: Dictionary = gs.serialize()
-	check(int(encoded.version) == 8 and encoded.animals[0].has("traits") and encoded.animals[0].has("accessories"), "neue Profildaten werden in Save-Version 8 gespeichert")
+	check(int(encoded.version) == 9 and encoded.animals[0].has("traits") and encoded.animals[0].has("accessories"), "neue Profildaten werden in Save-Version 9 gespeichert")
 	gs.new_game()
 	check(gs.deserialize(encoded), "erweiterte Tierdaten laden")
 	var restored: Dictionary = gs.get_animal(rescued)
@@ -894,7 +938,7 @@ func test_save_roundtrip() -> void:
 	check(uid > 0 and gs.get_object(uid).uid != bak, "neue UIDs kollidieren nicht")
 	var d: Dictionary = gs.serialize()
 	check(int(d.version) == gs.SAVE_VERSION, "Version im Spielstand")
-	check(gs.SAVE_VERSION == 8, "Gartentage verwenden Save-Version 8")
+	check(gs.SAVE_VERSION == 9, "Gartentage und Tageszähler verwenden Save-Version 9")
 
 
 func test_offline_progress() -> void:
@@ -951,12 +995,12 @@ func test_corrupt_and_migration() -> void:
 	check(gs.fields[Vector2i(8, 11)].crop == "", "unbekannte Pflanze verworfen")
 	check(gs.tutorial_step == 99, "Tutorial bei Altstand übersprungen")
 	var v1_migrated: Dictionary = ss.migrate({"version": 1, "animals": []})
-	check(int(v1_migrated.version) == 8, "Version 1 migriert schrittweise auf Version 8")
+	check(int(v1_migrated.version) == 9, "Version 1 migriert schrittweise auf Version 9")
 	check(v1_migrated.stats.get("cafe_orders", -1) == 0, "Café-Fortschritt alter Spielstände startet bei null")
 	var v2_migrated: Dictionary = ss.migrate({"version": 2, "animals": []})
-	check(int(v2_migrated.version) == 8 and v2_migrated.diary.is_empty() and v2_migrated.claimed_achievements.is_empty(), "Version 2 erhält Story-, Erfolgs-, Café-, Wetter- und Event-Migration")
+	check(int(v2_migrated.version) == 9 and v2_migrated.diary.is_empty() and v2_migrated.claimed_achievements.is_empty(), "Version 2 erhält Story-, Erfolgs-, Café-, Wetter-, Event- und Tages-Migration")
 	var v3_migrated: Dictionary = ss.migrate({"version": 3, "animals": []})
-	check(int(v3_migrated.version) == 8 and v3_migrated.claimed_achievements.is_empty(), "Version 3 erhält leere Erfolgs-, Café-, Wetter- und Event-Historie")
+	check(int(v3_migrated.version) == 9 and v3_migrated.claimed_achievements.is_empty(), "Version 3 erhält leere Erfolgs-, Café-, Wetter-, Event- und Tages-Historie")
 	var legacy_animal := {"uid": 10, "species": "rabbit", "name": "Alt-Tier", "hunger": 60, "happy": 55, "last": gs.now(), "paddock": 1}
 	var migrated: Dictionary = ss.migrate({"version": 1, "animals": [legacy_animal]})
 	check(legacy_animal.has("traits") and legacy_animal.has("accessories") and legacy_animal.has("activity_at"), "Tierfelder aus altem Spielstand ergänzt")

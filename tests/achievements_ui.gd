@@ -85,6 +85,34 @@ func run() -> void:
 	await frames()
 	check(not contains_label(ui.content, "Mandeln"), "Mandeln erscheinen nicht mehr unter Land")
 	ui.close_sheet()
+	# Tageszähler und Rückblick auf Ernten, Aufträge und Tiermomente.
+	gs.new_game()
+	var data: Node = root.get_node("GameData")
+	gs.day_anchor = gs.now() - float(data.REAL_DAY_SECONDS)
+	gs.bump("harvested", 3)
+	gs.bump("orders", 1)
+	gs.bump("pets", 2)
+	ui._show_welcome_back()
+	await frames()
+	if check(ui._modal != null and ui._modal.visible, "Tagesrückblick öffnet sich"):
+		check(contains_label(ui._modal, "Tag 2 · Rückblick"), "Rückblick nennt den neuen Tag")
+		check(contains_label(ui._modal, "Ernten: 3"), "Rückblick zählt Ernten")
+		check(contains_label(ui._modal, "Erfüllte Aufträge: 1"), "Rückblick zählt Aufträge")
+		check(contains_label(ui._modal, "Tiermomente: 2"), "Rückblick zählt Tiermomente")
+		ui._close_modal()
+		await frames()
+	ui._process(0.3)
+	check(ui._day_label.text.begins_with("Tag 2"), "HUD zeigt den Tageszähler")
+	# Der Tageswechsel im laufenden Spiel öffnet den Rückblick von selbst.
+	gs.day_anchor -= float(data.REAL_DAY_SECONDS)
+	gs.bump("harvested", 2)
+	ui._process(0.3)
+	await frames()
+	if check(ui._modal != null and ui._modal.visible, "Tageswechsel öffnet den Rückblick automatisch"):
+		check(contains_label(ui._modal, "Tag 3 · Rückblick"), "automatischer Rückblick nennt Tag 3")
+		check(contains_label(ui._modal, "Ernten: 2"), "automatischer Rückblick zählt nur den neuen Tag")
+		ui._close_modal()
+		await frames()
 	gs.level = 10
 	gs.add_diary_entry("Testeintrag aus einer Rettung", 1)
 

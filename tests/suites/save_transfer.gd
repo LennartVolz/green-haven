@@ -34,10 +34,14 @@ func test_v8_fixture_roundtrip() -> void:
 	_tests.check(typeof(fixture) == TYPE_DICTIONARY, "v8-Fixture ist gültiges JSON")
 	if typeof(fixture) != TYPE_DICTIONARY:
 		return
-	var expected_fixture: Dictionary = fixture
+	var expected_fixture: Dictionary = SaveSystem.migrate(fixture.duplicate(true))
 	var prior_offset: float = GameState.time_offset
 	GameState.time_offset = float(fixture.get("saved_at", 0.0)) - Time.get_unix_time_from_system()
 	_tests.check(GameState.deserialize(fixture), "aktueller v8-Spielstand wird aus Fixture geladen")
+	# Die Fixture enthält keinen echten Speicherzeitpunkt. Der Tagesanker wird
+	# deshalb beim Laden auf "jetzt" gesetzt und ist nicht reproduzierbar.
+	if float(fixture.get("saved_at", 0.0)) <= 0.0:
+		expected_fixture["day_anchor"] = GameState.day_anchor
 	if GameState.loaded:
 		var roundtrip := GameState.serialize()
 		var expected: Dictionary = expected_fixture.duplicate(true)

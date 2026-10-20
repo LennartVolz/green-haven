@@ -14,6 +14,9 @@ const START_LAND := Rect2i(8, 11, 8, 8)
 const TILL_COST := 10
 const START_COINS := 120
 
+## Ein Spieltag dauert 8 Minuten echter Zeit (passend zum Tag-Nacht-Zyklus).
+const REAL_DAY_SECONDS := 8.0 * 60.0
+
 ## Gemeinsamer Wetterzyklus für Anzeige und Erntezeit: Sonne, Wolken, Regen, Nebel.
 const WEATHER_DURATION_SECONDS := 120.0
 const WEATHER_TYPES := ["Sonnig", "Bewölkt", "Regen", "Nebel"]

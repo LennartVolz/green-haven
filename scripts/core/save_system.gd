@@ -352,6 +352,16 @@ func migrate(data: Dictionary) -> Dictionary:
 		data["neighborhood_event_order"] = {}
 		data["neighborhood_event_completed_cycle"] = -1
 		data["version"] = 8
+		v = 8
+	if v < 9:
+		# Tageszähler und Rückblick starten mit dem Speicherzeitpunkt; der erste
+		# Rückblick zählt nur Aktionen nach dem Laden, nicht die gesamte Historie.
+		var day_snapshot_value: Variant = data.get("stats", {})
+		var day_snapshot: Dictionary = day_snapshot_value if typeof(day_snapshot_value) == TYPE_DICTIONARY else {}
+		data["day_anchor"] = float(data.get("saved_at", 0.0))
+		data["last_day_recap"] = 1
+		data["day_stats_snapshot"] = day_snapshot.duplicate(true)
+		data["version"] = 9
 	return data
 
 

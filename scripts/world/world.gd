@@ -18,7 +18,6 @@ const MAX_ZOOM := 1.5
 const DRAG_THRESHOLD := 16.0
 const PLACE_FINGER_OFFSET := 96.0
 const DAY_LENGTH_SECONDS := 24.0 * 60.0 * 60.0
-const REAL_DAY_LENGTH_SECONDS := 8.0 * 60.0
 
 
 ## Wird von der UI gesetzt: gibt true zurück, wenn ein Bildschirmpunkt auf UI liegt.
@@ -213,12 +212,21 @@ static func is_night_at(seconds: float) -> bool:
 	return hour >= 18.0 or hour < 6.0
 
 
-static func clock_text_at(seconds: float) -> String:
+static func time_text_at(seconds: float) -> String:
 	var total_minutes := int(floor(fposmod(seconds, DAY_LENGTH_SECONDS) / 60.0))
 	var hour := floori(float(total_minutes) / 60.0)
 	var minute := total_minutes % 60
+	return "%02d:%02d" % [hour, minute]
+
+
+static func clock_text_at(seconds: float) -> String:
+	var hour := floori(fposmod(seconds, DAY_LENGTH_SECONDS) / 3600.0)
 	var period := "Tag" if hour >= 6 and hour < 18 else "Nacht"
-	return "%02d:%02d · %s" % [hour, minute, period]
+	return "%s · %s" % [time_text_at(seconds), period]
+
+
+func day_time_text() -> String:
+	return time_text_at(day_time_seconds)
 
 
 func day_clock_text() -> String:
@@ -299,7 +307,7 @@ func zoom_at(screen_pos: Vector2, factor: float) -> void:
 
 
 func _process(delta: float) -> void:
-	day_time_seconds = fposmod(day_time_seconds + delta * DAY_LENGTH_SECONDS / REAL_DAY_LENGTH_SECONDS, DAY_LENGTH_SECONDS)
+	day_time_seconds = fposmod(day_time_seconds + delta * DAY_LENGTH_SECONDS / GameData.REAL_DAY_SECONDS, DAY_LENGTH_SECONDS)
 	_ambient_accumulator += delta
 	if _ambient_accumulator >= 0.25:
 		_ambient_accumulator = 0.0

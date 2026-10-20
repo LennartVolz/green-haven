@@ -628,9 +628,36 @@ func ready_count(o: Dictionary) -> int:
 	return n
 
 
+## Alle fertigen Produkte über alle Gebäude (für Navigation und Übersicht).
+func total_ready_products() -> int:
+	var n := 0
+	for o in objects:
+		if o.kind == "production":
+			n += ready_count(o)
+	return n
+
+
+## Noch laufende oder wartende Produktionen über alle Gebäude.
+func active_product_count() -> int:
+	var n := 0
+	for o in objects:
+		if o.kind == "production":
+			n += maxi(0, (o.queue as Array).size() - ready_count(o))
+	return n
+
+
+## Alle Produktionsgebäude in Bau-Reihenfolge für die Übersicht.
+func production_buildings() -> Array:
+	var out: Array = []
+	for o in objects:
+		if o.kind == "production":
+			out.append(o)
+	return out
+
+
 ## Holt alle fertigen Produkte ab. Die Warteschlange läuft sequenziell, daher
 ## bilden fertige Einträge immer ein Präfix.
-func collect_ready(uid: int) -> Array:
+func collect_ready(uid: int, with_sound: bool = true) -> Array:
 	var o := get_object(uid)
 	var got: Array = []
 	if o.is_empty():
@@ -646,9 +673,29 @@ func collect_ready(uid: int) -> Array:
 	if not got.is_empty():
 		world_changed.emit()
 		fx.emit("collect", cell_center(o.cell) + Vector2(GameData.TILE, 0), "+%d" % got.size())
-		sound.emit("harvest")
+		if with_sound:
+			sound.emit("harvest")
 		event("collected", {"uid": uid, "items": got})
 	return got
+
+
+## Sammelabholung: holt aus allen Gebäuden ab und meldet Anzahl, Sorten und
+## beteiligte Gebäude für Hinweis und Tests.
+func collect_all_ready() -> Dictionary:
+	var items: Dictionary = {}
+	var count := 0
+	var buildings := 0
+	for o in production_buildings():
+		var got := collect_ready(int(o.uid), false)
+		if got.is_empty():
+			continue
+		buildings += 1
+		for rid in got:
+			items[rid] = int(items.get(rid, 0)) + 1
+			count += 1
+	if count > 0:
+		sound.emit("harvest")
+	return {"count": count, "items": items, "buildings": buildings}
 
 
 # -------------------------------------------------------------- Aufträge

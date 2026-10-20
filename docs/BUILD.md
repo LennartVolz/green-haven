@@ -75,9 +75,10 @@ Café, Nachbarschaftsgeschichten, Erfolge, Speicherstand, Offline-Fortschritt, M
 godot --headless --path . -s res://tests/run_tests.gd
 godot --headless --path . -s res://tests/achievements_ui.gd   # UI-Test (Menüs, Tagebuch, Erfolge)
 godot --headless --path . -s res://tests/save_transfer_ui.gd # UI-Test (Spielstand-Export/Import)
+godot --headless --path . -s res://tests/production_overview_ui.gd # UI-Test (Produktions-Dashboard)
 ```
 
-Exit-Code 0 bedeutet: alle Prüfungen bestanden. Alle drei Läufe sind auch in der CI eingebunden.
+Exit-Code 0 bedeutet: alle Prüfungen bestanden. Alle vier Läufe sind auch in der CI eingebunden.
 
 `tests/screenshots.gd` ist kein Test, sondern ein Hilfsskript für die visuelle Prüfung: Es spielt eine Szenenfolge durch
 und speichert Screenshots. Es braucht ein Display (z. B. `xvfb`) und läuft nicht in der CI:

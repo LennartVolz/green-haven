@@ -13,6 +13,7 @@ geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfa
 - 19 Pflanzen mit mehreren Wachstumsstufen, stufenbasierter Progression und Freischaltsystem
 - Weitere Pflanzen: Kürbis, Rote Bete, Salat, Gurke, Erbsen, mehrjährige Heidelbeeren, Reis, Quinoa und mehrjähriger Kaffee (für das Café)
 - 6 Produktionsgebäude (inkl. Gartencafé), 26 Rezepte, Warteschlangen, Ausbaustufen und Abholfunktion
+- Produktions-Dashboard: alle Gebäude mit Warteschlange, Restzeiten und abholbaren Produkten auf einen Blick, Sammelabholung und Badge in der Navigation
 - Kundenaufträge, Münzen, Erfahrungspunkte, Quests, Shop, Dekoration und Landerweiterung
 - Tierrefugium mit 5 Tierarten, eigenen Charakterzügen, optionalen artspezifischen Aktivitäten, wählbaren kosmetischen Belohnungen und Rettungsangeboten ohne Druck
 - Refugium-Tagebuch für Rettungen und gemeinsame Momente, Freundschaftsstufen mit animierten Reaktionen und Profilgeschichten
@@ -33,6 +34,7 @@ geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfa
 godot --headless --path . -s res://tests/run_tests.gd        # Logiktests
 godot --headless --path . -s res://tests/achievements_ui.gd  # UI-Tests (Menüs, Tagebuch, Erfolge)
 godot --headless --path . -s res://tests/save_transfer_ui.gd # UI-Test Spielstand-Export/Import
+godot --headless --path . -s res://tests/production_overview_ui.gd # UI-Test Produktions-Dashboard
 godot --path .                                               # Spiel auf dem Desktop starten
 ```
 

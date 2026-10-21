@@ -44,6 +44,8 @@ func _initialize() -> void:
 	test_day_night()
 	test_day_counter_and_recap()
 	test_seasons()
+	test_season_goals()
+	test_hofbuch()
 	test_weather_growth()
 	test_farming()
 	test_inventory()
@@ -88,7 +90,7 @@ func _initialize() -> void:
 
 func test_day_night() -> void:
 	begin("Tag-Nacht-Zyklus")
-	check(gs.SAVE_VERSION == 9, "Save-Version 9 enthält den Tageszähler")
+	check(gs.SAVE_VERSION == 10, "Save-Version 10 enthält den Tageszähler")
 	check(world_script.daylight_at(0.0) < 0.01, "Mitternacht ist dunkel")
 	check(world_script.daylight_at(12.0 * 3600.0) > 0.99, "Mittag ist hell")
 	check(world_script.daylight_at(6.0 * 3600.0) < world_script.daylight_at(9.0 * 3600.0), "Sonnenaufgang wird heller")
@@ -109,7 +111,7 @@ func test_day_night() -> void:
 	check(gd.rainbow_strength_at(367.0) == 1.0 and gd.rainbow_strength_at(373.0) == 1.0, "Regenbogen erreicht und hält kurz volle Deckkraft")
 	check(gd.rainbow_strength_at(375.0) == 0.0 and gd.rainbow_strength_at(485.0) == 0.0, "Regenbogen endet nach etwa 15 Sekunden und erscheint nicht bei Sonne")
 	check(gd.rainbow_strength_at(365.0, true) == 0.0, "Regenbogen ist nachts ausgeblendet")
-	check(gs.SAVE_VERSION == 9, "Ambient-Verhalten erfordert keine zusätzliche Migration")
+	check(gs.SAVE_VERSION == 10, "Ambient-Verhalten erfordert keine zusätzliche Migration")
 	check(world_script.weather_tint_at("Regen") != Color.WHITE, "Regen verändert die Lichtfarbe")
 	check(gd.weather_effect_text("Regen").contains("+25%") and gd.weather_growth_rate("Regen") == 1.25, "Regen zeigt seinen Wachstumseffekt klar an")
 	check(gd.weather_effect_text("Bewölkt").contains("−10%") and gd.weather_growth_rate("Bewölkt") == 0.9, "Bewölkung zeigt langsameres Wachstum an")
@@ -152,7 +154,7 @@ func test_day_counter_and_recap() -> void:
 	check(is_equal_approx(gs.day_anchor, saved_anchor) and gs.day_number() == 3 and gs.last_day_recap == 3, "Tag und Anker bleiben beim Laden erhalten")
 	var old_save := {"version": 8, "saved_at": gs.now(), "stats": {"harvested": 9}, "animals": []}
 	var migrated: Dictionary = ss.migrate(old_save)
-	check(int(migrated.get("version", 0)) == 9 and int(migrated.get("day_stats_snapshot", {}).get("harvested", 0)) == 9, "alter Stand startet mit aktuellem Statistik-Schnappschuss")
+	check(int(migrated.get("version", 0)) == 10 and int(migrated.get("day_stats_snapshot", {}).get("harvested", 0)) == 9, "alter Stand startet mit aktuellem Statistik-Schnappschuss")
 	check(gs.deserialize(migrated), "migrierten alten Stand laden")
 	check(gs.take_day_recap().is_empty(), "alter Stand zeigt nicht die gesamte Historie als Tagesrückblick")
 	gs.time_offset = prior_offset
@@ -206,6 +208,171 @@ func test_seasons() -> void:
 	gs.time_offset += gd.real_seconds_for_crop_growth(gs.now(), float(gd.CROPS["wheat"]["grow"])) + 0.01
 	check(gs.harvest(cell), "Weizen im Frühling ernten")
 	check(gs.item_count("wheat") == int(gd.CROPS["wheat"]["yield"]), "ohne Saison kein Extra-Ertrag")
+	gs.new_game()
+
+
+func test_season_goals() -> void:
+	begin("Saisonziele")
+	check(gd.SEASON_GOALS.size() == 12, "zwölf Saisonziele")
+	check(gd.SEASON_REWARD_DECOS.size() == 4, "vier Saisonbelohnungen")
+	var seen := {}
+	for season in gd.SEASONS:
+		var goals: Array = gs.season_goals_for(str(season["id"]))
+		check(goals.size() == 3, "%s hat drei Saisonziele" % season["name"])
+		for goal in goals:
+			check(str(goal["season"]) == str(season["id"]), "Ziel %s gehört zu %s" % [goal["id"], season["name"]])
+			check(not (goal["keys"] as Array).is_empty() and int(goal["target"]) > 0, "Ziel %s hat Zähler und Zielwert" % goal["id"])
+			check(not seen.has(str(goal["id"])), "Saisonziel-ID %s ist eindeutig" % goal["id"])
+			seen[str(goal["id"])] = true
+		check(gd.SEASON_REWARD_DECOS.has(str(season["id"])), "%s hat eine Belohnungsdeko" % season["name"])
+	for season_id in gd.SEASON_REWARD_DECOS:
+		var deco_id := str(gd.SEASON_REWARD_DECOS[season_id])
+		check(gd.DECOS.has(deco_id), "Belohnungsdeko %s existiert" % deco_id)
+		if gd.DECOS.has(deco_id):
+			check(int(gd.DECOS[deco_id]["cost"]) == 0, "%s ist kostenlos" % deco_id)
+			check(str(gd.DECOS[deco_id].get("unlock", "")) == "season:" + str(season_id), "%s ist an die Jahreszeit gebunden" % deco_id)
+	check(gd.DECOS.has(gd.SEASON_YEAR_DECO) and str(gd.DECOS[gd.SEASON_YEAR_DECO].get("unlock", "")) == "season:year", "Jahreskranz gehört allen Saisonzielen")
+	# Jede Belohnungsdeko verweist auf eine existierende Freischaltung.
+	var unlock_keys := {}
+	for season in gd.SEASONS:
+		unlock_keys["season:" + str(season["id"])] = true
+	unlock_keys["season:year"] = true
+	for entry in gd.HOFBUCH:
+		unlock_keys["hofbuch:" + str(entry["id"])] = true
+	for deco_id in gd.DECOS:
+		var deco: Dictionary = gd.DECOS[deco_id]
+		if not deco.has("unlock"):
+			continue
+		check(int(deco["cost"]) == 0, "Belohnungsdeko %s kostet nichts" % deco_id)
+		check(unlock_keys.has(str(deco["unlock"])), "Freischaltung von %s verweist auf ein Ziel" % deco_id)
+	# Fortschritt zählt nur innerhalb der laufenden Jahreszeit.
+	gs.new_game()
+	var strawberry: Dictionary = {}
+	for goal in gs.season_goals():
+		if str(goal["id"]) == "spring_strawberries":
+			strawberry = goal
+	check(gs.season_goals().size() == 3 and not strawberry.is_empty(), "Frühling zeigt Erdbeeren, Säen und Sammeln")
+	check(gs.season_goal_progress(strawberry) == 0 and not gs.season_goal_done(strawberry), "Saisonziel startet bei null")
+	gs.bump("harvested:strawberry", 11)
+	check(gs.season_goal_progress(strawberry) == 11, "Fortschritt zählt die Ernten der Sorte")
+	gs.bump("harvested:tomato", 20)
+	check(gs.season_goal_progress(strawberry) == 11, "andere Sorten zählen nicht mit")
+	gs.bump("harvested:strawberry", 1)
+	check(gs.season_goal_done(strawberry) and gs.claimable_season_goals() == 1, "zwölf Erdbeeren erfüllen das Ziel")
+	var coins_before: int = gs.coins
+	check(gs.claim_season_goal("spring_strawberries"), "Saisonziel abholen")
+	check(gs.coins == coins_before, "Saisonziel gibt keine Münzen")
+	check(not gs.claim_season_goal("spring_strawberries"), "Belohnung nur einmal pro Jahr")
+	check(gs.claimable_season_goals() == 0, "abgeholtes Ziel wird nicht mehr gezählt")
+	check(not gs.claim_season_goal("summer_tomatoes"), "Ziel einer anderen Jahreszeit ist nicht abholbar")
+	# Alle drei Ziele einer Jahreszeit schalten die Deko frei.
+	gs.bump("planted", 20)
+	gs.bump("foraged", 6)
+	check(gs.claim_season_goal("spring_sowing"), "zweites Frühlingsziel abholen")
+	check(gs.claim_season_goal("spring_forage"), "drittes Frühlingsziel abholen")
+	check(gs.unlocked_decos.has("season_arch") and gs.deco_unlocked("season_arch"), "alle drei Ziele schalten den Blütenbogen frei")
+	check(not gs.deco_unlocked("season_bench"), "Deko einer anderen Jahreszeit bleibt zu")
+	var free_cell := Vector2i(9, 12)
+	check(gs.place_object("season_bench", free_cell) < 0, "nicht freigeschaltete Deko lässt sich nicht platzieren")
+	coins_before = gs.coins
+	check(gs.place_object("season_arch", free_cell) > 0 and gs.coins == coins_before, "freigeschaltete Deko ist kostenlos platzierbar")
+	# Saisonwechsel setzt den Schnappschuss zurück.
+	gs.time_offset += float(gd.REAL_DAY_SECONDS) * 6.0
+	gs._sync_season()
+	check(gs.season_name() == "Sommer" and gs.season_days_left() == 5, "nach sechs Tagen beginnt der Sommer")
+	check(gs.season_goal_progress(strawberry) == 0, "Fortschritt der alten Saison wird nicht mitgenommen")
+	check(gs.season_goals().size() == 3 and str(gs.season_goals()[0]["season"]) == "summer", "Sommer zeigt seine eigenen Ziele")
+	# Alle zwölf Ziele eines Jahres schalten den Jahreskranz frei.
+	var year: int = int(gs.season_year())
+	for index in range(gd.SEASONS.size()):
+		for goal in gs.season_goals_for(str(gd.SEASONS[index]["id"])):
+			var key := "season:%d:%s" % [year * gd.SEASONS.size() + index, str(goal["id"])]
+			if not gs.claimed_quests.has(key):
+				gs.claimed_quests.append(key)
+	gs._check_season_rewards()
+	check(gs.unlocked_decos.has(gd.SEASON_YEAR_DECO), "alle zwölf Ziele eines Jahres schalten den Jahreskranz frei")
+	check(gs.diary.any(func(entry: Dictionary) -> bool: return String(entry["text"]).contains("Jahreskranz")), "Jahreskranz wird im Tagebuch erzählt")
+	# Speichern, Laden und Verwerfen unbekannter Schlüssel.
+	var saved: Dictionary = gs.serialize()
+	check(saved.has("season_stats_snapshot") and saved.has("seasons_seen") and saved.has("unlocked_decos") and saved.has("hofbuch_claimed"), "Saisonfelder stehen im Spielstand")
+	gs.new_game()
+	check(gs.deserialize(saved), "Saisonstand laden")
+	check(gs.season_snapshot_epoch == gs.season_epoch(), "Saison-Schnappschuss bleibt in derselben Saison erhalten")
+	check(gs.unlocked_decos.has("season_arch") and gs.unlocked_decos.has(gd.SEASON_YEAR_DECO), "Freischaltungen bleiben gespeichert")
+	check(gs.seasons_seen.has("spring") and gs.seasons_seen.has("summer"), "erlebte Jahreszeiten bleiben gespeichert")
+	check(gs.claimed_quests.has("season:0:spring_strawberries"), "saisonale Abholung bleibt gespeichert")
+	var tampered: Dictionary = saved.duplicate(true)
+	tampered["claimed_quests"] = ["season:0:spring_strawberries", "season:0:ghost", "q_plant5", "season:x:spring_sowing", "season:0:spring_sowing"]
+	check(gs.deserialize(tampered), "Spielstand mit saisonalen Schlüsseln laden")
+	check(gs.claimed_quests.has("season:0:spring_strawberries") and gs.claimed_quests.has("season:0:spring_sowing") and gs.claimed_quests.has("q_plant5"), "gültige saisonale Schlüssel bleiben")
+	check(not gs.claimed_quests.has("season:0:ghost") and not gs.claimed_quests.has("season:x:spring_sowing"), "unbekannte saisonale Schlüssel werden verworfen")
+	# Migration 9 → 10 startet ohne rückwirkenden Fortschritt.
+	var v9 := {"version": 9, "saved_at": gs.now(), "stats": {"harvested": 42}, "animals": []}
+	var migrated: Dictionary = ss.migrate(v9)
+	check(int(migrated.get("version", 0)) == 10, "Version 9 migriert auf Version 10")
+	check(int(migrated.get("season_stats_snapshot", {}).get("harvested", 0)) == 42, "Saison-Schnappschuss startet bei den aktuellen Zählern")
+	check((migrated.get("seasons_seen", []) as Array).size() == 1 and (migrated.get("seasons_seen", []) as Array).has("spring"), "migrierter Stand kennt die laufende Jahreszeit")
+	check((migrated.get("unlocked_decos", null) as Array).is_empty() and (migrated.get("hofbuch_claimed", null) as Array).is_empty(), "Freischaltungen starten leer")
+	check(gs.deserialize(migrated), "migrierten Saisonstand laden")
+	check(gs.season_goal_progress(strawberry) == 0, "alter Stand holt keine Saisonbelohnung rückwirkend")
+	gs.new_game()
+
+
+func test_hofbuch() -> void:
+	begin("Hofbuch")
+	check(gd.HOFBUCH.size() == 8, "acht Hofbuch-Auszeichnungen")
+	var entries := {}
+	for entry in gd.HOFBUCH:
+		entries[str(entry["id"])] = entry
+		check(not str(entry["description"]).is_empty(), "%s erklärt sich" % entry["id"])
+		check(not str(entry.get("story", "")).is_empty(), "%s erzählt eine Geschichte" % entry["id"])
+		var deco := str(entry.get("deco", ""))
+		check(gd.DECOS.has(deco) and str(gd.DECOS[deco].get("unlock", "")) == "hofbuch:" + str(entry["id"]), "%s schaltet seine Deko frei" % entry["id"])
+	check(int(entries["pantry"]["target"]) == gd.RECIPES.size(), "Speisekammer zählt alle Rezepte")
+	check(int(entries["green_hands"]["target"]) == gd.CROPS.size(), "Grüne Hände zählt alle Pflanzen")
+	check(int(entries["home_for_all"]["target"]) == 4 * int(gd.BUILDINGS["paddock"]["capacity"]), "Zuhause für alle zählt alle Gehegeplätze")
+	gs.new_game()
+	check(gs.hofbuch_progress(entries["year_round"]) == 1, "neue Farm hat die laufende Jahreszeit erlebt")
+	check(gs.hofbuch_progress(entries["season_child"]) == 0, "Saisonkind startet ohne erfüllte Ziele")
+	check(not gs.claim_hofbuch("season_child"), "unfertige Auszeichnung ist nicht abholbar")
+	for recipe_id in gd.RECIPES:
+		gs.bump("crafted_" + str(recipe_id))
+	check(gs.hofbuch_unlocked(entries["pantry"]), "alle Rezepte schalten die Speisekammer frei")
+	for crop_id in gd.CROPS:
+		gs.bump("harvested:" + str(crop_id))
+	check(gs.hofbuch_unlocked(entries["green_hands"]), "alle Pflanzen schalten grüne Hände frei")
+	for story_id in gd.DELIVERY_STORIES:
+		gs.bump("story_completed:" + str(story_id))
+	check(gs.hofbuch_unlocked(entries["neighbors"]), "alle Liefergeschichten schalten das Gartentor frei")
+	gs.bump("cafe_stories_shared", 25)
+	check(gs.hofbuch_unlocked(entries["cafe_table"]), "25 Café-Geschichten schalten den Stammtisch frei")
+	for species in gd.ANIMALS:
+		gs.animals.append({"uid": 900 + gs.animals.size(), "species": species, "name": "Test", "hearts": 40})
+	check(gs.hofbuch_unlocked(entries["refuge_stories"]), "alle fünf Tierarten mit 40 Herzen")
+	for index in range(4):
+		gs.objects.append({"uid": 500 + index, "kind": "paddock", "type": "paddock", "cell": Vector2i(8 + index * 4, 11), "queue": [], "upgrades": 0})
+	while gs.animals.size() < 12:
+		gs.animals.append({"uid": 900 + gs.animals.size(), "species": "rabbit", "name": "Test", "hearts": 0})
+	check(gs.hofbuch_unlocked(entries["home_for_all"]), "zwölf belegte Gehegeplätze")
+	var coins_before: int = gs.coins
+	check(gs.claim_hofbuch("pantry"), "ausgezeichnete Speisekammer eintragen")
+	check(gs.coins == coins_before, "Hofbuch zahlt keine Münzen")
+	check(gs.unlocked_decos.has("hofbuch_basket") and gs.deco_unlocked("hofbuch_basket"), "Hofbuch schaltet seine Deko frei")
+	check(not gs.claim_hofbuch("pantry"), "Eintrag gibt es nur einmal")
+	check(String(gs.diary.back().text).begins_with("Hofbuch · Speisekammer"), "Geschichte landet im Tagebuch")
+	check(gs.claimable_hofbuch() >= 4, "offene Einträge werden gezählt")
+	var saved: Dictionary = gs.serialize()
+	gs.new_game()
+	check(gs.deserialize(saved), "Hofbuch laden")
+	check(gs.hofbuch_entry_claimed("pantry") and gs.unlocked_decos.has("hofbuch_basket"), "Eintrag und Deko bleiben gespeichert")
+	var tampered: Dictionary = saved.duplicate(true)
+	tampered["hofbuch_claimed"] = ["pantry", "ghost"]
+	tampered["unlocked_decos"] = ["hofbuch_basket", "season_arch", "ghost", "flowers"]
+	tampered["seasons_seen"] = ["spring", "summer", "ghost"]
+	check(gs.deserialize(tampered), "Hofbuch-Stand mit unbekannten IDs laden")
+	check(gs.hofbuch_claimed.size() == 1 and gs.hofbuch_claimed.has("pantry"), "unbekannte Hofbuch-IDs werden verworfen")
+	check(gs.unlocked_decos.size() == 2 and gs.unlocked_decos.has("hofbuch_basket") and gs.unlocked_decos.has("season_arch"), "nur echte Belohnungsdeko wird gespeichert")
+	check(gs.seasons_seen.size() == 2 and not gs.seasons_seen.has("ghost"), "unbekannte Jahreszeiten werden verworfen")
 	gs.new_game()
 
 
@@ -263,6 +430,7 @@ func test_farming() -> void:
 	check(gs.crop_stage(cell) == 3, "Phase 3 = reif")
 	check(gs.harvest(cell), "ernten")
 	check(gs.item_count("wheat") == 2, "Erntemenge 2")
+	check(int(gs.stats.get("harvested:wheat", 0)) == 1, "Ernten werden zusätzlich pro Sorte gezählt")
 	check(gs.xp == 2, "XP aus Ernte")
 	check(not gs.harvest(cell), "keine doppelte Ernte")
 	check(gs.fields[cell].crop == "", "Feld ist danach frei")
@@ -591,7 +759,7 @@ func test_cafe() -> void:
 	var v5_save: Dictionary = gs.serialize()
 	v5_save["version"] = 5
 	var migrated_v5: Dictionary = ss.migrate(v5_save)
-	check(int(migrated_v5["version"]) == 9 and migrated_v5.has("daily_cafe_special_id"), "Version 5 wird auf Tagesgericht-, Wetter- und Eventschema migriert")
+	check(int(migrated_v5["version"]) == 10 and migrated_v5.has("daily_cafe_special_id"), "Version 5 wird auf Tagesgericht-, Wetter- und Eventschema migriert")
 	check(int(migrated_v5["stats"].get("cafe_special_orders", -1)) == int(gs.stats.get("cafe_special_orders", 0)), "Café-Tagesgericht-Statistik wird migriert")
 	var old_cafe_save: Dictionary = gs.serialize()
 	old_cafe_save["version"] = 5
@@ -600,9 +768,9 @@ func test_cafe() -> void:
 	check(int(migrated_old_cafe["stats"]["cafe_orders"]) == int(gs.stats.get("cafe_orders", 0)), "Café-Altstatistik bleibt erhalten")
 	check(int(migrated_old_cafe["stats"]["cafe_special_orders"]) == 0, "Tagesgericht-Statistik startet bei alten Ständen bei null")
 	var v6_migrated: Dictionary = ss.migrate({"version": 6, "settings": {"sound": false}, "animals": []})
-	check(int(v6_migrated["version"]) == 9 and bool(v6_migrated["settings"]["sound"]) == false, "Version 6 wird ohne Verlust vorhandener Einstellungen migriert")
+	check(int(v6_migrated["version"]) == 10 and bool(v6_migrated["settings"]["sound"]) == false, "Version 6 wird ohne Verlust vorhandener Einstellungen migriert")
 	var v7_migrated: Dictionary = ss.migrate({"version": 7, "settings": {"music": false}, "animals": []})
-	check(int(v7_migrated["version"]) == 9 and v7_migrated["neighborhood_event_order"].is_empty(), "Version 7 erhält leere Event-Migration")
+	check(int(v7_migrated["version"]) == 10 and v7_migrated["neighborhood_event_order"].is_empty(), "Version 7 erhält leere Event-Migration")
 
 
 func test_neighborhood_event() -> void:
@@ -655,7 +823,7 @@ func test_neighborhood_event() -> void:
 	check(gs.deserialize(saved), "Eventfortschritt und Abschluss speichern/laden")
 	check(gs.neighborhood_event_completed_cycle == event_cycle and int(gs.stats.get("neighborhood_events_completed", 0)) == 1, "Abgeschlossener Event-Zyklus bleibt gespeichert")
 	var v7_event_migration: Dictionary = ss.migrate({"version": 7, "settings": {"music": false}, "animals": []})
-	check(int(v7_event_migration["version"]) == 9 and v7_event_migration["neighborhood_event_order"].is_empty(), "Version 7 erhält leere Event-Migration")
+	check(int(v7_event_migration["version"]) == 10 and v7_event_migration["neighborhood_event_order"].is_empty(), "Version 7 erhält leere Event-Migration")
 	var order_save: Dictionary = saved.duplicate(true)
 	order_save["neighborhood_event_completed_cycle"] = -1
 	order_save["neighborhood_event_stage"] = 1
@@ -730,7 +898,7 @@ func test_achievements() -> void:
 	check(gs.deserialize(encoded), "Erfolgs-Status laden")
 	check(gs.claimed_achievements.has("orders_2") and not gs.claim_achievement("orders_2"), "abgeholte Erfolge bleiben dauerhaft gespeichert")
 	check(gs.claimed_achievements.size() == 1, "unbekannte Erfolgs-IDs werden nicht gespeichert")
-	check(gs.SAVE_VERSION == 9, "Gartentage und Tageszähler verwenden Save-Version 9")
+	check(gs.SAVE_VERSION == 10, "Gartentage und Tageszähler verwenden Save-Version 10")
 	var cafe_orders_achievement: Dictionary = {}
 	for achievement in gd.ACHIEVEMENTS:
 		if str(achievement["id"]) == "cafe_orders_10":
@@ -860,7 +1028,7 @@ func test_animal_extensions() -> void:
 	check(gs.equipped_cosmetics_of(animal).has("flower"), "Accessoire wird getragen")
 	check(not gs.set_animal_cosmetic(rescued, "unknown", true), "unbekanntes Accessoire ablehnen")
 	var encoded: Dictionary = gs.serialize()
-	check(int(encoded.version) == 9 and encoded.animals[0].has("traits") and encoded.animals[0].has("accessories"), "neue Profildaten werden in Save-Version 9 gespeichert")
+	check(int(encoded.version) == 10 and encoded.animals[0].has("traits") and encoded.animals[0].has("accessories"), "neue Profildaten werden in Save-Version 10 gespeichert")
 	gs.new_game()
 	check(gs.deserialize(encoded), "erweiterte Tierdaten laden")
 	var restored: Dictionary = gs.get_animal(rescued)
@@ -998,7 +1166,7 @@ func test_save_roundtrip() -> void:
 	check(uid > 0 and gs.get_object(uid).uid != bak, "neue UIDs kollidieren nicht")
 	var d: Dictionary = gs.serialize()
 	check(int(d.version) == gs.SAVE_VERSION, "Version im Spielstand")
-	check(gs.SAVE_VERSION == 9, "Gartentage und Tageszähler verwenden Save-Version 9")
+	check(gs.SAVE_VERSION == 10, "Gartentage und Tageszähler verwenden Save-Version 10")
 
 
 func test_audio_volumes() -> void:
@@ -1072,12 +1240,12 @@ func test_corrupt_and_migration() -> void:
 	check(gs.fields[Vector2i(8, 11)].crop == "", "unbekannte Pflanze verworfen")
 	check(gs.tutorial_step == 99, "Tutorial bei Altstand übersprungen")
 	var v1_migrated: Dictionary = ss.migrate({"version": 1, "animals": []})
-	check(int(v1_migrated.version) == 9, "Version 1 migriert schrittweise auf Version 9")
+	check(int(v1_migrated.version) == 10, "Version 1 migriert schrittweise auf Version 10")
 	check(v1_migrated.stats.get("cafe_orders", -1) == 0, "Café-Fortschritt alter Spielstände startet bei null")
 	var v2_migrated: Dictionary = ss.migrate({"version": 2, "animals": []})
-	check(int(v2_migrated.version) == 9 and v2_migrated.diary.is_empty() and v2_migrated.claimed_achievements.is_empty(), "Version 2 erhält Story-, Erfolgs-, Café-, Wetter-, Event- und Tages-Migration")
+	check(int(v2_migrated.version) == 10 and v2_migrated.diary.is_empty() and v2_migrated.claimed_achievements.is_empty(), "Version 2 erhält Story-, Erfolgs-, Café-, Wetter-, Event- und Tages-Migration")
 	var v3_migrated: Dictionary = ss.migrate({"version": 3, "animals": []})
-	check(int(v3_migrated.version) == 9 and v3_migrated.claimed_achievements.is_empty(), "Version 3 erhält leere Erfolgs-, Café-, Wetter-, Event- und Tages-Historie")
+	check(int(v3_migrated.version) == 10 and v3_migrated.claimed_achievements.is_empty(), "Version 3 erhält leere Erfolgs-, Café-, Wetter-, Event- und Tages-Historie")
 	# Alte Stände kannten nur An/Aus; daraus werden 0 % bzw. 100 % Lautstärke.
 	var legacy_audio: Dictionary = ss.migrate({"version": 8, "settings": {"sound": false, "music": true, "vibration": false}})
 	var legacy_settings: Dictionary = legacy_audio["settings"]

@@ -838,7 +838,7 @@ static func draw_deco(ci: CanvasItem, type: String, t: float) -> void:
 	match type:
 		"bush":
 			bush(ci, Vector2(0, -26), 1.0, true)
-		"flowers":
+		"flowers", "hofbuch_herbs":
 			shadow(ci, Vector2(0, -22), 44, 12)
 			ellipse(ci, Vector2(0, -26), 46, 20, col("#6DAE58"))
 			var cols := ["#F28BB0", "#F6D84A", "#FFFFFF", "#B79AE8", "#F28BB0", "#F6A04A"]
@@ -850,15 +850,15 @@ static func draw_deco(ci: CanvasItem, type: String, t: float) -> void:
 			for i in range(4):
 				ci.draw_line(Vector2(-30.0 + float(i) * 20.0, -64), Vector2(-30.0 + float(i) * 20.0, -20), col("#C79A36"), 3.0)
 			ci.draw_line(Vector2(-46, -42), Vector2(46, -42), col("#B58A2E"), 4.0)
-		"tree":
+		"tree", "hofbuch_tree":
 			tree(ci, Vector2(0, -22), 1.0, t)
-		"bench":
+		"bench", "season_bench", "hofbuch_bench", "hofbuch_table":
 			shadow(ci, Vector2(0, -22), 110, 14)
 			rrect(ci, Rect2(-108, -64, 216, 14), col("#B07A4A"), 5)
 			rrect(ci, Rect2(-108, -92, 216, 22), col("#C28E5B"), 6)
 			rrect(ci, Rect2(-96, -50, 12, 36), col("#8E6240"), 3)
 			rrect(ci, Rect2(84, -50, 12, 36), col("#8E6240"), 3)
-		"lantern":
+		"lantern", "season_lantern":
 			shadow(ci, Vector2(0, -22), 24, 7)
 			rrect(ci, Rect2(-5, -112, 10, 96), col("#4A4A52"), 3)
 			ellipse(ci, Vector2(0, -120), 34, 34, Color(1.0, 0.86, 0.45, 0.25 + 0.06 * sin(t * 2.0)))
@@ -876,6 +876,37 @@ static func draw_deco(ci: CanvasItem, type: String, t: float) -> void:
 			for k in range(-1, 2):
 				ci.draw_line(Vector2(-44.0 + float(k) * 3.0, -84), Vector2(-52.0 + float(k) * 4.0, -74), col("#E2BC52"), 3.0)
 				ci.draw_line(Vector2(44.0 + float(k) * 3.0, -84), Vector2(52.0 + float(k) * 4.0, -74), col("#E2BC52"), 3.0)
+		"season_arch", "hofbuch_gate":
+			shadow(ci, Vector2(0, -16), 150, 16)
+			rrect(ci, Rect2(-106, -154, 20, 138), col("#C28E5B"), 9)
+			rrect(ci, Rect2(86, -154, 20, 138), col("#C28E5B"), 9)
+			rrect(ci, Rect2(-114, -176, 228, 28), col("#C28E5B"), 13)
+			for i in range(7):
+				var blossom := "#F28BB0" if i % 2 == 0 else "#F6D84A"
+				flower_dot(ci, Vector2(-90.0 + float(i) * 30.0, -174.0 - float(i % 2) * 8.0), 1.0, col(blossom))
+		"season_basket", "hofbuch_basket":
+			shadow(ci, Vector2(0, -16), 62, 13)
+			rrect(ci, Rect2(-42, -58, 84, 44), col("#B07A4A"), 11)
+			rrect(ci, Rect2(-48, -68, 96, 17), col("#C28E5B"), 8)
+			ci.draw_arc(Vector2(0, -68), 32, PI, TAU, 24, col("#8E6240"), 6.0, true)
+			ci.draw_circle(Vector2(-18, -70), 9, col("#E8792F"))
+			ci.draw_circle(Vector2(4, -72), 8, col("#D9344F"))
+			ci.draw_circle(Vector2(22, -68), 7, col("#8DB580"))
+		"year_wreath", "hofbuch_wreath":
+			shadow(ci, Vector2(0, -18), 74, 13)
+			ci.draw_arc(Vector2(0, -66), 42, 0.0, TAU, 40, col("#6F9A63"), 10.0, true)
+			for i in range(8):
+				var angle := TAU * float(i) / 8.0
+				var leaf_col := "#8DB580" if i % 2 == 0 else "#F28BB0"
+				ci.draw_circle(Vector2(0, -66) + Vector2(cos(angle), sin(angle)) * 42.0, 9.0, col(leaf_col))
+			ci.draw_circle(Vector2(0, -66), 8, col("#F6D84A"))
+		"hofbuch_sign":
+			shadow(ci, Vector2(0, -16), 40, 9)
+			rrect(ci, Rect2(-6, -100, 12, 84), col("#8E6240"), 4)
+			rrect(ci, Rect2(-54, -132, 108, 46), col("#C28E5B"), 11)
+			rrect(ci, Rect2(-44, -122, 88, 26), col("#FFF6E0"), 7)
+			ci.draw_line(Vector2(-32, -112), Vector2(32, -112), col("#6F9A63"), 4.0, true)
+			ci.draw_line(Vector2(-32, -103), Vector2(16, -103), col("#B07A4A"), 4.0, true)
 		"pond":
 			ellipse(ci, Vector2(0, -60), 118, 56, col("#A9A18C"))
 			ellipse(ci, Vector2(0, -62), 108, 48, col("#6FB4D0"))

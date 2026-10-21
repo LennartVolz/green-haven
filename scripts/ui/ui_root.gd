@@ -15,6 +15,7 @@ const RefugeSheet := preload("res://scripts/ui/sheets/refuge_sheet.gd")
 const AnimalSheet := preload("res://scripts/ui/sheets/animal_sheet.gd")
 const DiarySheet := preload("res://scripts/ui/sheets/diary_sheet.gd")
 const AchievementsSheet := preload("res://scripts/ui/sheets/achievements_sheet.gd")
+const HofbuchSheet := preload("res://scripts/ui/sheets/hofbuch_sheet.gd")
 
 const TUTORIAL := [
 	"Willkommen auf Green Haven! Tippe auf ein leeres Feld und wähle Weizen.",
@@ -472,6 +473,8 @@ func _rebuild() -> void:
 			QuestsSheet.build(self, _sheet_args)
 		"achievements":
 			AchievementsSheet.build(self, _sheet_args)
+		"hofbuch":
+			HofbuchSheet.build(self, _sheet_args)
 		"settings":
 			SettingsSheet.build(self, _sheet_args)
 		"production":
@@ -571,8 +574,8 @@ func _update_badges() -> void:
 		return
 	var counts := {
 		"orders": GameState.fulfillable_orders(),
-		"quests": GameState.claimable_quests(),
-		"achievements": GameState.claimable_achievements(),
+		"quests": GameState.claimable_quests() + GameState.claimable_season_goals(),
+		"achievements": GameState.claimable_achievements() + GameState.claimable_hofbuch(),
 		"production_overview": GameState.total_ready_products(),
 	}
 	for key in counts:
@@ -824,6 +827,16 @@ func act_claim(quest_id: String) -> void:
 func act_claim_achievement(achievement_id: String) -> void:
 	if _check(GameState.claim_achievement(achievement_id)):
 		show_toast("Erfolg belohnt!", "good")
+
+
+func act_claim_season_goal(goal_id: String) -> void:
+	if _check(GameState.claim_season_goal(goal_id)):
+		show_toast("Saisonziel erfüllt!", "good")
+
+
+func act_claim_hofbuch(entry_id: String) -> void:
+	if _check(GameState.claim_hofbuch(entry_id)):
+		show_toast("Ins Hofbuch eingetragen!", "good")
 
 
 func act_start_recipe(uid: int, recipe: String) -> void:

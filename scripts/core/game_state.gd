@@ -21,7 +21,7 @@ signal game_event(event_name: String, data: Dictionary)
 signal fx(kind: String, world_pos: Vector2, text: String)
 signal sound(sound_name: String)
 
-const SAVE_VERSION := 9
+const SAVE_VERSION := 10
 const MAX_ORDERS := 4
 const NEIGHBORHOOD_EVENT_CYCLE_SECONDS := 3.0 * 60.0 * 60.0
 const NEIGHBORHOOD_EVENT_DURATION_SECONDS := 30.0 * 60.0
@@ -80,6 +80,15 @@ var away_seconds := 0.0
 var day_anchor := 0.0
 var last_day_recap := 1
 var day_stats_snapshot: Dictionary = {}
+## Saisonziele zählen nur Aktionen seit dem Beginn der laufenden Jahreszeit.
+## Der Schnappschuss wird beim Saisonwechsel auf die Lebenszeit-Zähler gesetzt.
+var season_stats_snapshot: Dictionary = {}
+var season_snapshot_epoch := -1
+## Einmal erlebte Jahreszeiten für das Hofbuch.
+var seasons_seen: Array = []
+## Dauerhaft freigeschaltete Belohnungsdeko (Seasonziele und Hofbuch).
+var unlocked_decos: Array = []
+var hofbuch_claimed: Array = []
 
 var _occ: Dictionary = {}        ## Vector2i -> uid
 var _refresh_acc := 0.0
@@ -126,6 +135,236 @@ func harvest_xp(crop: String) -> int:
 	return int(GameData.CROPS[crop]["xp"]) + (1 if crop_in_season(crop) else 0)
 
 
+## Fortlaufende Nummer der laufenden Jahreszeit seit dem ersten Spieltag.
+## Sie dient als Schlüssel für den Saison-Schnappschuss und für einmalige
+## Belohnungen: 0 = erster Frühling, 1 = erster Sommer usw.
+func season_epoch() -> int:
+	return floori(float(day_number() - 1) / float(GameData.SEASON_DAYS))
+
+
+## Fortlaufendes Jahr (vier Jahreszeiten).
+func season_year() -> int:
+	return floori(float(season_epoch()) / float(GameData.SEASONS.size()))
+
+
+func current_season_id() -> String:
+	return str(GameData.season_at(day_number())["id"])
+
+
+## Verbleibende Spieltage der laufenden Jahreszeit (0 am letzten Tag).
+func season_days_left() -> int:
+	return GameData.SEASON_DAYS - GameData.season_day_at(day_number())
+
+
+## Setzt den Saison-Schnappschuss beim Wechsel der Jahreszeit zurück und merkt
+## sich die Jahreszeit für das Hofbuch. Wird vom Sekundentakt aufgerufen.
+func _sync_season() -> void:
+	var epoch := season_epoch()
+	if epoch == season_snapshot_epoch:
+		return
+	season_snapshot_epoch = epoch
+	season_stats_snapshot = stats.duplicate()
+	var season_id := current_season_id()
+	if not seasons_seen.has(season_id):
+		seasons_seen.append(season_id)
+	quests_changed.emit()
+
+
+func season_goals_for(season_id: String) -> Array:
+	var out: Array = []
+	for goal in GameData.SEASON_GOALS:
+		if str(goal["season"]) == season_id:
+			out.append(goal)
+	return out
+
+
+## Ziele der laufenden Jahreszeit.
+func season_goals() -> Array:
+	return season_goals_for(current_season_id())
+
+
+## Fortschritt eines Saisonziels: Summe der Zähler seit Beginn der Saison.
+func season_goal_progress(goal: Dictionary) -> int:
+	var total := 0
+	for key in goal.get("keys", []):
+		total += maxi(0, int(stats.get(str(key), 0)) - int(season_stats_snapshot.get(str(key), 0)))
+	return total
+
+
+func season_goal_done(goal: Dictionary) -> bool:
+	return season_goal_progress(goal) >= int(goal["target"])
+
+
+## Belohnungsschlüssel pro Jahr: dieselbe Jahreszeit belohnt einmal pro Jahr.
+func season_goal_claim_key(goal: Dictionary) -> String:
+	return "season:%d:%s" % [season_epoch(), str(goal["id"])]
+
+
+func season_goal_claimed(goal: Dictionary) -> bool:
+	return claimed_quests.has(season_goal_claim_key(goal))
+
+
+## Wurde das Ziel in irgendeinem Jahr schon einmal erfüllt? (Hofbuch)
+func season_goal_claimed_ever(id: String) -> bool:
+	for key in claimed_quests:
+		var parts := str(key).split(":")
+		if parts.size() == 3 and parts[0] == "season" and parts[2] == id:
+			return true
+	return false
+
+
+func season_goal_claimed_epoch(id: String, epoch: int) -> bool:
+	return claimed_quests.has("season:%d:%s" % [epoch, id])
+
+
+func claimable_season_goals() -> int:
+	var n := 0
+	for goal in season_goals():
+		if season_goal_done(goal) and not season_goal_claimed(goal):
+			n += 1
+	return n
+
+
+## Holt die Belohnung eines Saisonziels ab. Münzen und XP gibt es bewusst
+## nicht: Nach Abschluss aller drei Ziele einer Jahreszeit wird eine Deko frei.
+func claim_season_goal(id: String) -> bool:
+	_sync_season()
+	for goal in season_goals():
+		if str(goal["id"]) != id:
+			continue
+		if season_goal_claimed(goal) or not season_goal_done(goal):
+			return false
+		claimed_quests.append(season_goal_claim_key(goal))
+		_check_season_rewards()
+		quests_changed.emit()
+		sound.emit("collect")
+		return true
+	return false
+
+
+## Schaltet die Deko einer abgeschlossenen Jahreszeit und den Jahreskranz frei.
+func _check_season_rewards() -> void:
+	var year := season_year()
+	var all_seasons_done := true
+	for index in range(GameData.SEASONS.size()):
+		var season: Dictionary = GameData.SEASONS[index]
+		var season_id := str(season["id"])
+		var epoch := year * GameData.SEASONS.size() + index
+		var done := true
+		for goal in season_goals_for(season_id):
+			if not season_goal_claimed_epoch(str(goal["id"]), epoch):
+				done = false
+				break
+		if not done:
+			all_seasons_done = false
+			continue
+		var deco := str(GameData.SEASON_REWARD_DECOS.get(season_id, ""))
+		if deco != "" and not unlocked_decos.has(deco):
+			unlocked_decos.append(deco)
+			add_diary_entry("%s · Saisonziele: %s" % [String(season["name"]), String(GameData.SEASON_GOAL_STORIES.get(season_id, ""))])
+			toast.emit("%s ist geschafft · %s freigeschaltet" % [String(season["name"]), String(GameData.DECOS[deco]["name"])], "good")
+	if all_seasons_done and not unlocked_decos.has(GameData.SEASON_YEAR_DECO):
+		unlocked_decos.append(GameData.SEASON_YEAR_DECO)
+		add_diary_entry("Jahreskranz · %s" % GameData.SEASON_YEAR_STORY)
+		toast.emit("Alle zwölf Saisonziele sind geschafft · Jahreskranz freigeschaltet", "good")
+
+
+# ---------------------------------------------------------------- Hofbuch
+
+func hofbuch_progress(entry: Dictionary) -> int:
+	match str(entry["type"]):
+		"seasons":
+			return seasons_seen.size()
+		"season_goals":
+			var goals_done := 0
+			for goal in GameData.SEASON_GOALS:
+				if season_goal_claimed_ever(str(goal["id"])):
+					goals_done += 1
+			return goals_done
+		"species_hearts":
+			var needed := int(entry.get("hearts", 40))
+			var species_done := 0
+			for species in GameData.ANIMALS:
+				var best := 0
+				for animal in animals:
+					if str(animal.species) == str(species):
+						best = maxi(best, int(animal.get("hearts", 0)))
+				if best >= needed:
+					species_done += 1
+			return species_done
+		"recipes":
+			var recipes_done := 0
+			for recipe_id in GameData.RECIPES:
+				if int(stats.get("crafted_" + str(recipe_id), 0)) > 0:
+					recipes_done += 1
+			return recipes_done
+		"stories":
+			var stories_done := 0
+			for story_id in GameData.DELIVERY_STORIES:
+				if int(stats.get("story_completed:" + str(story_id), 0)) > 0:
+					stories_done += 1
+			return stories_done
+		"crops":
+			var crops_done := 0
+			for crop_id in GameData.CROPS:
+				if int(stats.get("harvested:" + str(crop_id), 0)) > 0:
+					crops_done += 1
+			return crops_done
+		"cafe_stories":
+			return int(stats.get("cafe_stories_shared", 0))
+		"paddocks":
+			var capacity := 0
+			for o in objects:
+				if o.kind == "paddock":
+					capacity += int(GameData.BUILDINGS["paddock"]["capacity"])
+			return mini(animals.size(), capacity)
+	return 0
+
+
+func hofbuch_unlocked(entry: Dictionary) -> bool:
+	return hofbuch_progress(entry) >= int(entry["target"])
+
+
+func hofbuch_entry_claimed(id: String) -> bool:
+	return hofbuch_claimed.has(id)
+
+
+func claimable_hofbuch() -> int:
+	var n := 0
+	for entry in GameData.HOFBUCH:
+		if hofbuch_unlocked(entry) and not hofbuch_entry_claimed(str(entry["id"])):
+			n += 1
+	return n
+
+
+## Trägt eine Auszeichnung ein: Deko frei, Geschichte ins Tagebuch, keine Münzen.
+func claim_hofbuch(id: String) -> bool:
+	for entry in GameData.HOFBUCH:
+		if str(entry["id"]) != id:
+			continue
+		if hofbuch_entry_claimed(id) or not hofbuch_unlocked(entry):
+			return false
+		hofbuch_claimed.append(id)
+		var deco := str(entry.get("deco", ""))
+		if deco != "" and not unlocked_decos.has(deco):
+			unlocked_decos.append(deco)
+		add_diary_entry("Hofbuch · %s: %s" % [String(entry["text"]), String(entry.get("story", ""))])
+		quests_changed.emit()
+		sound.emit("collect")
+		toast.emit("%s · %s freigeschaltet" % [String(entry["text"]), String(GameData.DECOS.get(deco, {}).get("name", "Deko"))], "good")
+		return true
+	return false
+
+
+## Belohnungsdeko ist erst nach dem passenden Ziel platzierbar.
+func deco_unlocked(type: String) -> bool:
+	if not GameData.DECOS.has(type):
+		return false
+	if not GameData.DECOS[type].has("unlock"):
+		return true
+	return unlocked_decos.has(type)
+
+
 func day_recap_due() -> bool:
 	return day_number() > last_day_recap
 
@@ -161,6 +400,7 @@ func _process(delta: float) -> void:
 	if _refresh_acc < REFRESH_INTERVAL_SECONDS:
 		return
 	_refresh_acc = 0.0
+	_sync_season()
 	_fill_orders()
 	_refresh_rescue_case()
 
@@ -199,6 +439,11 @@ func reset_state() -> void:
 	day_anchor = 0.0
 	last_day_recap = 1
 	day_stats_snapshot = {}
+	season_stats_snapshot = {}
+	season_snapshot_epoch = -1
+	seasons_seen = []
+	unlocked_decos = []
+	hofbuch_claimed = []
 	_occ = {}
 
 
@@ -211,6 +456,9 @@ func new_game() -> void:
 	day_anchor = now()
 	last_day_recap = 1
 	day_stats_snapshot = {}
+	season_snapshot_epoch = season_epoch()
+	season_stats_snapshot = stats.duplicate()
+	seasons_seen = [current_season_id()]
 	loaded = true
 	_fill_orders()
 	_emit_all()
@@ -468,6 +716,9 @@ func place_object(type: String, cell: Vector2i) -> int:
 	if not can_place(type, cell):
 		last_error = "Hier ist kein Platz"
 		return -1
+	if d.has("unlock") and not deco_unlocked(type):
+		last_error = "Diese Deko ist noch nicht freigeschaltet"
+		return -1
 	if not spend_coins(int(d["cost"])):
 		last_error = "Nicht genug Münzen"
 		return -1
@@ -621,6 +872,7 @@ func harvest(cell: Vector2i) -> bool:
 	add_item(crop, amount)
 	add_xp(harvest_xp(crop))
 	bump("harvested")
+	bump("harvested:" + crop)
 	# Alle Pflanzen sind einjährig: Nach der Ernte ist das Feld wieder frei.
 	fields[cell] = {"crop": "", "t": 0.0}
 	world_changed.emit()
@@ -1162,6 +1414,7 @@ func fulfill_order(order_id: int) -> bool:
 			add_coins(int(campaign["bonus_coins"]))
 			add_xp(int(campaign["bonus_xp"]))
 			bump("stories_completed")
+			bump("story_completed:" + active_delivery_story)
 			add_diary_entry("%s ist abgeschlossen. Die Nachbarschaft bedankt sich für deine Hilfe!" % campaign["title"])
 			active_delivery_story = ""
 			delivery_story_stage = 0
@@ -1572,6 +1825,11 @@ func serialize() -> Dictionary:
 		"stats": stats.duplicate(),
 		"claimed_quests": claimed_quests.duplicate(),
 		"claimed_achievements": claimed_achievements.duplicate(),
+		"season_stats_snapshot": season_stats_snapshot.duplicate(),
+		"season_snapshot_epoch": season_snapshot_epoch,
+		"seasons_seen": seasons_seen.duplicate(),
+		"unlocked_decos": unlocked_decos.duplicate(),
+		"hofbuch_claimed": hofbuch_claimed.duplicate(),
 		"settings": settings.duplicate(),
 		"tutorial_step": tutorial_step,
 		"next_uid": next_uid,
@@ -1596,6 +1854,18 @@ func _save_dict(d: Dictionary, key: String) -> Dictionary:
 	if typeof(v) == TYPE_DICTIONARY:
 		return v
 	return {}
+
+
+## Ein saisonaler Abholschlüssel lautet "season:<epoche>:<ziel-id>" und darf nur
+## bekannte Ziele enthalten; alles andere wird beim Laden verworfen.
+func _valid_season_claim_key(key: String) -> bool:
+	var parts := key.split(":")
+	if parts.size() != 3 or parts[0] != "season" or not parts[1].is_valid_int():
+		return false
+	for goal in GameData.SEASON_GOALS:
+		if str(goal["id"]) == parts[2]:
+			return true
+	return false
 
 
 ## Prüft, ob ein geladener Eintrag ein Dictionary mit allen Schlüsseln ist.
@@ -1783,6 +2053,36 @@ func deserialize(d: Dictionary) -> bool:
 		# gesamte Spielhistorie als ein einziger Tag im Rückblick erscheint.
 		last_day_recap = current_day
 		day_stats_snapshot = stats.duplicate()
+	# Saisonziele: Der Schnappschuss lebt nur innerhalb einer Jahreszeit. Ein
+	# Stand aus einer anderen Saison startet bei null Fortschritt – so gibt es
+	# keine rückwirkend abgeholten Belohnungen.
+	season_stats_snapshot = {}
+	var saved_season_stats := _save_dict(d, "season_stats_snapshot")
+	for k in saved_season_stats:
+		season_stats_snapshot[str(k)] = int(saved_season_stats[k])
+	season_snapshot_epoch = int(d.get("season_snapshot_epoch", -1))
+	if season_snapshot_epoch != season_epoch():
+		season_snapshot_epoch = season_epoch()
+		season_stats_snapshot = stats.duplicate()
+	seasons_seen = []
+	for season_id in _save_array(d, "seasons_seen"):
+		for season in GameData.SEASONS:
+			if str(season["id"]) == str(season_id) and not seasons_seen.has(str(season_id)):
+				seasons_seen.append(str(season_id))
+				break
+	if not seasons_seen.has(current_season_id()):
+		seasons_seen.append(current_season_id())
+	unlocked_decos = []
+	for deco_id in _save_array(d, "unlocked_decos"):
+		var deco_key := str(deco_id)
+		if GameData.DECOS.has(deco_key) and GameData.DECOS[deco_key].has("unlock") and not unlocked_decos.has(deco_key):
+			unlocked_decos.append(deco_key)
+	hofbuch_claimed = []
+	for entry_id in _save_array(d, "hofbuch_claimed"):
+		for entry in GameData.HOFBUCH:
+			if str(entry["id"]) == str(entry_id) and not hofbuch_claimed.has(str(entry_id)):
+				hofbuch_claimed.append(str(entry_id))
+				break
 	daily_cafe_special_id = str(d.get("daily_cafe_special_id", ""))
 	daily_cafe_special_at = maxf(0.0, float(d.get("daily_cafe_special_at", 0.0)))
 	if not GameData.CAFE_MENU.has(daily_cafe_special_id):
@@ -1811,10 +2111,15 @@ func deserialize(d: Dictionary) -> bool:
 		diary.pop_front()
 	claimed_quests = []
 	for quest_id in _save_array(d, "claimed_quests"):
+		var claim_key := str(quest_id)
+		if claimed_quests.has(claim_key):
+			continue
+		if _valid_season_claim_key(claim_key):
+			claimed_quests.append(claim_key)
+			continue
 		for q in GameData.QUESTS:
-			if str(q["id"]) == str(quest_id):
-				if not claimed_quests.has(str(quest_id)):
-					claimed_quests.append(str(quest_id))
+			if str(q["id"]) == claim_key:
+				claimed_quests.append(claim_key)
 				break
 	claimed_achievements = []
 	for achievement_id in _save_array(d, "claimed_achievements"):

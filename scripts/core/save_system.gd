@@ -362,6 +362,27 @@ func migrate(data: Dictionary) -> Dictionary:
 		data["last_day_recap"] = 1
 		data["day_stats_snapshot"] = day_snapshot.duplicate(true)
 		data["version"] = 9
+		v = 9
+	if v < 10:
+		# Saisonziele und Hofbuch: Der Saison-Schnappschuss startet auf den
+		# aktuellen Lebenszeit-Zählern, damit alte Stände keine Belohnung
+		# rückwirkend abholen. Freischaltungen beginnen leer.
+		var season_snapshot_value: Variant = data.get("stats", {})
+		var season_snapshot: Dictionary = season_snapshot_value if typeof(season_snapshot_value) == TYPE_DICTIONARY else {}
+		data["season_stats_snapshot"] = season_snapshot.duplicate(true)
+		# Die Epoche folgt dem gespeicherten Spieltag; beim Laden einer späteren
+		# Saison wird der Schnappschuss ohnehin neu gesetzt.
+		var saved_at := float(data.get("saved_at", 0.0))
+		var anchor := float(data.get("day_anchor", saved_at))
+		var day := 1
+		if anchor > 0.0 and saved_at >= anchor:
+			day = maxi(1, floori((saved_at - anchor) / GameData.REAL_DAY_SECONDS) + 1)
+		var epoch := floori(float(day - 1) / float(GameData.SEASON_DAYS))
+		data["season_snapshot_epoch"] = epoch
+		data["seasons_seen"] = [String(GameData.SEASONS[posmod(epoch, GameData.SEASONS.size())]["id"])]
+		data["unlocked_decos"] = []
+		data["hofbuch_claimed"] = []
+		data["version"] = 10
 	# Wilde Sammelstellen sind eine optionale Ergänzung. Altstände starten ohne
 	# Nachwuchszeiten; die Fundstellen selbst ergeben sich aus der Zellposition.
 	if not data.has("forage"):

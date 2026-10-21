@@ -50,6 +50,63 @@ const SEASONS := [
 		"note": "Draußen ist es still. Kartoffeln, Reis und Quinoa geben eine Extra-Ernte."},
 ]
 
+## Saisonziele: drei kurze Ziele je Jahreszeit. Sie laufen nur in ihrer Saison und
+## zählen ausschließlich Aktionen seit dem Beginn der laufenden Jahreszeit –
+## dafür sorgt ein Schnappschuss der Lebenszeit-Zähler in GameState. Verpasste
+## Ziele verfallen nicht: dieselbe Jahreszeit kommt nach 24 Spieltagen wieder.
+## Belohnt wird mit einer kostenlosen Deko, nie mit Münzen oder XP.
+const SEASON_GOALS := [
+	{"id": "spring_strawberries", "season": "spring", "text": "Erdbeeren ernten", "keys": ["harvested:strawberry"], "target": 12},
+	{"id": "spring_sowing", "season": "spring", "text": "Saatgut setzen", "keys": ["planted"], "target": 20},
+	{"id": "spring_forage", "season": "spring", "text": "Wilde Kräuter sammeln", "keys": ["foraged"], "target": 6},
+	{"id": "summer_tomatoes", "season": "summer", "text": "Tomaten ernten", "keys": ["harvested:tomato"], "target": 15},
+	{"id": "summer_sunflowers", "season": "summer", "text": "Sonnenblumen verarbeiten", "keys": ["crafted_sunflower_oil", "crafted_sunflower_bouquet"], "target": 4},
+	{"id": "summer_cafe", "season": "summer", "text": "Gäste im Café bedienen", "keys": ["cafe_orders"], "target": 5},
+	{"id": "autumn_pumpkins", "season": "autumn", "text": "Kürbisse ernten", "keys": ["harvested:pumpkin"], "target": 12},
+	{"id": "autumn_preserves", "season": "autumn", "text": "Vorräte einkochen", "keys": ["crafted_strawberry_jam", "crafted_apple_jam"], "target": 4},
+	{"id": "autumn_neighbors", "season": "autumn", "text": "Nachbarschaft beliefern", "keys": ["orders"], "target": 4},
+	{"id": "winter_workshop", "season": "winter", "text": "Vorräte verarbeiten", "keys": ["crafted"], "target": 10},
+	{"id": "winter_companions", "season": "winter", "text": "Zeit mit den Tieren verbringen", "keys": ["pets", "fed", "activities"], "target": 12},
+	{"id": "winter_coffee", "season": "winter", "text": "Kaffeezeit genießen", "keys": ["crafted_filter_coffee", "crafted_oat_latte"], "target": 4},
+]
+
+## Je Jahreszeit eine Deko als Abschluss aller drei Saisonziele; der Jahreskranz
+## gehört allen zwölf Zielen eines Jahres. Die Deko ist kostenlos, aber erst nach
+## dem Abschluss platzierbar (Feld "unlock" in DECOS).
+const SEASON_REWARD_DECOS := {"spring": "season_arch", "summer": "season_bench", "autumn": "season_basket", "winter": "season_lantern"}
+const SEASON_YEAR_DECO := "year_wreath"
+const SEASON_GOAL_STORIES := {
+	"spring": "Der Frühling endet mit vollem Saatbeet. Zwischen den jungen Reihen summt es, und der Blütenbogen steht offen für alle, die vorbeikommen.",
+	"summer": "Die Sommerhitze liegt über dem Garten. Unter der Sonnenbank ist es kühl, und die letzten Sonnenblumen drehen sich noch einmal zur Abendsonne.",
+	"autumn": "Der Erntekorb ist gefüllt, die Regale duften nach Konfitüre. Der Herbst hat dem Hof gegeben, was er brauchte.",
+	"winter": "Der Winter ist still. Die Winterlaterne brennt am Weg, drinnen wird Kaffee gemahlen, und niemand muss draußen frieren.",
+}
+const SEASON_YEAR_STORY := "Ein ganzes Jahr liegt hinter dem Hof: vier Jahreszeiten, zwölf kleine Ziele. Der Jahreskranz hängt am Tor und erzählt davon, dass hier jede Jahreszeit ihren Platz hatte."
+
+## Hofbuch: acht Auszeichnungen jenseits der Höchststufe. Sie messen Breite
+## statt Zahlen – alles entsteht beim normalen Spielen, ohne Zeitdruck.
+## Typen: seasons (erlebte Jahreszeiten), season_goals (je einmal erfüllt),
+## species_hearts (Tierarten mit Herzen), recipes, stories, crops,
+## cafe_stories (geteilte Café-Geschichten), paddocks (belegte Gehegeplätze).
+const HOFBUCH := [
+	{"id": "year_round", "text": "Ein Jahr im Garten", "description": "Erlebe alle vier Jahreszeiten.", "type": "seasons", "target": 4, "deco": "hofbuch_tree",
+		"story": "Der Jahresbaum trägt Spuren aller vier Jahreszeiten: helle Knospen, Sommerlaub, rote Blätter und kahle Zweige, die trotzdem stehen bleiben."},
+	{"id": "season_child", "text": "Saisonkind", "description": "Erfülle jedes der zwölf Saisonziele mindestens einmal.", "type": "season_goals", "target": 12, "deco": "hofbuch_wreath",
+		"story": "Der Saisonkranz ist aus zwölf kleinen Zweigen gebunden – für jedes Ziel einer, das einmal gepasst hat, auch wenn es nicht immer beim ersten Mal klappte."},
+	{"id": "refuge_stories", "text": "Refugium voller Geschichten", "description": "Gewinne mit allen fünf Tierarten 40 Herzen.", "type": "species_hearts", "hearts": 40, "target": 5, "deco": "hofbuch_bench",
+		"story": "Die Geschichtenbank steht dort, wo die Tiere freiwillig vorbeikommen. Auf ihr sitzt niemand allein, und jedes Tier kennt inzwischen seinen eigenen Platz."},
+	{"id": "pantry", "text": "Speisekammer", "description": "Stelle jedes Rezept mindestens einmal her.", "type": "recipes", "target": 53, "deco": "hofbuch_basket",
+		"story": "Der Vorratskorb ist nicht voller Rekorde, sondern voller Möglichkeiten: Jedes Rezept hat einmal seinen Platz darin gefunden."},
+	{"id": "neighbors", "text": "Gute Nachbarschaft", "description": "Schließe alle vier Liefergeschichten ab.", "type": "stories", "target": 4, "deco": "hofbuch_gate",
+		"story": "Das Gartentor steht offen. Wer hereinkommt, bringt meistens eine Geschichte mit – und nimmt eine andere mit nach Hause."},
+	{"id": "green_hands", "text": "Grüne Hände", "description": "Ernte jede der 23 Pflanzen mindestens einmal.", "type": "crops", "target": 23, "deco": "hofbuch_herbs",
+		"story": "Das Kräuterbeet ist ein Andenken an jede Sorte: Manche wuchsen schnell, manche brauchten Geduld, alle haben hier einmal gestanden."},
+	{"id": "cafe_table", "text": "Stammtisch", "description": "Teile 25 Café-Geschichten.", "type": "cafe_stories", "target": 25, "deco": "hofbuch_table",
+		"story": "Am Café-Tisch wird nicht nur Kaffee getrunken. Hier werden Erinnerungen weitergegeben, bis aus fremden Gästen Nachbarn werden."},
+	{"id": "home_for_all", "text": "Ein Zuhause für alle", "description": "Belege alle zwölf Gehegeplätze.", "type": "paddocks", "target": 12, "deco": "hofbuch_sign",
+		"story": "Das Willkommensschild hängt am Zaun. Zwölf Tiere haben hier einen Platz, der ihnen gehört – und keines muss ihn teilen."},
+]
+
 ## Jede Erweiterung vergrößert das Land um 1 Zelle in alle Richtungen.
 ## Acht Ausbauschritte wachsen von 8x8 bis 24x24 Felder und bleiben in der Karte.
 const LAND_EXPANSIONS := [
@@ -184,6 +241,21 @@ const DECOS := {
 	"lantern": {"name": "Laterne", "cost": 90, "level": 4, "size": [1, 1]},
 	"scarecrow": {"name": "Vogelscheuche", "cost": 150, "level": 5, "size": [1, 1]},
 	"pond": {"name": "Seerosenteich", "cost": 300, "level": 6, "size": [2, 2]},
+	# Belohnungsdeko: kostenlos, aber erst nach dem passenden Ziel platzierbar.
+	# "unlock" nennt den Schlüssel, den GameState.unlocked_decos führt.
+	"season_arch": {"name": "Blütenbogen", "cost": 0, "level": 1, "size": [2, 1], "unlock": "season:spring"},
+	"season_bench": {"name": "Sonnenbank", "cost": 0, "level": 1, "size": [2, 1], "unlock": "season:summer"},
+	"season_basket": {"name": "Erntekorb", "cost": 0, "level": 1, "size": [1, 1], "unlock": "season:autumn"},
+	"season_lantern": {"name": "Winterlaterne", "cost": 0, "level": 1, "size": [1, 1], "unlock": "season:winter"},
+	"year_wreath": {"name": "Jahreskranz", "cost": 0, "level": 1, "size": [1, 1], "unlock": "season:year"},
+	"hofbuch_tree": {"name": "Jahresbaum", "cost": 0, "level": 1, "size": [1, 1], "unlock": "hofbuch:year_round"},
+	"hofbuch_wreath": {"name": "Saisonkranz", "cost": 0, "level": 1, "size": [1, 1], "unlock": "hofbuch:season_child"},
+	"hofbuch_bench": {"name": "Geschichtenbank", "cost": 0, "level": 1, "size": [2, 1], "unlock": "hofbuch:refuge_stories"},
+	"hofbuch_basket": {"name": "Vorratskorb", "cost": 0, "level": 1, "size": [1, 1], "unlock": "hofbuch:pantry"},
+	"hofbuch_gate": {"name": "Gartentor", "cost": 0, "level": 1, "size": [2, 1], "unlock": "hofbuch:neighbors"},
+	"hofbuch_herbs": {"name": "Kräuterbeet", "cost": 0, "level": 1, "size": [1, 1], "unlock": "hofbuch:green_hands"},
+	"hofbuch_table": {"name": "Café-Tisch", "cost": 0, "level": 1, "size": [2, 1], "unlock": "hofbuch:cafe_table"},
+	"hofbuch_sign": {"name": "Willkommensschild", "cost": 0, "level": 1, "size": [1, 1], "unlock": "hofbuch:home_for_all"},
 }
 
 ## Gerettete Tiere. Sie produzieren nichts – sie werden gepflegt und geliebt.
@@ -654,7 +726,7 @@ func unlocks_at(lvl: int) -> Array:
 		if BUILDINGS[id].level == lvl:
 			out.append(BUILDINGS[id].name)
 	for id in DECOS:
-		if DECOS[id].level == lvl:
+		if DECOS[id].level == lvl and not DECOS[id].has("unlock"):
 			out.append(DECOS[id].name)
 	for id in ANIMALS:
 		if ANIMALS[id].level == lvl:

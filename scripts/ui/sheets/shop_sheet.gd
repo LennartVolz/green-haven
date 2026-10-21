@@ -78,6 +78,7 @@ static func _object_card(ui, c: VBoxContainer, id: String) -> void:
 	var cost: int = d["cost"]
 	var locked: bool = GameState.level < int(d["level"])
 	var maxed: bool = d.has("max") and GameState.count_type(id) >= int(d["max"])
+	var reward_locked: bool = d.has("unlock") and not GameState.deco_unlocked(id)
 	var card := UiKit.card(12)
 	var h := UiKit.hbox(14)
 	var pv := ObjPreview.new()
@@ -97,9 +98,14 @@ static func _object_card(ui, c: VBoxContainer, id: String) -> void:
 			info = "Platz für %d gerettete Tiere" % int(d["capacity"])
 		_:
 			info = "Dekoration"
+			if d.has("unlock"):
+				info = "Belohnung aus Zielen · kostenlos" if not reward_locked else "Erst nach einem Ziel verfügbar"
 	v.add_child(UiKit.label(info, 24, UiKit.earth_dark()))
-	var price_col := UiKit.ink() if GameState.coins >= cost else UiKit.red()
-	v.add_child(UiKit.icon_text("coin", str(cost), 28, price_col))
+	if cost <= 0:
+		v.add_child(UiKit.icon_text("leaf", "kostenlos", 26, UiKit.sage_dark()))
+	else:
+		var price_col := UiKit.ink() if GameState.coins >= cost else UiKit.red()
+		v.add_child(UiKit.icon_text("coin", str(cost), 28, price_col))
 	h.add_child(v)
 	var b := UiKit.button("Bauen", "primary", 28)
 	b.custom_minimum_size = Vector2(190, 96)
@@ -108,6 +114,9 @@ static func _object_card(ui, c: VBoxContainer, id: String) -> void:
 		b.disabled = true
 	elif maxed:
 		b.text = "Gebaut"
+		b.disabled = true
+	elif reward_locked:
+		b.text = "Noch nicht frei"
 		b.disabled = true
 	elif GameState.coins < cost:
 		b.disabled = true

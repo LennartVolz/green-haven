@@ -6,6 +6,9 @@ static func build(ui, _args: Dictionary) -> void:
 	ui.set_title("Erfolge")
 	var c: VBoxContainer = ui.content
 	c.add_child(UiKit.wrap_label("Kleine und große Meilensteine auf deiner Farm. Belohnungen kannst du jederzeit abholen.", 24, UiKit.earth_dark()))
+	var book := UiKit.button("Hofbuch öffnen", "light", 26)
+	book.pressed.connect(ui.open_sheet.bind("hofbuch", {}))
+	c.add_child(book)
 	var achievements: Array = GameData.ACHIEVEMENTS.duplicate()
 	achievements.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return _rank(a) < _rank(b))

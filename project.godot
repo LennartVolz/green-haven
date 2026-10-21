@@ -8,10 +8,12 @@ config_version=5
 config/name="Green Haven"
 config/version="0.1.0"
 config/description="Gemütliches veganes Farming-Spiel für Android und iOS."
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/boot.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 run/max_fps=60
 boot_splash/bg_color=Color(0.980392, 0.964706, 0.878431, 1)
+boot_splash/image="res://assets/boot_splash.png"
+boot_splash/fullsize=true
 config/icon="res://icon.svg"
 config/quit_on_go_back=false
 

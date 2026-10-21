@@ -38,6 +38,7 @@ geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfa
 - Lokales, versioniertes Speichersystem (geprüftes Laden, rotierendes Backup, Spielstände neuerer Versionen werden nie überschrieben); Wachstum, Produktion und wilde Fundstellen laufen offline weiter. Ältere Spielstände erhalten leere Sammelzeiten ohne Versionssprung
 - Spielstände als JSON exportieren und importieren (Import wird vor dem Ersetzen geprüft; bisheriger Stand wird als Backup gesichert)
 - Soundeffekte (zur Laufzeit erzeugt), Vibrations-Feedback und optionale Hintergrundmusik; Ton und Musik haben getrennte, selbst gezeichnete Lautstärkeregler (0–100 %, sichtbare Schiene mit großem Griff), Vibration lässt sich abschalten
+- Eigener Start statt Godot-Logo: Das Engine-Startbild zeigt Hügel, Hofhaus und Sprössling im Spielstil. Danach übernimmt ein handgezeichneter Ladebildschirm mit echtem Fortschritt (Spielstand lesen, Hof aufbauen, Beete vorbereiten), der weich ins Spiel überblendet. Ein Tipp verkürzt die Wartezeit, sobald der Hof bereitsteht; ohne Spielstand grüßt er mit „Ein neuer Hof entsteht“
 
 ## Schnellstart
 
@@ -46,6 +47,7 @@ godot --headless --path . -s res://tests/run_tests.gd        # Logiktests
 godot --headless --path . -s res://tests/achievements_ui.gd  # UI-Tests (Menüs, Tagebuch, Erfolge)
 godot --headless --path . -s res://tests/save_transfer_ui.gd # UI-Test Spielstand-Export/Import
 godot --headless --path . -s res://tests/production_overview_ui.gd # UI-Test Produktions-Dashboard
+godot --headless --path . -s res://tests/boot_ui.gd          # UI-Test Ladebildschirm und Start
 godot --path .                                               # Spiel auf dem Desktop starten
 ```
 
@@ -56,12 +58,14 @@ Jeder Push startet GitHub Actions (`.github/workflows/android.yml`), die die Tes
 ## Projektstruktur
 
 ```text
+assets/          Startbild (boot_splash.svg als Quelle, boot_splash.png für die Engine)
 audio/           Hintergrundmusik (Sunlight_on_the_Path.mp3)
 scripts/core/    GameData (Balancing), GameState (Logik), SaveSystem, Sfx, BackgroundMusic
 scripts/world/   Welt, Kamera/Touch, Gelände, Felder, Sammelstellen, Objekte, Tiere, Painter
-scripts/ui/      UiRoot (HUD, Aktionen), UiKit, Icons, sheets/ (Menüs)
-scenes/          main, world, ui_root, entity, animal
-tests/           run_tests.gd, achievements_ui.gd, save_transfer_ui.gd, screenshots.gd,
-                 suites/ (inkl. Tier-Wetter-Ambiente), fixtures/ (Test-Spielstände)
+scripts/ui/      UiRoot (HUD, Aktionen), UiKit, Icons, BootScreen, sheets/ (Menüs)
+scenes/          boot, main, world, ui_root, entity, animal
+tests/           run_tests.gd, achievements_ui.gd, save_transfer_ui.gd, boot_ui.gd,
+                 screenshots.gd, suites/ (inkl. Tier-Wetter-Ambiente), fixtures/ (Test-Spielstände)
+tools/           make_boot_splash.gd (PNG aus der SVG-Quelle erzeugen)
 docs/            BUILD.md
 ```

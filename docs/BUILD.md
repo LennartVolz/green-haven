@@ -76,9 +76,10 @@ godot --headless --path . -s res://tests/run_tests.gd
 godot --headless --path . -s res://tests/achievements_ui.gd   # UI-Test (Menüs, Tagebuch, Erfolge)
 godot --headless --path . -s res://tests/save_transfer_ui.gd # UI-Test (Spielstand-Export/Import)
 godot --headless --path . -s res://tests/production_overview_ui.gd # UI-Test (Produktions-Dashboard)
+godot --headless --path . -s res://tests/boot_ui.gd           # UI-Test (Ladebildschirm und Start)
 ```
 
-Exit-Code 0 bedeutet: alle Prüfungen bestanden. Alle vier Läufe sind auch in der CI eingebunden.
+Exit-Code 0 bedeutet: alle Prüfungen bestanden. Alle fünf Läufe sind auch in der CI eingebunden.
 
 `tests/screenshots.gd` ist kein Test, sondern ein Hilfsskript für die visuelle Prüfung: Es spielt eine Szenenfolge durch
 und speichert Screenshots. Es braucht ein Display (z. B. `xvfb`) und läuft nicht in der CI:
@@ -92,13 +93,15 @@ Testgruppen liegen in `tests/suites/`, Test-Spielstände (z. B. `save_v8.json` f
 ## Projektstruktur
 
 ```
+assets/          Startbild (boot_splash.svg als Quelle, boot_splash.png für die Engine)
 audio/           Hintergrundmusik (Sunlight_on_the_Path.mp3)
 scripts/core/    GameData (Balancing), GameState (Logik), SaveSystem, Sfx, BackgroundMusic
 scripts/world/   Welt, Kamera/Touch, Gelände, Felder, Objekte, Tiere, Painter
-scripts/ui/      UiRoot (HUD, Aktionen), UiKit, Icons, sheets/ (Menüs)
-scenes/          main, world, ui_root, entity, animal
-tests/           run_tests.gd, achievements_ui.gd, save_transfer_ui.gd, screenshots.gd,
-                 suites/ (Testgruppen), fixtures/ (Test-Spielstände)
+scripts/ui/      UiRoot (HUD, Aktionen), UiKit, Icons, BootScreen, sheets/ (Menüs)
+scenes/          boot, main, world, ui_root, entity, animal
+tests/           run_tests.gd, achievements_ui.gd, save_transfer_ui.gd, boot_ui.gd,
+                 screenshots.gd, suites/ (Testgruppen), fixtures/ (Test-Spielstände)
+tools/           make_boot_splash.gd (PNG aus der SVG-Quelle erzeugen)
 docs/            diese Anleitung
 ```
 
@@ -130,6 +133,23 @@ Oberfläche (`ui_root.gd`) nur über Signale und Methodenaufrufe benutzt.
   weder gespeichert noch auf Hunger, Wohlbefinden oder Freundschaft angerechnet; `SAVE_VERSION` bleibt 8.
 - Screenshots `animals_rain_shelter`, `animals_sleeping` und `after_rain_rainbow` in
   `tests/screenshots.gd` sind für manuelle Sichtprüfung vorgesehen und laufen nicht in der CI.
+
+## Start und Ladebildschirm
+
+- `scenes/boot.tscn` ist die Startszene. Sie zeigt zuerst den handgezeichneten Ladebildschirm,
+  lädt dann Spielstand und Welt dahinter und blendet weich ins Spiel über. `scenes/main.tscn`
+  bleibt die eigentliche Spielszene und wird unverändert von den UI-Tests geladen.
+- Der Engine-Startbildschirm davor ist `assets/boot_splash.png`. Godot akzeptiert dafür **nur PNG**.
+  Die bearbeitbare Quelle ist `assets/boot_splash.svg`; nach Änderungen das PNG neu erzeugen:
+  ```
+  godot --headless --path . -s res://tools/make_boot_splash.gd
+  godot --headless --path . --import
+  ```
+  `project.godot` verweist unter `application/boot_splash/image` auf das PNG, `fullsize=true`
+  füllt den Bildschirm. Ohne diese Einstellung zeigt Godot wieder sein eigenes Logo.
+- Der Ladebildschirm läuft auch ohne Display (headless): `tests/boot_ui.gd` prüft Fortschritt,
+  Spielstand-Laden, Begrüßung, Layout und das Überspringen per Tipp. Die gezeichnete Grafik selbst
+  braucht für eine Sichtprüfung ein Display.
 
 ## Audio
 

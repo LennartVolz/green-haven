@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <!-- Green Haven – ruhiges Startbild im Stil der prozeduralen Spielgrafik. -->
+  <rect width="1920" height="1080" fill="#FFF6E0"/>
+
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFBEF"/>
+      <stop offset="0.55" stop-color="#FCF3DC"/>
+      <stop offset="1" stop-color="#F3E3C1"/>
+    </linearGradient>
+    <radialGradient id="sunGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#F4C95D" stop-opacity="0.30"/>
+      <stop offset="0.62" stop-color="#F4C95D" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#F4C95D" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Himmel: warme, weiche Fläche -->
+  <rect y="0" width="1920" height="700" fill="url(#sky)"/>
+
+  <!-- Sonne mit weichem Schein -->
+  <circle cx="1480" cy="250" r="170" fill="url(#sunGlow)"/>
+  <circle cx="1480" cy="250" r="88" fill="#F4C95D"/>
+  <circle cx="1462" cy="232" r="22" fill="#FFFFFF" opacity="0.22"/>
+
+  <!-- Wolken -->
+  <g fill="#FFFBEF" opacity="0.95">
+    <ellipse cx="380" cy="230" rx="150" ry="46"/>
+    <ellipse cx="300" cy="252" rx="86" ry="34"/>
+    <ellipse cx="466" cy="256" rx="96" ry="36"/>
+    <ellipse cx="1020" cy="170" rx="112" ry="38"/>
+    <ellipse cx="952" cy="190" rx="68" ry="28"/>
+    <ellipse cx="1092" cy="192" rx="76" ry="30"/>
+  </g>
+
+  <!-- Ferne Hügel, über dem Himmelsverlauf -->
+  <path d="M0 640 C 220 600, 420 640, 640 636 C 900 630, 1120 596, 1360 626 C 1580 654, 1760 618, 1920 640 L1920 1080 L0 1080 Z" fill="#D9E7C4"/>
+  <path d="M0 690 C 240 652, 470 700, 720 688 C 980 676, 1200 650, 1440 680 C 1660 708, 1800 682, 1920 692 L1920 1080 L0 1080 Z" fill="#C4DCA9"/>
+  <path d="M0 738 C 280 704, 520 748, 780 736 C 1060 724, 1300 700, 1540 730 C 1740 754, 1850 736, 1920 744 L1920 1080 L0 1080 Z" fill="#AFCF94"/>
+
+  <!-- Bäume auf den Hügeln -->
+  <g>
+    <rect x="286" y="676" width="18" height="62" rx="6" fill="#7E5230"/>
+    <circle cx="258" cy="650" r="36" fill="#5A9647"/>
+    <circle cx="314" cy="650" r="36" fill="#62A04E"/>
+    <circle cx="286" cy="620" r="40" fill="#6DAE58"/>
+
+    <rect x="616" y="690" width="14" height="48" rx="5" fill="#7E5230"/>
+    <circle cx="596" cy="672" r="28" fill="#5A9647"/>
+    <circle cx="638" cy="672" r="28" fill="#62A04E"/>
+    <circle cx="616" cy="648" r="30" fill="#6DAE58"/>
+
+    <rect x="1150" y="700" width="16" height="54" rx="5" fill="#7E5230"/>
+    <circle cx="1124" cy="676" r="32" fill="#5A9647"/>
+    <circle cx="1176" cy="676" r="32" fill="#62A04E"/>
+    <circle cx="1150" cy="650" r="34" fill="#6DAE58"/>
+  </g>
+
+  <!-- Hofhaus -->
+  <g>
+    <ellipse cx="1430" cy="742" rx="150" ry="28" fill="#000000" opacity="0.12"/>
+    <rect x="1320" y="596" width="220" height="142" rx="12" fill="#FFF9EA"/>
+    <rect x="1320" y="712" width="220" height="26" rx="12" fill="#F0E2BF"/>
+    <path d="M1294 604 L1406 496 L1434 496 L1546 604 Z" fill="#C97A55"/>
+    <path d="M1294 604 L1406 496 L1416 508 L1308 604 Z" fill="#D98A5F"/>
+    <rect x="1316" y="596" width="228" height="16" rx="7" fill="#B5654A"/>
+    <rect x="1466" y="500" width="26" height="56" rx="6" fill="#B58A5A"/>
+    <rect x="1396" y="644" width="56" height="94" rx="9" fill="#8E6240"/>
+    <circle cx="1438" cy="694" r="4" fill="#F6D870"/>
+    <rect x="1342" y="636" width="42" height="38" rx="7" fill="#FFE79A"/>
+    <path d="M1363 636 L1363 674 M1342 655 L1384 655" stroke="#8E6240" stroke-width="3"/>
+    <rect x="1476" y="636" width="42" height="38" rx="7" fill="#FFE79A"/>
+    <path d="M1497 636 L1497 674 M1476 655 L1518 655" stroke="#8E6240" stroke-width="3"/>
+  </g>
+
+  <!-- Vordere Wiese -->
+  <path d="M0 872 C 300 838, 560 884, 840 872 C 1140 858, 1380 838, 1620 866 C 1780 886, 1860 872, 1920 878 L1920 1080 L0 1080 Z" fill="#9CC47E"/>
+  <path d="M0 952 C 260 924, 540 964, 820 950 C 1120 936, 1400 918, 1660 946 C 1800 962, 1880 950, 1920 956 L1920 1080 L0 1080 Z" fill="#8DB580"/>
+
+  <!-- Feldreihen als weiche Bögen -->
+  <g stroke="#A9CE8D" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.8">
+    <path d="M120 1012 C 420 986, 700 1018, 960 1004"/>
+    <path d="M80 1052 C 400 1024, 720 1056, 1010 1040"/>
+  </g>
+
+  <!-- Sprössling, das Markenzeichen -->
+  <g>
+    <ellipse cx="318" cy="958" rx="74" ry="20" fill="#000000" opacity="0.10"/>
+    <ellipse cx="318" cy="948" rx="62" ry="18" fill="#8C5C3A"/>
+    <path d="M318 948 C 314 900, 322 874, 316 838" stroke="#6F9A63" stroke-width="12" stroke-linecap="round" fill="none"/>
+    <path d="M316 884 C 278 884, 254 858, 250 826 C 292 824, 314 846, 316 884 Z" fill="#8DB580"/>
+    <path d="M316 856 C 352 856, 378 832, 382 800 C 342 798, 318 820, 316 856 Z" fill="#6F9A63"/>
+    <circle cx="318" cy="986" r="9" fill="#F4C95D"/>
+  </g>
+
+  <!-- Kleine Blüten -->
+  <g>
+    <circle cx="640" cy="992" r="7" fill="#F28BB0"/>
+    <circle cx="640" cy="992" r="3" fill="#F6D84A"/>
+    <circle cx="742" cy="1026" r="6" fill="#FFFFFF"/>
+    <circle cx="742" cy="1026" r="3" fill="#F6D84A"/>
+    <circle cx="1620" cy="1006" r="7" fill="#F28BB0"/>
+    <circle cx="1620" cy="1006" r="3" fill="#F6D84A"/>
+    <circle cx="1690" cy="1042" r="6" fill="#FFFFFF"/>
+    <circle cx="1690" cy="1042" r="3" fill="#F6D84A"/>
+  </g>
+</svg>

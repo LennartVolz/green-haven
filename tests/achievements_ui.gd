@@ -190,6 +190,8 @@ func run() -> void:
 		await frames()
 		check(contains_label(ui.content, "Wetter: %s" % weather_case["name"]), "Saat-Auswahl zeigt aktuelles Wetter (%s)" % weather_case["name"])
 		check(contains_label(ui.content, String(weather_case["effect"])), "Saat-Auswahl zeigt Wachstumsbonus (%s)" % weather_case["name"])
+		check(contains_label(ui.content, root.get_node("GameData").season_label_at(gs.day_number())), "Saat-Auswahl nennt die Jahreszeit (%s)" % weather_case["name"])
+		check(contains_label(ui.content, root.get_node("GameData").season_effect_text_at(gs.day_number())), "Saat-Auswahl zeigt den Saisonbonus (%s)" % weather_case["name"])
 		var wheat_grow: float = root.get_node("GameData").CROPS["wheat"]["grow"]
 		var wheat_seconds: float = root.get_node("GameData").real_seconds_for_crop_growth(gs.now(), wheat_grow)
 		check(contains_label(ui.content, "Reif in ca. %s" % root.get_node("GameData").format_time(wheat_seconds)), "Weizen-Reifezeit entspricht dem Wetterverlauf (%s)" % weather_case["name"])
@@ -233,6 +235,7 @@ func run() -> void:
 		await frames()
 	ui._process(0.3)
 	check(ui._day_label.text.begins_with("Tag 2"), "HUD zeigt den Tageszähler")
+	check(ui._day_label.text.contains(data.season_name_at(gs.day_number())), "HUD nennt die Jahreszeit")
 	# Der Tageswechsel im laufenden Spiel öffnet den Rückblick von selbst.
 	gs.day_anchor -= float(data.REAL_DAY_SECONDS)
 	gs.bump("harvested", 2)

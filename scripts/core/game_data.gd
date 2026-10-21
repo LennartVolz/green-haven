@@ -32,6 +32,24 @@ const WEATHER_DURATION_SECONDS := 120.0
 const WEATHER_TYPES := ["Sonnig", "Bewölkt", "Regen", "Nebel"]
 const WEATHER_GROWTH_RATES := {"Sonnig": 1.0, "Bewölkt": 0.9, "Regen": 1.25, "Nebel": 1.0}
 
+## Jahreszeiten: Ein Jahr hat vier Jahreszeiten zu je sechs Spieltagen (24 Tage).
+## Die Saison wird aus dem Spieltag abgeleitet und braucht deshalb keinen eigenen
+## Eintrag im Spielstand. Pflanzen ihrer Saison wachsen wie gewohnt, bringen aber
+## eine Extra-Einheit Ertrag und einen zusätzlichen Erfahrungspunkt. Nicht jede
+## Sorte ist Saisonpflanze (Zuckerrohr etwa nicht) – alles bleibt ganzjährig
+## pflanzbar, die Jahreszeit ist ein Bonus und keine Sperre.
+const SEASON_DAYS := 6
+const SEASONS := [
+	{"id": "spring", "name": "Frühling", "col": "#8FBF6A", "crops": ["strawberry", "rhubarb", "lettuce", "pea", "carrot"],
+		"note": "Alles sprießt. Erdbeeren, Rhabarber und zartes Blattgemüse geben eine Extra-Ernte."},
+	{"id": "summer", "name": "Sommer", "col": "#F2C64C", "crops": ["tomato", "corn", "cucumber", "zucchini", "sunflower"],
+		"note": "Sonne satt. Tomaten, Mais, Gurken und Sonnenblumen geben eine Extra-Ernte."},
+	{"id": "autumn", "name": "Herbst", "col": "#E08A3C", "crops": ["pumpkin", "beet", "apple", "blueberry", "wheat"],
+		"note": "Erntezeit. Kürbis, Rote Bete und Äpfel geben eine Extra-Ernte."},
+	{"id": "winter", "name": "Winter", "col": "#8FB8D0", "crops": ["potato", "rice", "quinoa", "coffee", "almond"],
+		"note": "Draußen ist es still. Kartoffeln, Reis und Quinoa geben eine Extra-Ernte."},
+]
+
 ## Jede Erweiterung vergrößert das Land um 1 Zelle in alle Richtungen.
 ## Acht Ausbauschritte wachsen von 8x8 bis 24x24 Felder und bleiben in der Karte.
 const LAND_EXPANSIONS := [
@@ -429,6 +447,49 @@ func weather_effect_text(weather: String) -> String:
 		"Nebel":
 			return "Wetter: Nebel · Wachstum normal"
 	return "Wetter: Sonnig · Wachstum normal"
+
+
+## Jahreszeit zu einem Spieltag (Tag 1 ist der erste Frühlingstag).
+func season_index_at(day: int) -> int:
+	return posmod(floori(float(maxi(1, day) - 1) / float(SEASON_DAYS)), SEASONS.size())
+
+
+func season_at(day: int) -> Dictionary:
+	return SEASONS[season_index_at(day)]
+
+
+func season_name_at(day: int) -> String:
+	return String(season_at(day)["name"])
+
+
+## Tag innerhalb der laufenden Jahreszeit, beginnend bei 1.
+func season_day_at(day: int) -> int:
+	return posmod(maxi(1, day) - 1, SEASON_DAYS) + 1
+
+
+## Saisonpflanzen einer Jahreszeit (IDs aus CROPS).
+func season_crops_at(day: int) -> Array:
+	return season_at(day)["crops"]
+
+
+func crop_in_season(crop: String, day: int) -> bool:
+	return season_crops_at(day).has(crop)
+
+
+func season_crop_names_at(day: int) -> Array:
+	var out: Array = []
+	for id in season_crops_at(day):
+		out.append(item_name(String(id)))
+	return out
+
+
+## HUD-Kurzform, z. B. "Herbst · Tag 2/6".
+func season_label_at(day: int) -> String:
+	return "%s · Tag %d/%d" % [season_name_at(day), season_day_at(day), SEASON_DAYS]
+
+
+func season_effect_text_at(day: int) -> String:
+	return "In der Saison: %s · je +1 Ertrag und +1 XP" % ", ".join(PackedStringArray(season_crop_names_at(day)))
 
 
 func _crop_growth_seconds_in_partial_cycle(start_time: float, end_time: float) -> float:

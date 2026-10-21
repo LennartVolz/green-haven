@@ -165,9 +165,9 @@ func _build_top() -> void:
 	h.add_child(lv)
 	var day_panel := UiKit.panel(Color(0, 0, 0, 0.16), 24, 10)
 	var day_info := UiKit.vbox(0)
-	_day_label = UiKit.label("Tag %d · 08:00" % GameState.day_number(), 25, UiKit.cream())
+	_day_label = UiKit.label("Tag %d · %s · 08:00" % [GameState.day_number(), GameState.season_name()], 25, UiKit.cream())
 	_day_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_day_label.tooltip_text = "Ein Spieltag dauert 8 Minuten."
+	_day_label.tooltip_text = "Ein Spieltag dauert 8 Minuten. Alle sechs Tage beginnt eine neue Jahreszeit."
 	day_info.add_child(_day_label)
 	_event_label = UiKit.label("", 18, UiKit.yellow())
 	_event_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -521,7 +521,7 @@ func _process(delta: float) -> void:
 	_tick_acc += delta
 	if _tick_acc >= 0.25:
 		_tick_acc = 0.0
-		_day_label.text = "Tag %d · %s" % [GameState.day_number(), world.day_time_text()]
+		_day_label.text = "Tag %d · %s · %s" % [GameState.day_number(), GameState.season_name(), world.day_time_text()]
 		_weather_label.text = GameData.weather_effect_text(world.current_weather)
 		if GameState.has_building("cafe"):
 			_event_label.text = "Gartentag!" if GameState.neighborhood_event_active() else "Gartentag in %s" % GameData.format_time(GameState.neighborhood_event_seconds_left())

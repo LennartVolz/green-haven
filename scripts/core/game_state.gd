@@ -102,6 +102,30 @@ func day_number() -> int:
 	return maxi(1, floori((now() - day_anchor) / GameData.REAL_DAY_SECONDS) + 1)
 
 
+## Aktuelle Jahreszeit, abgeleitet aus dem Spieltag (kein eigener Spielstand-Eintrag).
+func season_name() -> String:
+	return GameData.season_name_at(day_number())
+
+
+func season_label() -> String:
+	return GameData.season_label_at(day_number())
+
+
+## Pflanze gehört zur laufenden Jahreszeit und bringt dadurch einen Bonus.
+func crop_in_season(crop: String) -> bool:
+	return GameData.crop_in_season(crop, day_number())
+
+
+## Erntemenge inklusive Saisonbonus (+1 Einheit in der passenden Jahreszeit).
+func harvest_yield(crop: String) -> int:
+	return int(GameData.CROPS[crop]["yield"]) + (1 if crop_in_season(crop) else 0)
+
+
+## Erfahrung inklusive Saisonbonus (+1 XP in der passenden Jahreszeit).
+func harvest_xp(crop: String) -> int:
+	return int(GameData.CROPS[crop]["xp"]) + (1 if crop_in_season(crop) else 0)
+
+
 func day_recap_due() -> bool:
 	return day_number() > last_day_recap
 
@@ -592,16 +616,20 @@ func harvest(cell: Vector2i) -> bool:
 		return false
 	var crop: String = fields[cell].crop
 	var c: Dictionary = GameData.CROPS[crop]
-	var amount: int = int(c["yield"])
+	var seasonal := crop_in_season(crop)
+	var amount: int = harvest_yield(crop)
 	add_item(crop, amount)
-	add_xp(int(c["xp"]))
+	add_xp(harvest_xp(crop))
 	bump("harvested")
 	# Alle Pflanzen sind einjährig: Nach der Ernte ist das Feld wieder frei.
 	fields[cell] = {"crop": "", "t": 0.0}
 	world_changed.emit()
-	fx.emit("harvest", cell_center(cell), "+%d %s" % [amount, c["name"]])
+	var fx_text := "+%d %s" % [amount, c["name"]]
+	if seasonal:
+		fx_text += " · Saison"
+	fx.emit("harvest", cell_center(cell), fx_text)
 	sound.emit("harvest")
-	event("harvested", {"crop": crop, "cell": cell})
+	event("harvested", {"crop": crop, "cell": cell, "seasonal": seasonal})
 	return true
 
 

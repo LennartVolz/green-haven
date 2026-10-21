@@ -10,7 +10,10 @@ static func _weather_text() -> String:
 static func _growth_text(id: String) -> String:
 	var crop: Dictionary = GameData.CROPS[id]
 	var seconds := GameData.real_seconds_for_crop_growth(GameState.now(), float(crop["grow"]))
-	return "Reif in ca. %s · Ertrag %d" % [GameData.format_time(seconds), int(crop["yield"])]
+	var text := "Reif in ca. %s · Ertrag %d" % [GameData.format_time(seconds), GameState.harvest_yield(id)]
+	if GameState.crop_in_season(id):
+		text += " · Saison"
+	return text
 
 
 static func build(ui, args: Dictionary) -> void:
@@ -25,6 +28,13 @@ static func build(ui, args: Dictionary) -> void:
 	weather_content.add_child(UiKit.wrap_label("Wachstumszeiten berücksichtigen den Wetterverlauf ab jetzt.", 20, UiKit.earth_dark()))
 	weather_card.add_child(weather_content)
 	c.add_child(weather_card)
+	var season_card := UiKit.card(12)
+	var season_content := UiKit.vbox(4)
+	var season_label := UiKit.label(GameState.season_label(), 28, UiKit.sage_dark())
+	season_content.add_child(season_label)
+	season_content.add_child(UiKit.wrap_label(GameData.season_effect_text_at(GameState.day_number()), 20, UiKit.earth_dark()))
+	season_card.add_child(season_content)
+	c.add_child(season_card)
 	var ids: Array = GameData.CROPS.keys()
 	ids.sort_custom(func(a: String, b: String) -> bool: return int(GameData.CROPS[a]["level"]) < int(GameData.CROPS[b]["level"]))
 	var growth_labels: Dictionary = {}
@@ -61,13 +71,18 @@ static func build(ui, args: Dictionary) -> void:
 		else:
 			b.pressed.connect(ui.act_plant_pick.bind(id, cell))
 		c.add_child(b)
-	var last_weather := [GameData.weather_at(GameState.now())]
+	var last_state := [GameData.weather_at(GameState.now()), GameState.season_name()]
 	ui.ticker.append(func() -> void:
 		var weather := GameData.weather_at(GameState.now())
-		if weather == last_weather[0]:
+		var season := GameState.season_name()
+		if weather == last_state[0] and season == last_state[1]:
 			return
-		last_weather[0] = weather
-		weather_label.text = _weather_text()
+		var weather_changed: bool = weather != last_state[0]
+		last_state[0] = weather
+		last_state[1] = season
+		if weather_changed:
+			weather_label.text = _weather_text()
+		season_label.text = GameState.season_label()
 		for id in growth_labels:
 			if GameState.level >= int(GameData.CROPS[id]["level"]):
 				(growth_labels[id] as Label).text = _growth_text(str(id))

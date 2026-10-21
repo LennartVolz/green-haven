@@ -43,6 +43,7 @@ func _initialize() -> void:
 	test_new_game()
 	test_day_night()
 	test_day_counter_and_recap()
+	test_seasons()
 	test_weather_growth()
 	test_farming()
 	test_inventory()
@@ -155,6 +156,56 @@ func test_day_counter_and_recap() -> void:
 	check(gs.deserialize(migrated), "migrierten alten Stand laden")
 	check(gs.take_day_recap().is_empty(), "alter Stand zeigt nicht die gesamte Historie als Tagesrückblick")
 	gs.time_offset = prior_offset
+	gs.new_game()
+
+
+func test_seasons() -> void:
+	begin("Jahreszeiten")
+	check(gd.SEASON_DAYS == 6 and gd.SEASONS.size() == 4, "vier Jahreszeiten zu je sechs Spieltagen")
+	check(gd.season_name_at(1) == "Frühling" and gd.season_name_at(6) == "Frühling", "Tage 1 bis 6 sind Frühling")
+	check(gd.season_name_at(7) == "Sommer" and gd.season_name_at(12) == "Sommer", "Tage 7 bis 12 sind Sommer")
+	check(gd.season_name_at(13) == "Herbst" and gd.season_name_at(18) == "Herbst", "Tage 13 bis 18 sind Herbst")
+	check(gd.season_name_at(19) == "Winter" and gd.season_name_at(24) == "Winter", "Tage 19 bis 24 sind Winter")
+	check(gd.season_name_at(25) == "Frühling" and gd.season_name_at(0) == "Frühling", "nach 24 Tagen beginnt das Jahr im Frühling neu")
+	check(gd.season_day_at(1) == 1 and gd.season_day_at(7) == 1 and gd.season_day_at(12) == 6, "Tag innerhalb der Jahreszeit")
+	check(gd.season_label_at(13) == "Herbst · Tag 1/6", "Kurzform nennt Jahreszeit und Tag")
+	var seen := {}
+	for season in gd.SEASONS:
+		check(season["crops"].size() >= 4, "%s hat mehrere Saisonpflanzen" % season["name"])
+		check(not String(season["note"]).is_empty(), "%s erklärt seinen Bonus" % season["name"])
+		for id in season["crops"]:
+			check(gd.CROPS.has(id), "%s: Saisonpflanze %s existiert" % [season["name"], id])
+			check(not seen.has(id), "%s gehört nur einer Jahreszeit an" % id)
+			seen[id] = true
+	check(gd.crop_in_season("pumpkin", 13) and not gd.crop_in_season("pumpkin", 1), "Kürbis ist nur im Herbst Saisonpflanze")
+	check(gd.season_effect_text_at(13).contains("Kürbis") and gd.season_effect_text_at(13).contains("+1 Ertrag"), "Saisontext nennt Bonus und Pflanzen")
+	# Die Jahreszeit folgt dem Spieltag und braucht keinen eigenen Spielstand-Eintrag.
+	gs.new_game()
+	gs.day_anchor = gs.now()
+	check(gs.season_name() == "Frühling" and gs.season_label() == "Frühling · Tag 1/6", "neue Farm startet im Frühling")
+	gs.time_offset += gd.REAL_DAY_SECONDS * 12.0
+	check(gs.day_number() == 13 and gs.season_name() == "Herbst", "nach zwölf Tagen ist Herbst")
+	var encoded: Dictionary = gs.serialize()
+	check(not encoded.has("season") and not encoded.has("season_index"), "Jahreszeit braucht keinen Spielstand-Eintrag")
+	check(gs.deserialize(encoded) and gs.season_name() == "Herbst", "Jahreszeit bleibt nach dem Laden aus dem Spieltag ableitbar")
+	# Der Bonus gilt nur in der passenden Jahreszeit.
+	gs.coins = 1000
+	gs.level = 13
+	var cell: Vector2i = gs.fields.keys()[0]
+	check(gs.harvest_yield("pumpkin") == int(gd.CROPS["pumpkin"]["yield"]) + 1, "Kürbis bringt im Herbst eine Extra-Einheit")
+	check(gs.plant(cell, "pumpkin"), "Kürbis im Herbst pflanzen")
+	gs.time_offset += gd.real_seconds_for_crop_growth(gs.now(), float(gd.CROPS["pumpkin"]["grow"])) + 0.01
+	var xp_before: int = gs.xp
+	check(gs.harvest(cell), "Kürbis im Herbst ernten")
+	check(gs.item_count("pumpkin") == int(gd.CROPS["pumpkin"]["yield"]) + 1, "Saisonbonus landet im Inventar")
+	check(gs.xp == xp_before + int(gd.CROPS["pumpkin"]["xp"]) + 1, "Saisonbonus gibt einen Extra-XP")
+	gs.time_offset -= gd.REAL_DAY_SECONDS * 12.0
+	check(gs.season_name() == "Frühling" and not gs.crop_in_season("pumpkin"), "Kürbis ist im Frühling keine Saisonpflanze")
+	check(gs.harvest_yield("wheat") == int(gd.CROPS["wheat"]["yield"]), "Weizen bringt im Frühling den normalen Ertrag")
+	check(gs.plant(cell, "wheat"), "Weizen im Frühling pflanzen")
+	gs.time_offset += gd.real_seconds_for_crop_growth(gs.now(), float(gd.CROPS["wheat"]["grow"])) + 0.01
+	check(gs.harvest(cell), "Weizen im Frühling ernten")
+	check(gs.item_count("wheat") == int(gd.CROPS["wheat"]["yield"]), "ohne Saison kein Extra-Ertrag")
 	gs.new_game()
 
 
@@ -1152,7 +1203,8 @@ func test_new_crops() -> void:
 		check(gs.plant(cell, crop), "%s auf Freischaltstufe pflanzbar" % crop)
 		gs.time_offset += gd.real_seconds_for_crop_growth(gs.now(), float(definition["grow"])) + 0.01
 		check(gs.harvest(cell), "%s nach effektiver Wetter-Wachstumszeit erntbar" % crop)
-		check(gs.item_count(crop) == int(definition["yield"]), "%s liefert Inventar-Ertrag" % crop)
+		var expected_yield: int = int(definition["yield"]) + (1 if gd.crop_in_season(crop, gs.day_number()) else 0)
+		check(gs.item_count(crop) == expected_yield, "%s liefert Inventar-Ertrag inklusive Saisonbonus" % crop)
 		check(gs.fields[cell].crop == "", "%s hinterlässt nach der Ernte ein leeres Feld" % crop)
 		check(not gs.harvest(cell), "%s kann ohne neue Aussaat nicht erneut geerntet werden" % crop)
 		gs.fields[cell] = {"crop": "", "t": 0.0}

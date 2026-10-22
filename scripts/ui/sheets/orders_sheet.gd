@@ -10,9 +10,9 @@ static func build(ui, _args: Dictionary) -> void:
 		var event_v := UiKit.vbox(6)
 		var event_stage := clampi(GameState.neighborhood_event_stage, 0, GameState.NEIGHBORHOOD_EVENT_SERIES_LENGTH - 1)
 		var event_def: Dictionary = GameData.NEIGHBORHOOD_EVENT_STAGES[event_stage]
-		event_v.add_child(UiKit.label("Gartentag · %s" % String(event_def["name"]), 30, UiKit.earth_dark()))
+		event_v.add_child(UiKit.label(I18n.t("Gartentag · %s") % String(event_def["name"]), 30, UiKit.earth_dark()))
 		event_v.add_child(UiKit.wrap_label(String(event_def["description"]), 23, UiKit.earth_dark()))
-		var event_progress := "Etappe %d/%d · %d Gartentage abgeschlossen" % [event_stage + 1, GameState.NEIGHBORHOOD_EVENT_SERIES_LENGTH, int(GameState.stats.get("neighborhood_events_completed", 0))]
+		var event_progress := I18n.t("Etappe %d/%d · %d Gartentage abgeschlossen") % [event_stage + 1, GameState.NEIGHBORHOOD_EVENT_SERIES_LENGTH, int(GameState.stats.get("neighborhood_events_completed", 0))]
 		event_v.add_child(UiKit.label(event_progress, 21, UiKit.sage_dark()))
 		var event_timer := UiKit.label("", 22, UiKit.earth_dark())
 		event_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -21,9 +21,9 @@ static func build(ui, _args: Dictionary) -> void:
 		c.add_child(event_card)
 		ui.ticker.append(func() -> void:
 			if GameState.neighborhood_event_active():
-				event_timer.text = "Gartentag läuft · noch %s" % GameData.format_time(GameState.neighborhood_event_window_seconds_left())
+				event_timer.text = I18n.t("Gartentag läuft · noch %s") % GameData.format_time(GameState.neighborhood_event_window_seconds_left())
 			else:
-				event_timer.text = "Nächster Gartentag in %s" % GameData.format_time(GameState.neighborhood_event_seconds_left()))
+				event_timer.text = I18n.t("Nächster Gartentag in %s") % GameData.format_time(GameState.neighborhood_event_seconds_left()))
 	var daily_special := GameState.daily_cafe_special()
 	if not daily_special.is_empty():
 		var special_card := UiKit.card(14)
@@ -31,7 +31,7 @@ static func build(ui, _args: Dictionary) -> void:
 		special_v.add_child(UiKit.label("Heutiges Café-Gericht", 30, UiKit.earth_dark()))
 		var special_row := UiKit.hbox(12)
 		special_row.add_child(UiKit.item_icon(daily_special, 72))
-		var special_text := UiKit.wrap_label("%s · Gäste bestellen es heute besonders gern!\n+50%% Münzen und +5 XP pro Lieferung" % GameData.item_name(daily_special), 24, UiKit.sage_dark())
+		var special_text := UiKit.wrap_label(I18n.t("%s · Gäste bestellen es heute besonders gern!\n+50%% Münzen und +5 XP pro Lieferung") % GameData.item_name(daily_special), 24, UiKit.sage_dark())
 		special_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		special_row.add_child(special_text)
 		special_v.add_child(special_row)
@@ -42,18 +42,18 @@ static func build(ui, _args: Dictionary) -> void:
 		c.add_child(special_card)
 		ui.ticker.append(func() -> void:
 			var remaining := GameState.daily_cafe_special_seconds_left()
-			special_timer.text = "Wechselt in %s" % GameData.format_time(remaining))
+			special_timer.text = I18n.t("Wechselt in %s") % GameData.format_time(remaining))
 	if not GameState.active_delivery_story.is_empty():
 		var campaign: Dictionary = GameData.DELIVERY_STORIES[GameState.active_delivery_story]
 		var stages: Array = campaign["stages"]
 		var story_card := UiKit.card(16)
 		var story_v := UiKit.vbox(8)
-		story_v.add_child(UiKit.label("Geschichtenreihe · %s" % campaign["title"], 30, UiKit.earth_dark()))
+		story_v.add_child(UiKit.label(I18n.t("Geschichtenreihe · %s") % campaign["title"], 30, UiKit.earth_dark()))
 		if GameState.delivery_story_stage < stages.size():
-			story_v.add_child(UiKit.wrap_label("Abschnitt %d von %d · %s" % [GameState.delivery_story_stage + 1, stages.size(), str(stages[GameState.delivery_story_stage]["text"])], 24, UiKit.earth_dark()))
-		story_v.add_child(UiKit.label("Fortschritt: %d/%d" % [GameState.delivery_story_stage, stages.size()], 22, UiKit.sage_dark()))
+			story_v.add_child(UiKit.wrap_label(I18n.t("Abschnitt %d von %d · %s") % [GameState.delivery_story_stage + 1, stages.size(), str(stages[GameState.delivery_story_stage]["text"])], 24, UiKit.earth_dark()))
+		story_v.add_child(UiKit.label(I18n.t("Fortschritt: %d/%d") % [GameState.delivery_story_stage, stages.size()], 22, UiKit.sage_dark()))
 		if str(campaign.get("feature", "")) == "cafe":
-			story_v.add_child(UiKit.wrap_label("Café-Geschichten abgeschlossen: %d · Gäste bedient: %d" % [int(GameState.stats.get("cafe_stories_completed", 0)), int(GameState.stats.get("cafe_orders", 0))], 22, UiKit.sage_dark()))
+			story_v.add_child(UiKit.wrap_label(I18n.t("Café-Geschichten abgeschlossen: %d · Gäste bedient: %d") % [int(GameState.stats.get("cafe_stories_completed", 0)), int(GameState.stats.get("cafe_orders", 0))], 22, UiKit.sage_dark()))
 		story_card.add_child(story_v)
 		c.add_child(story_card)
 	else:
@@ -64,7 +64,7 @@ static func build(ui, _args: Dictionary) -> void:
 			var story_v := UiKit.vbox(8)
 			story_v.add_child(UiKit.label(String(campaign["title"]), 30))
 			story_v.add_child(UiKit.wrap_label(String(campaign["intro"]), 23, UiKit.earth_dark()))
-			var start := UiKit.button("Geschichte beginnen · %d Abschnitte" % campaign["stages"].size(), "warm", 26)
+			var start := UiKit.button(I18n.t("Geschichte beginnen · %d Abschnitte") % campaign["stages"].size(), "warm", 26)
 			start.pressed.connect(ui.act_start_delivery_story.bind(story_id))
 			story_v.add_child(start)
 			story_card.add_child(story_v)
@@ -81,26 +81,26 @@ static func build(ui, _args: Dictionary) -> void:
 		v.mouse_filter = Control.MOUSE_FILTER_PASS
 		var head := UiKit.hbox(10)
 		head.add_child(UiKit.icon("heart", 40))
-		var nm := UiKit.label("%s wünscht sich:" % String(o["customer"]), 32)
+		var nm := UiKit.label(I18n.t("%s wünscht sich:") % String(o["customer"]), 32)
 		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		head.add_child(nm)
 		var skip := UiKit.button("✕", "ghost", 30)
 		skip.custom_minimum_size = Vector2(80, 80)
 		if o.has("story_id") or o.has("visitor_story") or o.has("neighborhood_event_cycle"):
 			skip.disabled = true
-			skip.tooltip_text = "Geschichts- und Gartentag-Gäste bleiben, bis du ihre Bestellung annimmst."
+			skip.tooltip_text = I18n.t("Geschichts- und Gartentag-Gäste bleiben, bis du ihre Bestellung annimmst.")
 		else:
 			skip.pressed.connect(ui.act_skip_order.bind(int(o["id"])))
 		head.add_child(skip)
 		v.add_child(head)
 		if o.has("neighborhood_event_cycle"):
-			v.add_child(UiKit.wrap_label("Gartentag · Etappe %d/%d\n%s" % [int(o["neighborhood_event_stage"]) + 1, GameState.NEIGHBORHOOD_EVENT_SERIES_LENGTH, String(o.get("neighborhood_event_story", ""))], 23, UiKit.sage_dark()))
+			v.add_child(UiKit.wrap_label(I18n.t("Gartentag · Etappe %d/%d\n%s") % [int(o["neighborhood_event_stage"]) + 1, GameState.NEIGHBORHOOD_EVENT_SERIES_LENGTH, String(o.get("neighborhood_event_story", ""))], 23, UiKit.sage_dark()))
 		if o.has("story_text"):
-			v.add_child(UiKit.wrap_label("Geschichte · %s" % String(o["story_text"]), 23, UiKit.earth_dark()))
+			v.add_child(UiKit.wrap_label(I18n.t("Geschichte · %s") % String(o["story_text"]), 23, UiKit.earth_dark()))
 		if o.has("visitor_story"):
-			v.add_child(UiKit.wrap_label("Zu Besuch im Café · %s" % String(o["visitor_story"]), 23, UiKit.earth_dark()))
+			v.add_child(UiKit.wrap_label(I18n.t("Zu Besuch im Café · %s") % String(o["visitor_story"]), 23, UiKit.earth_dark()))
 		if bool(o.get("cafe_daily_special", false)):
-			v.add_child(UiKit.wrap_label("Tagesgericht · +50%% Münzen · +5 XP", 22, UiKit.sage_dark()))
+			v.add_child(UiKit.wrap_label(I18n.t("Tagesgericht · +50%% Münzen · +5 XP"), 22, UiKit.sage_dark()))
 		var chips := HFlowContainer.new()
 		chips.mouse_filter = Control.MOUSE_FILTER_PASS
 		chips.add_theme_constant_override("h_separation", 22)
@@ -134,4 +134,4 @@ static func build(ui, _args: Dictionary) -> void:
 		c.add_child(wait)
 		ui.ticker.append(func() -> void:
 			var rem := GameState.next_order_at - GameState.now()
-			wait.text = "Nächster Kunde in %s" % GameData.format_time(rem) if rem > 0.0 else "Ein neuer Kunde kommt gleich …")
+			wait.text = I18n.t("Nächster Kunde in %s") % GameData.format_time(rem) if rem > 0.0 else I18n.t("Ein neuer Kunde kommt gleich …"))

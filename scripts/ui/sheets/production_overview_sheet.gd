@@ -27,10 +27,10 @@ static func build(ui, _args: Dictionary) -> void:
 	var hv := UiKit.vbox(2)
 	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hv.add_child(UiKit.label("Alles im Blick", 34))
-	hv.add_child(UiKit.label("%d Gebäude · %d fertig · %d in Arbeit · %d freie Plätze" % [buildings.size(), total_ready, active, free], 25, UiKit.earth_dark()))
+	hv.add_child(UiKit.label(I18n.t("%d Gebäude · %d fertig · %d in Arbeit · %d freie Plätze") % [buildings.size(), total_ready, active, free], 25, UiKit.earth_dark()))
 	head.add_child(hv)
 	sv.add_child(head)
-	var collect_all := UiKit.button("Alles abholen (%d)" % total_ready if total_ready > 0 else "Nichts abzuholen", "warm" if total_ready > 0 else "light", 32)
+	var collect_all := UiKit.button(I18n.t("Alles abholen (%d)") % total_ready if total_ready > 0 else I18n.t("Nichts abzuholen"), "warm" if total_ready > 0 else "light", 32)
 	collect_all.disabled = total_ready <= 0
 	collect_all.pressed.connect(ui.act_collect_all)
 	sv.add_child(collect_all)
@@ -55,10 +55,10 @@ static func _building_card(ui, o: Dictionary) -> PanelContainer:
 	tv.add_child(UiKit.label(String(def["name"]), 31))
 	var queue: Array = o.queue
 	var ready := GameState.ready_count(o)
-	var status := "%d von %d Plätzen belegt · Ausbau %d/%d" % [queue.size(), GameState.queue_capacity(o), int(o.upgrades), GameState.MAX_UPGRADES]
+	var status := I18n.t("%d von %d Plätzen belegt · Ausbau %d/%d") % [queue.size(), GameState.queue_capacity(o), int(o.upgrades), GameState.MAX_UPGRADES]
 	var status_color := UiKit.earth_dark()
 	if ready > 0:
-		status += " · %d fertig" % ready
+		status += I18n.t(" · %d fertig") % ready
 		status_color = UiKit.sage_dark()
 	tv.add_child(UiKit.label(status, 23, status_color))
 	head.add_child(tv)
@@ -73,7 +73,7 @@ static func _building_card(ui, o: Dictionary) -> PanelContainer:
 		for e in queue:
 			v.add_child(_entry_row(ui, e))
 	if ready > 0:
-		var collect := UiKit.button("Abholen (%d)" % ready, "warm", 27)
+		var collect := UiKit.button(I18n.t("Abholen (%d)") % ready, "warm", 27)
 		collect.pressed.connect(ui.act_collect.bind(int(o.uid)))
 		v.add_child(collect)
 	card.add_child(v)
@@ -108,12 +108,12 @@ static func _apply_entry_state(bar: ProgressBar, tl: Label, state: Label, entry:
 	var remaining := float(entry["end"]) - GameState.now()
 	bar.value = GameState.entry_progress(entry)
 	if remaining <= 0.0:
-		tl.text = "Bereit zum Abholen"
+		tl.text = I18n.t("Bereit zum Abholen")
 		state.text = "Fertig"
 		state.add_theme_color_override("font_color", UiKit.sage_dark())
 	elif float(entry["start"]) > GameState.now():
-		tl.text = "wartet · fertig in %s" % GameData.format_time(remaining)
+		tl.text = I18n.t("wartet · fertig in %s") % GameData.format_time(remaining)
 		state.text = "Wartet"
 	else:
-		tl.text = "noch %s" % GameData.format_time(remaining)
+		tl.text = I18n.t("noch %s") % GameData.format_time(remaining)
 		state.text = "Läuft"

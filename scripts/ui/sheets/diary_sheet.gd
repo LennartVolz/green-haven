@@ -15,7 +15,7 @@ static func build(ui, _args: Dictionary) -> void:
 		var card := UiKit.card(12)
 		var row := UiKit.hbox(10)
 		row.add_child(UiKit.icon("paw" if int(entry.get("animal_uid", -1)) >= 0 else "scroll", 36))
-		var text := UiKit.wrap_label(String(entry.get("text", "")), 24, UiKit.earth_dark())
+		var text := UiKit.wrap_label(GameState.diary_text(entry), 24, UiKit.earth_dark())
 		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(text)
 		var stamp := Time.get_datetime_dict_from_unix_time(int(entry.get("time", 0.0)))

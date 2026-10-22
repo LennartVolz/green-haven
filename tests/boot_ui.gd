@@ -39,8 +39,11 @@ func run() -> void:
 	check(ProjectSettings.get_setting("application/boot_splash/image", "") == "res://assets/boot_splash.png", "der Godot-Start zeigt das eigene Bild statt des Godot-Logos")
 	check(ResourceLoader.exists("res://assets/boot_splash.png"), "das Startbild ist im Projekt vorhanden")
 
-	# Ein echter Spielstand, den der Ladebildschirm einsammeln muss.
+	# Ein echter Spielstand, den der Ladebildschirm einsammeln muss. Die fest
+	# gewählte Sprache gehört dazu: der Bildschirm soll sie schon vor dem
+	# eigentlichen Laden anwenden.
 	gs.new_game()
+	gs.settings["language"] = "de"
 	gs.coins = 4321
 	gs.level = 7
 	check(save_system.save_game(), "Testspielstand wird gespeichert")
@@ -108,7 +111,9 @@ func run() -> void:
 	var fresh_screen: Control = null
 	if fresh_boot != null:
 		fresh_screen = fresh_boot.get_node_or_null("Splash/Screen")
-	check(fresh_screen != null and fresh_screen.greeting_label.text == "Ein neuer Hof entsteht", "ohne Spielstand wird ein neuer Hof angekündigt")
+	# Ohne Spielstand gilt die Gerätesprache; die Begrüßung muss ihr folgen.
+	check(fresh_screen != null and fresh_screen.greeting_label.text == I18n.t("Ein neuer Hof entsteht"),
+		"ohne Spielstand wird ein neuer Hof angekündigt: %s" % (fresh_screen.greeting_label.text if fresh_screen != null else "-"))
 	var fresh_main := await wait_until(func() -> bool: return root.get_node_or_null("Main") != null)
 	check(fresh_main, "auch ohne Spielstand wird die Welt aufgebaut")
 	check(gs.coins == 120 and gs.day_number() == 1, "ohne Spielstand beginnt ein frisches Spiel")
@@ -133,4 +138,6 @@ func run() -> void:
 
 
 func _initialize() -> void:
+	# Die Prüfungen vergleichen deutsche Texte; unabhängig von der Gerätesprache.
+	I18n.apply("de")
 	call_deferred("run")

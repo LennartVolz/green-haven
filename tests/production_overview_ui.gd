@@ -135,4 +135,6 @@ func run() -> void:
 
 
 func _initialize() -> void:
+	# Die Prüfungen vergleichen deutsche Texte; unabhängig von der Gerätesprache.
+	I18n.apply("de")
 	call_deferred("run")

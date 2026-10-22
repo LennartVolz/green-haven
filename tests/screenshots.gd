@@ -100,6 +100,8 @@ func world_to_screen(w: Vector2) -> Vector2:
 
 
 func _initialize() -> void:
+	# Die Prüfungen vergleichen deutsche Texte; unabhängig von der Gerätesprache.
+	I18n.apply("de")
 	var args := OS.get_cmdline_user_args()
 	if args.size() > 0:
 		out_dir = args[0]
@@ -348,7 +350,7 @@ func run() -> void:
 		ui.act_open("achievements", {})
 		await frames(3)
 		assert(ui._sheet_name == "achievements" and ui._title.text == "Erfolge", "Erfolge öffnen sich über die Navigation")
-		assert(ui.content.get_child_count() == GameData.ACHIEVEMENTS.size() + 1, "Erfolgsübersicht zeigt alle Meilensteine")
+		assert(ui.content.get_child_count() == root.get_node("GameData").ACHIEVEMENTS.size() + 1, "Erfolgsübersicht zeigt alle Meilensteine")
 		ui.close_sheet()
 		quit()
 		return
@@ -402,7 +404,7 @@ func run() -> void:
 	ui.act_open("achievements", {})
 	await frames(3)
 	assert(ui._sheet_name == "achievements" and ui._title.text == "Erfolge", "Erfolge öffnen sich über die Navigation")
-	assert(ui.content.get_child_count() == GameData.ACHIEVEMENTS.size() + 1, "Erfolgsübersicht zeigt alle Meilensteine")
+	assert(ui.content.get_child_count() == root.get_node("GameData").ACHIEVEMENTS.size() + 1, "Erfolgsübersicht zeigt alle Meilensteine")
 	await shot("sheet_achievements")
 	ui.act_open("animal", {"uid": gs.animals[0].uid})
 	await shot("sheet_animal")

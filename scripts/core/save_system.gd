@@ -51,6 +51,20 @@ func has_save() -> bool:
 	return FileAccess.file_exists(_path()) or FileAccess.file_exists(_backup_path())
 
 
+## Liest nur die Spracheinstellung, ohne den Spielstand zu laden. Der
+## Ladebildschirm braucht sie, bevor die Welt aufgebaut ist.
+func peek_language() -> String:
+	for p in [_path(), _backup_path()]:
+		var data := _read(p)
+		var settings_value: Variant = data.get("settings", {})
+		if typeof(settings_value) != TYPE_DICTIONARY:
+			continue
+		var language := str((settings_value as Dictionary).get("language", ""))
+		if I18n.has_locale(language):
+			return language
+	return I18n.AUTO
+
+
 ## Exportiert den aktuellen Stand als einzelne JSON-Datei.
 func export_to_file(destination: String) -> bool:
 	if not GameState.loaded or destination.strip_edges().is_empty():
@@ -383,6 +397,28 @@ func migrate(data: Dictionary) -> Dictionary:
 		data["unlocked_decos"] = []
 		data["hofbuch_claimed"] = []
 		data["version"] = 10
+		v = 10
+	if v < 11:
+		# Tagebuchtexte werden seit Version 11 als Schlüssel + Parameter gespeichert,
+		# damit ein Sprachwechsel auch neue Einträge erfasst. Vorhandene Texte
+		# bleiben als historische Notiz erhalten.
+		var diary_value: Variant = data.get("diary", [])
+		var migrated_diary: Array = []
+		if typeof(diary_value) == TYPE_ARRAY:
+			for entry in diary_value:
+				if typeof(entry) != TYPE_DICTIONARY:
+					continue
+				var item: Dictionary = entry
+				if item.has("key"):
+					migrated_diary.append(item)
+					continue
+				migrated_diary.append({
+					"time": float(item.get("time", 0.0)),
+					"legacy_text": str(item.get("text", "")),
+					"animal_uid": int(item.get("animal_uid", -1)),
+				})
+		data["diary"] = migrated_diary
+		data["version"] = 11
 	# Wilde Sammelstellen sind eine optionale Ergänzung. Altstände starten ohne
 	# Nachwuchszeiten; die Fundstellen selbst ergeben sich aus der Zellposition.
 	if not data.has("forage"):

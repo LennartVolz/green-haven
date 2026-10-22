@@ -43,9 +43,12 @@ static func make_theme() -> Theme:
 	return th
 
 
+## Alle Texte laufen hier durch I18n: Ein Aufruf mit deutschem Text zeigt in jeder
+## Sprache den passenden Eintrag. Bereits zusammengesetzte Texte ("Stufe 3")
+## haben keinen Eintrag und bleiben unverändert.
 static func label(text: String, size: int = 34, color: Color = Color(0.29, 0.23, 0.16)) -> Label:
 	var l := Label.new()
-	l.text = text
+	l.text = I18n.t(text)
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -125,7 +128,10 @@ static func item_icon(id: String, px: int = 72) -> ItemIcon:
 static func button(text: String, kind: String = "primary", font_size: int = 34) -> Button:
 	var b := Button.new()
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
-	b.text = text
+	b.text = I18n.t(text)
+	# Übersetzungen sind oft länger als das Deutsche („Alle" → „Tout vendre").
+	# Statt den Text abzuschneiden, bricht der Button um und wächst in die Höhe.
+	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.custom_minimum_size = Vector2(0, MIN_TOUCH)
 	b.add_theme_font_size_override("font_size", font_size)
 	b.focus_mode = Control.FOCUS_NONE
@@ -194,11 +200,16 @@ static func nav_button(icon_name: String, text: String, w: int = 150, h: int = 1
 	var v := vbox(0)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ic := icon(icon_name, 56)
+	var ic := icon(icon_name, 48)
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(ic)
-	var l := label(text, 26)
+	# Die Beschriftung darf zweizeilig werden und die Mindestbreite des Buttons
+	# nur noch vom längsten Wort bestimmen – sonst sprengen „Commandes" oder
+	# „Obiettivi" die Navigationsleiste.
+	var l := label(text, 24)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_child(l)
 	b.add_child(v)
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -255,7 +266,11 @@ static func icon_text(icon_name: String, text: String, size: int = 30, color: Co
 	var ic := icon(icon_name, int(size * 1.1))
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(ic)
-	h.add_child(label(text, size, color))
+	var l := label(text, size, color)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(l)
 	return h
 
 

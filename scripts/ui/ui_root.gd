@@ -157,7 +157,7 @@ func _build_top() -> void:
 	h.add_child(star)
 	var lv := UiKit.vbox(4)
 	lv.alignment = BoxContainer.ALIGNMENT_CENTER
-	_level_label = UiKit.label("Stufe 1", 34, UiKit.cream())
+	_level_label = UiKit.label(I18n.t("Stufe %d") % 1, 34, UiKit.cream())
 	lv.add_child(_level_label)
 	_xp_bar = UiKit.progress(0.0, UiKit.yellow(), 22)
 	_xp_bar.custom_minimum_size = Vector2(250, 22)
@@ -166,16 +166,16 @@ func _build_top() -> void:
 	h.add_child(lv)
 	var day_panel := UiKit.panel(Color(0, 0, 0, 0.16), 24, 10)
 	var day_info := UiKit.vbox(0)
-	_day_label = UiKit.label("Tag %d · %s · 08:00" % [GameState.day_number(), GameState.season_name()], 25, UiKit.cream())
+	_day_label = UiKit.label(I18n.t("Tag %d · %s · 08:00") % [GameState.day_number(), GameState.season_name()], 25, UiKit.cream())
 	_day_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_day_label.tooltip_text = "Ein Spieltag dauert 8 Minuten. Alle sechs Tage beginnt eine neue Jahreszeit."
+	_day_label.tooltip_text = I18n.t("Ein Spieltag dauert 8 Minuten. Alle sechs Tage beginnt eine neue Jahreszeit.")
 	day_info.add_child(_day_label)
 	_event_label = UiKit.label("", 18, UiKit.yellow())
 	_event_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	day_info.add_child(_event_label)
 	_weather_label = UiKit.label("Wetter: Sonnig", 21, UiKit.cream())
 	_weather_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_weather_label.tooltip_text = "Das Wetter beeinflusst das Wachstum aller Pflanzen."
+	_weather_label.tooltip_text = I18n.t("Das Wetter beeinflusst das Wachstum aller Pflanzen.")
 	day_info.add_child(_weather_label)
 	day_panel.add_child(day_info)
 	h.add_child(day_panel)
@@ -207,7 +207,7 @@ func _build_side() -> void:
 	_side.add_child(till)
 	var land := UiKit.button("Land", "light", 24)
 	land.custom_minimum_size = Vector2(112, 96)
-	land.tooltip_text = "Farmfläche erweitern"
+	land.tooltip_text = I18n.t("Farmfläche erweitern")
 	land.pressed.connect(act_open_shop_tab.bind("land"))
 	_side.add_child(land)
 	_land_button = land
@@ -269,6 +269,9 @@ func _build_bottom() -> void:
 	sv.mouse_filter = Control.MOUSE_FILTER_PASS
 	var head := UiKit.hbox(12)
 	_title = UiKit.label("", 42)
+	# Sheet-Titel wie „Chronik des Refugiums" sind in anderen Sprachen länger als
+	# die Kopfzeile breit ist – umbrechen statt abschneiden.
+	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(_title)
 	var close := UiKit.icon_button("close", "danger", 84)
@@ -388,7 +391,7 @@ func is_over_ui(p: Vector2) -> bool:
 # ---------------------------------------------------------------- Sheets
 
 func set_title(text: String) -> void:
-	_title.text = text
+	_title.text = I18n.t(text)
 
 
 func set_state(key: String, value: Variant) -> void:
@@ -524,10 +527,10 @@ func _process(delta: float) -> void:
 	_tick_acc += delta
 	if _tick_acc >= 0.25:
 		_tick_acc = 0.0
-		_day_label.text = "Tag %d · %s · %s" % [GameState.day_number(), GameState.season_name(), world.day_time_text()]
+		_day_label.text = I18n.t("Tag %d · %s · %s") % [GameState.day_number(), GameState.season_name(), world.day_time_text()]
 		_weather_label.text = GameData.weather_effect_text(world.current_weather)
 		if GameState.has_building("cafe"):
-			_event_label.text = "Gartentag!" if GameState.neighborhood_event_active() else "Gartentag in %s" % GameData.format_time(GameState.neighborhood_event_seconds_left())
+			_event_label.text = I18n.t("Gartentag!") if GameState.neighborhood_event_active() else I18n.t("Gartentag in %s") % GameData.format_time(GameState.neighborhood_event_seconds_left())
 		else:
 			_event_label.text = ""
 		# Fertige Produktionen lösen kein Signal aus. Deshalb hier regelmäßig prüfen,
@@ -596,7 +599,7 @@ func _on_coins() -> void:
 
 
 func _on_xp() -> void:
-	_level_label.text = "Stufe %d" % GameState.level
+	_level_label.text = I18n.t("Stufe %d") % GameState.level
 	if GameState.level >= GameData.MAX_LEVEL:
 		_xp_bar.value = 1.0
 	else:
@@ -606,7 +609,7 @@ func _on_xp() -> void:
 func show_toast(text: String, kind: String = "info") -> void:
 	if text == "":
 		return
-	_toast_label.text = text
+	_toast_label.text = I18n.t(text)
 	var bg := UiKit.cream()
 	var border := UiKit.sage_dark()
 	if kind == "error":
@@ -665,8 +668,8 @@ func _update_toolbar(mode: String, data: Dictionary) -> void:
 			h.add_child(UiKit.item_icon(crop, 80))
 			var tv := UiKit.vbox(0)
 			tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			tv.add_child(UiKit.label("Säen: %s" % String(d["name"]), 32))
-			tv.add_child(UiKit.label("Tippe auf leere Felder · Saat %d · Ziehen verschiebt die Karte" % int(d["seed"]), 22, UiKit.earth_dark()))
+			tv.add_child(UiKit.label(I18n.t("Säen: %s") % String(d["name"]), 32))
+			tv.add_child(UiKit.label(I18n.t("Tippe auf leere Felder · Saat %d · Ziehen verschiebt die Karte") % int(d["seed"]), 22, UiKit.earth_dark()))
 			h.add_child(tv)
 			var sw := UiKit.button("Sorte", "light", 26)
 			sw.custom_minimum_size = Vector2(140, 88)
@@ -681,7 +684,7 @@ func _update_toolbar(mode: String, data: Dictionary) -> void:
 			var tv2 := UiKit.vbox(0)
 			tv2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			tv2.add_child(UiKit.label("Felder anlegen", 32))
-			tv2.add_child(UiKit.label("Tippe auf freie Wiese · %d Münzen pro Feld · Ziehen verschiebt die Karte" % GameData.TILL_COST, 22, UiKit.earth_dark()))
+			tv2.add_child(UiKit.label(I18n.t("Tippe auf freie Wiese · %d Münzen pro Feld · Ziehen verschiebt die Karte") % GameData.TILL_COST, 22, UiKit.earth_dark()))
 			h.add_child(tv2)
 			var done2 := UiKit.button("Fertig", "primary", 28)
 			done2.custom_minimum_size = Vector2(160, 88)
@@ -694,7 +697,7 @@ func _update_toolbar(mode: String, data: Dictionary) -> void:
 			tv3.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			tv3.add_child(UiKit.label(String(def.get("name", "")), 32))
 			var valid: bool = data.get("valid", false)
-			var hint := "Ziehe auf der Karte, um die Stelle zu wählen" if valid else "Hier ist kein Platz – ziehe weiter"
+			var hint := I18n.t("Ziehe auf der Karte, um die Stelle zu wählen") if valid else I18n.t("Hier ist kein Platz – ziehe weiter")
 			var hl := UiKit.label(hint, 22, UiKit.sage_dark() if valid else UiKit.red())
 			tv3.add_child(hl)
 			h.add_child(tv3)
@@ -785,14 +788,14 @@ func act_edit() -> void:
 func act_sell(item: String, n: int) -> void:
 	var gain := GameState.sell_item(item, n)
 	if gain > 0:
-		show_toast("+%d Münzen" % gain, "good")
+		show_toast(I18n.t("+%d Münzen") % gain, "good")
 	else:
 		_check(false)
 
 
 func act_buy_item(item: String, n: int) -> void:
 	if _check(GameState.buy_item(item, n)):
-		show_toast("%s gekauft" % GameData.item_name(item), "good")
+		show_toast(I18n.t("%s gekauft") % GameData.item_name(item), "good")
 
 
 func act_expand() -> void:
@@ -856,9 +859,14 @@ func act_collect_all() -> void:
 		show_toast("Gerade ist nichts fertig", "info")
 		return
 	var buildings := int(result.get("buildings", 0))
-	var what := "Produkt" if count == 1 else "Produkte"
-	var where := "Gebäude" if buildings == 1 else "Gebäuden"
-	show_toast("%d %s aus %d %s abgeholt" % [count, what, buildings, where], "good")
+	var key := "%d Produkt aus %d Gebäuden abgeholt"
+	if count == 1 and buildings == 1:
+		key = "%d Produkt aus %d Gebäude abgeholt"
+	elif count > 1 and buildings == 1:
+		key = "%d Produkte aus %d Gebäude abgeholt"
+	elif count > 1:
+		key = "%d Produkte aus %d Gebäuden abgeholt"
+	show_toast(I18n.t(key) % [count, buildings], "good")
 
 
 func act_upgrade(uid: int) -> void:
@@ -872,7 +880,7 @@ func act_adopt(species: String, rescue: bool = false) -> void:
 		_fail()
 		return
 	var a := GameState.get_animal(uid)
-	show_toast("%s hat ein neues Zuhause gefunden!" % a.name, "good")
+	show_toast(I18n.t("%s hat ein neues Zuhause gefunden!") % a.name, "good")
 	open_sheet("animal", {"uid": uid})
 
 
@@ -918,6 +926,52 @@ func act_toggle(key: String) -> void:
 	refresh_sheet()
 
 
+## Sprachwechsel. Alle Texte werden beim Aufbau der Oberfläche übersetzt,
+## deshalb lädt die Szene danach einmal neu – das ist ehrlicher als ein
+## halb aktualisiertes Menü und dauert nur einen Wimpernschlag.
+func act_set_language(language_id: String) -> void:
+	var next := language_id if I18n.has_locale(language_id) else ""
+	if next == str(GameState.settings.get("language", "")):
+		return
+	if next == "":
+		GameState.settings.erase("language")
+	else:
+		GameState.settings["language"] = next
+	I18n.apply(next)
+	SaveSystem.save_game()
+	call_deferred("_reload_after_language_change")
+
+
+## Baut die Oberfläche in der neuen Sprache neu auf. Welt und Kamera bleiben, wo
+## sie sind – ein Szenenwechsel mitten im Spiel wäre ein sichtbarer Sprung.
+func relocalize() -> void:
+	if _safe == null:
+		return
+	if world != null:
+		world.clear_tool()
+	_sheet_name = ""
+	_sheet.visible = false
+	ticker.clear()
+	_safe.queue_free()
+	_safe = null
+	_layer = null
+	_build()
+	_apply_safe_area()
+	_apply_layout()
+	_displayed_coins = float(GameState.coins)
+	_on_coins()
+	_on_xp()
+	_ready_seen = GameState.total_ready_products()
+	_update_badges()
+	_update_tutorial()
+	_update_toolbar("", {})
+	_update_nav_highlight()
+
+
+func _reload_after_language_change() -> void:
+	relocalize()
+
+
 func act_save() -> void:
 	if SaveSystem.save_game():
 		show_toast("Spielstand gespeichert", "good")
@@ -935,7 +989,7 @@ func _confirm_transfer(key: String, title: String) -> bool:
 		state[key] = false
 		if _sheet_name == "settings":
 			refresh_sheet())
-	show_toast("%s bitte durch erneutes Tippen bestätigen" % title, "info")
+	show_toast(I18n.t("%s bitte durch erneutes Tippen bestätigen") % title, "info")
 	return false
 
 
@@ -971,7 +1025,7 @@ func _on_transfer_file_selected(status: bool, selected_paths: PackedStringArray,
 			show_toast("Spielstand importiert", "good")
 			close_sheet()
 		else:
-			show_toast("Spielstand konnte nicht importiert werden%s" % (" – neuere Spielversion" if SaveSystem.last_load_error == "newer" else ""), "error")
+			show_toast(I18n.t("Spielstand konnte nicht importiert werden%s") % (I18n.t(" – neuere Spielversion") if SaveSystem.last_load_error == "newer" else ""), "error")
 		return
 	if SaveSystem.export_to_file(path):
 		show_toast("Spielstand exportiert", "good")
@@ -992,7 +1046,7 @@ func _write_transfer_file(importing: bool) -> void:
 			show_toast("Spielstand importiert", "good")
 			close_sheet()
 		else:
-			show_toast("Spielstand konnte nicht importiert werden%s" % (" – neuere Spielversion" if SaveSystem.last_load_error == "newer" else ""), "error")
+			show_toast(I18n.t("Spielstand konnte nicht importiert werden%s") % (I18n.t(" – neuere Spielversion") if SaveSystem.last_load_error == "newer" else ""), "error")
 	else:
 		var target := directory.path_join("savegame.json")
 		if SaveSystem.export_to_file(target):
@@ -1097,7 +1151,7 @@ func _update_tutorial() -> void:
 	var active := step < TUTORIAL.size()
 	_tut_panel.visible = active and (_modal == null or not _modal.visible)
 	if active:
-		_tut_label.text = TUTORIAL[step]
+		_tut_label.text = I18n.t(TUTORIAL[step])
 		_tut_button.visible = step == TUTORIAL.size() - 1
 
 
@@ -1166,13 +1220,13 @@ func _close_modal() -> void:
 
 
 func _on_level_up(level: int, unlocks: Array) -> void:
-	var lines: Array = ["Du hast Stufe %d erreicht!" % level]
+	var lines: Array = [I18n.t("Du hast Stufe %d erreicht!") % level]
 	if unlocks.is_empty():
 		lines.append("Weiter so – deine Farm wächst und gedeiht.")
 	else:
 		lines.append("Neu freigeschaltet:")
 		lines.append(", ".join(PackedStringArray(unlocks)))
-	_show_modal("Stufe %d!" % level, lines, "Super!", "star")
+	_show_modal(I18n.t("Stufe %d!") % level, lines, "Super!", "star")
 
 
 func _show_welcome_back() -> void:
@@ -1186,13 +1240,13 @@ func _show_welcome_back() -> void:
 	var lines: Array = []
 	var mins := int(away / 60.0)
 	if mins >= 60:
-		lines.append("Du warst %d Std. %d Min. weg." % [mins / 60, mins % 60])
+		lines.append(I18n.t("Du warst %d Std. %d Min. weg.") % [mins / 60, mins % 60])
 	else:
-		lines.append("Du warst %d Min. weg." % mins)
+		lines.append(I18n.t("Du warst %d Min. weg.") % mins)
 	if int(rep["fields"]) > 0:
-		lines.append("%d Felder sind erntereif." % int(rep["fields"]))
+		lines.append(I18n.t("%d Felder sind erntereif.") % int(rep["fields"]))
 	if int(rep["products"]) > 0:
-		lines.append("%d fertige Produkte warten auf dich." % int(rep["products"]))
+		lines.append(I18n.t("%d fertige Produkte warten auf dich.") % int(rep["products"]))
 	var sleepy := 0
 	for a in GameState.animals:
 		if GameState.wellbeing(a) < 50.0:
@@ -1201,7 +1255,7 @@ func _show_welcome_back() -> void:
 		lines.append("Deine Tiere freuen sich über Besuch.")
 	if not recap.is_empty() and _day_recap_has_activity(recap):
 		lines.append("")
-		lines.append("Tag %d · dein Rückblick:" % int(recap["day"]))
+		lines.append(I18n.t("Tag %d · dein Rückblick:") % int(recap["day"]))
 		lines.append_array(_day_recap_lines(recap))
 	if lines.size() == 1:
 		lines.append("Auf deiner Farm ist alles ruhig.")
@@ -1213,9 +1267,9 @@ func _show_day_recap_modal(recap: Dictionary) -> void:
 		return
 	var day := int(recap.get("day", 1))
 	if not _day_recap_has_activity(recap):
-		show_toast("Tag %d beginnt" % day, "info")
+		show_toast(I18n.t("Tag %d beginnt") % day, "info")
 		return
-	_show_modal("Tag %d · Rückblick" % day, _day_recap_lines(recap), "Weiter", "clock")
+	_show_modal(I18n.t("Tag %d · Rückblick") % day, _day_recap_lines(recap), "Weiter", "clock")
 
 
 func _day_recap_has_activity(recap: Dictionary) -> bool:
@@ -1230,11 +1284,11 @@ func _day_recap_lines(recap: Dictionary) -> Array:
 	else:
 		lines.append("Dein Rückblick auf den letzten Tag:")
 	if int(recap.get("harvested", 0)) > 0:
-		lines.append("Ernten: %d" % int(recap["harvested"]))
+		lines.append(I18n.t("Ernten: %d") % int(recap["harvested"]))
 	if int(recap.get("orders", 0)) > 0:
-		lines.append("Erfüllte Aufträge: %d" % int(recap["orders"]))
+		lines.append(I18n.t("Erfüllte Aufträge: %d") % int(recap["orders"]))
 	if int(recap.get("animal_moments", 0)) > 0:
-		lines.append("Tiermomente: %d" % int(recap["animal_moments"]))
+		lines.append(I18n.t("Tiermomente: %d") % int(recap["animal_moments"]))
 	if int(recap.get("crafted", 0)) > 0:
-		lines.append("Hergestellte Produkte: %d" % int(recap["crafted"]))
+		lines.append(I18n.t("Hergestellte Produkte: %d") % int(recap["crafted"]))
 	return lines

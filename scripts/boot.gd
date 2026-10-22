@@ -16,6 +16,12 @@ var _started_msec := 0
 var _skip_requested := false
 
 
+## Vor dem Aufbau der Oberfläche: Die gespeicherte Sprache gilt schon für den
+## Ladebildschirm, nicht erst für die Welt dahinter.
+func _enter_tree() -> void:
+	I18n.apply(SaveSystem.peek_language())
+
+
 func _ready() -> void:
 	_started_msec = Time.get_ticks_msec()
 	screen.skip_requested.connect(_on_skip_requested)
@@ -28,24 +34,24 @@ func _load_game() -> void:
 	await get_tree().process_frame
 	var has_save := SaveSystem.has_save()
 	screen.set_greeting(has_save)
-	screen.show_progress(0.16, "Spielstand wird gelesen …")
+	screen.show_progress(0.16, I18n.t("Spielstand wird gelesen …"))
 	await _wait(0.12)
 
-	screen.show_progress(0.44, "Der Hof wird aufgebaut …")
+	screen.show_progress(0.44, I18n.t("Der Hof wird aufgebaut …"))
 	await get_tree().process_frame
 	var packed := load(MAIN_SCENE) as PackedScene
 	if packed == null:
 		push_error("Hauptszene konnte nicht geladen werden: %s" % MAIN_SCENE)
-		screen.show_progress(1.0, "Der Hof konnte nicht geladen werden.")
+		screen.show_progress(1.0, I18n.t("Der Hof konnte nicht geladen werden."))
 		return
 	var main := packed.instantiate()
 	get_tree().root.add_child(main)
 	get_tree().current_scene = main
 
-	screen.show_progress(0.80, "Beete werden vorbereitet …")
+	screen.show_progress(0.80, I18n.t("Beete werden vorbereitet …"))
 	await get_tree().process_frame
 	await get_tree().process_frame
-	screen.show_progress(1.0, "Fast fertig …")
+	screen.show_progress(1.0, I18n.t("Fast fertig …"))
 	screen.allow_skip()
 
 	while not _skip_requested and Time.get_ticks_msec() - _started_msec < MIN_DISPLAY_MSEC:

@@ -39,7 +39,7 @@ const WEATHER_GROWTH_RATES := {"Sonnig": 1.0, "Bewölkt": 0.9, "Regen": 1.25, "N
 ## Sorte ist Saisonpflanze (Zuckerrohr etwa nicht) – alles bleibt ganzjährig
 ## pflanzbar, die Jahreszeit ist ein Bonus und keine Sperre.
 const SEASON_DAYS := 6
-const SEASONS := [
+const SEASONS_SRC := [
 	{"id": "spring", "name": "Frühling", "col": "#8FBF6A", "crops": ["strawberry", "rhubarb", "lettuce", "pea", "carrot"],
 		"note": "Alles sprießt. Erdbeeren, Rhabarber und zartes Blattgemüse geben eine Extra-Ernte."},
 	{"id": "summer", "name": "Sommer", "col": "#F2C64C", "crops": ["tomato", "corn", "cucumber", "zucchini", "sunflower"],
@@ -55,7 +55,7 @@ const SEASONS := [
 ## dafür sorgt ein Schnappschuss der Lebenszeit-Zähler in GameState. Verpasste
 ## Ziele verfallen nicht: dieselbe Jahreszeit kommt nach 24 Spieltagen wieder.
 ## Belohnt wird mit einer kostenlosen Deko, nie mit Münzen oder XP.
-const SEASON_GOALS := [
+const SEASON_GOALS_SRC := [
 	{"id": "spring_strawberries", "season": "spring", "text": "Erdbeeren ernten", "keys": ["harvested:strawberry"], "target": 12},
 	{"id": "spring_sowing", "season": "spring", "text": "Saatgut setzen", "keys": ["planted"], "target": 20},
 	{"id": "spring_forage", "season": "spring", "text": "Wilde Kräuter sammeln", "keys": ["foraged"], "target": 6},
@@ -75,20 +75,20 @@ const SEASON_GOALS := [
 ## dem Abschluss platzierbar (Feld "unlock" in DECOS).
 const SEASON_REWARD_DECOS := {"spring": "season_arch", "summer": "season_bench", "autumn": "season_basket", "winter": "season_lantern"}
 const SEASON_YEAR_DECO := "year_wreath"
-const SEASON_GOAL_STORIES := {
+const SEASON_GOAL_STORIES_SRC := {
 	"spring": "Der Frühling endet mit vollem Saatbeet. Zwischen den jungen Reihen summt es, und der Blütenbogen steht offen für alle, die vorbeikommen.",
 	"summer": "Die Sommerhitze liegt über dem Garten. Unter der Sonnenbank ist es kühl, und die letzten Sonnenblumen drehen sich noch einmal zur Abendsonne.",
 	"autumn": "Der Erntekorb ist gefüllt, die Regale duften nach Konfitüre. Der Herbst hat dem Hof gegeben, was er brauchte.",
 	"winter": "Der Winter ist still. Die Winterlaterne brennt am Weg, drinnen wird Kaffee gemahlen, und niemand muss draußen frieren.",
 }
-const SEASON_YEAR_STORY := "Ein ganzes Jahr liegt hinter dem Hof: vier Jahreszeiten, zwölf kleine Ziele. Der Jahreskranz hängt am Tor und erzählt davon, dass hier jede Jahreszeit ihren Platz hatte."
+const SEASON_YEAR_STORY_SRC := "Ein ganzes Jahr liegt hinter dem Hof: vier Jahreszeiten, zwölf kleine Ziele. Der Jahreskranz hängt am Tor und erzählt davon, dass hier jede Jahreszeit ihren Platz hatte."
 
 ## Hofbuch: acht Auszeichnungen jenseits der Höchststufe. Sie messen Breite
 ## statt Zahlen – alles entsteht beim normalen Spielen, ohne Zeitdruck.
 ## Typen: seasons (erlebte Jahreszeiten), season_goals (je einmal erfüllt),
 ## species_hearts (Tierarten mit Herzen), recipes, stories, crops,
 ## cafe_stories (geteilte Café-Geschichten), paddocks (belegte Gehegeplätze).
-const HOFBUCH := [
+const HOFBUCH_SRC := [
 	{"id": "year_round", "text": "Ein Jahr im Garten", "description": "Erlebe alle vier Jahreszeiten.", "type": "seasons", "target": 4, "deco": "hofbuch_tree",
 		"story": "Der Jahresbaum trägt Spuren aller vier Jahreszeiten: helle Knospen, Sommerlaub, rote Blätter und kahle Zweige, die trotzdem stehen bleiben."},
 	{"id": "season_child", "text": "Saisonkind", "description": "Erfülle jedes der zwölf Saisonziele mindestens einmal.", "type": "season_goals", "target": 12, "deco": "hofbuch_wreath",
@@ -120,7 +120,7 @@ const LAND_EXPANSIONS := [
 	{"cost": 28000, "level": 30},
 ]
 
-const CROPS := {
+const CROPS_SRC := {
 	"wheat": {"name": "Weizen", "grow": 30, "seed": 1, "yield": 2, "sell": 3, "xp": 2, "level": 1, "col": "#E0B93C"},
 	"carrot": {"name": "Karotte", "grow": 60, "seed": 2, "yield": 2, "sell": 5, "xp": 3, "level": 2, "col": "#EE8A2E"},
 	"oat": {"name": "Hafer", "grow": 90, "seed": 2, "yield": 3, "sell": 4, "xp": 3, "level": 3, "col": "#C9C58A"},
@@ -148,7 +148,7 @@ const CROPS := {
 
 ## Wilde Lebensmittel außerhalb des Zauns. Sie wachsen nicht auf Feldern,
 ## sondern an festen, prozedural bestimmten Sammelstellen nach.
-const FORAGE := {
+const FORAGE_SRC := {
 	"wild_herbs": {"name": "Wilde Kräuter", "level": 2, "sell": 6, "amount": 2, "respawn": 300.0, "xp": 2, "col": "#7FB56A"},
 	"mushroom": {"name": "Waldpilze", "level": 4, "sell": 9, "amount": 2, "respawn": 420.0, "xp": 3, "col": "#C08A62"},
 	"wild_berries": {"name": "Wildbeeren", "level": 6, "sell": 8, "amount": 3, "respawn": 360.0, "xp": 3, "col": "#C43A4E"},
@@ -157,9 +157,9 @@ const FORAGE := {
 ## Zutaten, die nicht angebaut, sondern im Shop gekauft werden.
 ## Derzeit keine: Zucker wird seit der Zuckermühle selbst aus Zuckerrohr gepresst.
 ## Die Liste bleibt für künftige Shop-Zutaten bestehen.
-const EXTRA_ITEMS := {}
+const EXTRA_ITEMS_SRC := {}
 
-const BUILDINGS := {
+const BUILDINGS_SRC := {
 	"bakery": {"name": "Bäckerei", "kind": "production", "cost": 150, "level": 2, "size": [2, 2], "slots": 2, "max": 1, "col": "#D9A066", "roof": "#B5532F"},
 	"kitchen": {"name": "Vegane Küche", "kind": "production", "cost": 400, "level": 4, "size": [2, 2], "slots": 2, "max": 1, "col": "#EBDDB5", "roof": "#6F9A63"},
 	"milkery": {"name": "Pflanzenmilch-Manufaktur", "kind": "production", "cost": 700, "level": 5, "size": [2, 2], "slots": 2, "max": 1, "col": "#E8EEF0", "roof": "#6D9AB0"},
@@ -176,7 +176,7 @@ const BUILDINGS := {
 	"paddock": {"name": "Gehege", "kind": "paddock", "cost": 250, "level": 3, "size": [4, 3], "capacity": 3, "max": 4, "col": "#9CC47A", "roof": "#8E6240"},
 }
 
-const RECIPES := {
+const RECIPES_SRC := {
 	"bread": {"name": "Vollkornbrot", "building": "bakery", "inputs": {"wheat": 3}, "time": 60, "sell": 16, "xp": 6, "level": 2, "col": "#B07A3F"},
 	"oat_cookies": {"name": "Haferkekse", "building": "bakery", "inputs": {"oat": 3}, "time": 90, "sell": 24, "xp": 8, "level": 3, "col": "#D2A765"},
 	"carrot_muffin": {"name": "Karottenmuffins", "building": "bakery", "inputs": {"carrot": 2, "wheat": 2}, "time": 120, "sell": 30, "xp": 10, "level": 4, "col": "#E38B3C"},
@@ -232,7 +232,7 @@ const RECIPES := {
 	"quinoa_bar": {"name": "Quinoa-Riegel", "building": "muesli", "inputs": {"quinoa": 2, "almond": 1, "oat": 1}, "time": 150, "sell": 86, "xp": 21, "level": 23, "col": "#B66D70"},
 }
 
-const DECOS := {
+const DECOS_SRC := {
 	"bush": {"name": "Beerenbusch", "cost": 30, "level": 1, "size": [1, 1]},
 	"flowers": {"name": "Blumenbeet", "cost": 25, "level": 1, "size": [1, 1]},
 	"haybale": {"name": "Strohballen", "cost": 40, "level": 2, "size": [1, 1]},
@@ -261,7 +261,7 @@ const DECOS := {
 ## Gerettete Tiere. Sie produzieren nichts – sie werden gepflegt und geliebt.
 ## Jede Art hat acht Rufnamen und acht persönliche Vorgeschichten; einige enthalten
 ## einen kurzen, respektvollen Abschiedssatz früherer Bezugspersonen.
-const ANIMALS := {
+const ANIMALS_SRC := {
 	"rabbit": {"name": "Kaninchen", "cost": 100, "level": 3, "food": "carrot", "traits": ["curious", "gentle", "playful"],
 		"names": ["Krümel", "Möhre", "Flocke", "Pünktchen", "Mohnkringel", "Hoppel", "Haselnuss", "Fips"],
 		"stories": [
@@ -325,14 +325,14 @@ const ANIMALS := {
 }
 
 ## Kosmetische Belohnungen für die Zuneigung (Herzen) eines Tieres.
-const COSMETICS := [
+const COSMETICS_SRC := [
 	{"hearts": 15, "id": "flower", "name": "Blumenkranz"},
 	{"hearts": 40, "id": "bow", "name": "Schleife"},
 	{"hearts": 90, "id": "crown", "name": "Blütenkrone"},
 ]
 
 ## Quest-Typen: stat (Zähler in GameState.stats), level, building, animals, decos.
-const QUESTS := [
+const QUESTS_SRC := [
 	{"id": "q_plant5", "text": "Pflanze 5 Felder an", "type": "stat", "key": "planted", "target": 5, "coins": 30, "xp": 10},
 	{"id": "q_harvest10", "text": "Ernte 10 Felder", "type": "stat", "key": "harvested", "target": 10, "coins": 40, "xp": 15},
 	{"id": "q_order1", "text": "Erfülle deinen ersten Auftrag", "type": "stat", "key": "orders", "target": 1, "coins": 50, "xp": 15},
@@ -362,7 +362,7 @@ const QUESTS := [
 ]
 
 ## Dauerhafte Erfolge: Kriterium + einmalige Münz-/XP-Belohnung.
-const ACHIEVEMENTS := [
+const ACHIEVEMENTS_SRC := [
 	{"id": "orders_2", "text": "Zwei gute Nachbarn", "description": "Erfülle 2 Bestellungen.", "type": "stat", "key": "orders", "target": 2, "coins": 50, "xp": 8},
 	{"id": "orders_10", "text": "Stammkundschaft", "description": "Erfülle 10 Bestellungen.", "type": "stat", "key": "orders", "target": 10, "coins": 180, "xp": 28},
 	{"id": "orders_25", "text": "Das ganze Viertel kennt dich", "description": "Erfülle 25 Bestellungen.", "type": "stat", "key": "orders", "target": 25, "coins": 450, "xp": 72},
@@ -394,7 +394,7 @@ const ACHIEVEMENTS := [
 ]
 
 
-const ANIMAL_TRAITS := {
+const ANIMAL_TRAITS_SRC := {
 	"curious": {"name": "Neugierig", "description": "erkundet gern jeden Winkel."},
 	"gentle": {"name": "Sanftmütig", "description": "mag ruhige Momente und vorsichtige Nähe."},
 	"playful": {"name": "Verspielt", "description": "freut sich besonders über kleine Spiele."},
@@ -404,7 +404,7 @@ const ANIMAL_TRAITS := {
 	"patient": {"name": "Geduldig", "description": "lässt sich Zeit und beobachtet aufmerksam."},
 }
 
-const ANIMAL_ACTIVITIES := {
+const ANIMAL_ACTIVITIES_SRC := {
 	"rabbit": {"name": "Schnüffelspiel", "description": "Ein paar versteckte Kräuter zum Erkunden."},
 	"chicken": {"name": "Pickspiel", "description": "Ein kleines Suchspiel im weichen Stroh."},
 	"sheep": {"name": "Wollpflege", "description": "Eine sanfte Bürstenrunde, ganz ohne Scheren."},
@@ -413,7 +413,7 @@ const ANIMAL_ACTIVITIES := {
 }
 
 const FRIENDSHIP_THRESHOLDS := [5, 15, 40, 90]
-const FRIENDSHIP_STORIES := {
+const FRIENDSHIP_STORIES_SRC := {
 	"rabbit": ["kommt beim Füttern schon ein Stück näher.", "stupst deine Hand an und bleibt noch einen Moment.", "hüpft freiwillig neben dich und döst entspannt.", "begrüßt dich mit einem mutigen Hüpfer."],
 	"chicken": ["pickt neugierig neben deinen Schuhen.", "antwortet auf deine Stimme mit leisem Gackern.", "läuft dir ein paar Schritte entgegen.", "begrüßt dich mit einem fröhlichen Flügelschütteln."],
 	"sheep": ["bleibt in deiner Nähe, während du leise sprichst.", "lehnt sich bei der Pflege vertrauensvoll an.", "sucht sich neben dir einen gemütlichen Platz.", "kommt dir entgegen und wartet auf eure ruhige Zeit."],
@@ -423,7 +423,7 @@ const FRIENDSHIP_STORIES := {
 
 ## Eine Geschichte startet erst auf der Stufe, auf der alle ihre Lieferungen herstellbar sind
 ## (cafe_opening braucht die Café-Rezepte bis Stufe 14).
-const DELIVERY_STORIES := {
+const DELIVERY_STORIES_SRC := {
 	"lena_cafe": {"title": "Lenas Gartencafé", "customer": "Lena", "level": 11,
 		"intro": "Lena richtet ein kleines Café für die Nachbarschaft her und möchte möglichst viel aus der Umgebung verwenden.",
 		"stages": [
@@ -454,19 +454,19 @@ const DELIVERY_STORIES := {
 		], "bonus_coins": 220, "bonus_xp": 70},
 }
 
-const NEIGHBORHOOD_EVENT_STAGES := [
+const NEIGHBORHOOD_EVENT_STAGES_SRC := [
 	{"name": "Samen & Geschichten", "description": "Die Nachbarschaft tauscht Saatgut und erzählt von den ersten Ernten.", "crops": ["wheat", "carrot", "oat", "potato"], "bonus_coins": 20, "bonus_xp": 8},
 	{"name": "Buntes Gartenbuffet", "description": "Alle bringen etwas mit – auf dem Gartentisch ist Platz für jede Ernte.", "crops": ["tomato", "corn", "soy", "strawberry", "pumpkin", "lettuce", "cucumber", "pea"], "bonus_coins": 35, "bonus_xp": 12},
 	{"name": "Langer Café-Nachmittag", "description": "Das Gartencafé bleibt offen: Lieblingsrezepte und kleine Geschichten werden geteilt.", "cafe_recipes": ["filter_coffee", "oat_latte", "coffee_cookie_plate", "pumpkin_spice_latte", "blueberry_coffee_cake"], "crops": ["apple", "sunflower", "blueberry", "rice", "quinoa"], "bonus_coins": 55, "bonus_xp": 18},
 ]
-const NEIGHBORHOOD_EVENT_STORIES := [
+const NEIGHBORHOOD_EVENT_STORIES_SRC := [
 	"Ich habe die ersten Samen von meiner Nachbarin bekommen. Jetzt kann ich ihr endlich eigene zurückgeben.",
 	"Wir haben alle etwas anderes mitgebracht – und am Ende hat jede Person von allem probiert.",
 	"Zwischen Kaffeetassen und Gartenstühlen erzählen wir uns, was dieses Jahr gewachsen ist – nicht nur im Beet.",
 ]
 
 const CAFE_MENU := ["filter_coffee", "oat_latte", "coffee_cookie_plate", "pumpkin_spice_latte", "blueberry_coffee_cake"]
-const CAFE_VISITOR_STORIES := [
+const CAFE_VISITOR_STORIES_SRC := [
 	"Der Duft erinnert mich an die Sonntage, an denen wir gemeinsam gebacken haben.",
 	"Ich wollte schon lange einen ruhigen Ort, an dem man einfach sitzen und erzählen darf.",
 	"Meine Freundin hat mir gezeigt, wie gut Hafermilch im Kaffee schmeckt.",
@@ -482,6 +482,33 @@ const CUSTOMERS := ["Lena", "Jonas", "Mira", "Oskar", "Fatima", "Ben", "Sofia", 
 
 ## Alle handelbaren Gegenstände (Feldfrüchte, Zutaten, Produkte).
 var items := {}
+
+## Übersetzte Fassungen der Tabellen oben. Die `_SRC`-Konstanten bleiben der
+## deutsche Quelltext (und damit der Schlüssel für I18n); diese Variablen werden
+## bei jedem Sprachwechsel neu aufgebaut. Nichts im Spiel liest die Quelltabellen
+## direkt, deshalb genügt ein Neubau hier, um die ganze Anzeige umzustellen.
+var SEASONS := []
+var SEASON_GOALS := []
+var SEASON_GOAL_STORIES := {}
+var SEASON_YEAR_STORY := ""
+var HOFBUCH := []
+var CROPS := {}
+var FORAGE := {}
+var EXTRA_ITEMS := {}
+var BUILDINGS := {}
+var RECIPES := {}
+var DECOS := {}
+var ANIMALS := {}
+var COSMETICS := []
+var QUESTS := []
+var ACHIEVEMENTS := []
+var ANIMAL_TRAITS := {}
+var ANIMAL_ACTIVITIES := {}
+var FRIENDSHIP_STORIES := {}
+var DELIVERY_STORIES := {}
+var NEIGHBORHOOD_EVENT_STAGES := []
+var NEIGHBORHOOD_EVENT_STORIES := []
+var CAFE_VISITOR_STORIES := []
 
 
 func weather_index_at(seconds: float) -> int:
@@ -513,12 +540,12 @@ func weather_growth_rate(weather: String) -> float:
 func weather_effect_text(weather: String) -> String:
 	match weather:
 		"Bewölkt":
-			return "Wetter: Bewölkt · Wachstum −10%"
+			return I18n.t("Wetter: Bewölkt · Wachstum −10%")
 		"Regen":
-			return "Wetter: Regen · Wachstum +25%"
+			return I18n.t("Wetter: Regen · Wachstum +25%")
 		"Nebel":
-			return "Wetter: Nebel · Wachstum normal"
-	return "Wetter: Sonnig · Wachstum normal"
+			return I18n.t("Wetter: Nebel · Wachstum normal")
+	return I18n.t("Wetter: Sonnig · Wachstum normal")
 
 
 ## Jahreszeit zu einem Spieltag (Tag 1 ist der erste Frühlingstag).
@@ -557,11 +584,11 @@ func season_crop_names_at(day: int) -> Array:
 
 ## HUD-Kurzform, z. B. "Herbst · Tag 2/6".
 func season_label_at(day: int) -> String:
-	return "%s · Tag %d/%d" % [season_name_at(day), season_day_at(day), SEASON_DAYS]
+	return I18n.t("%s · Tag %d/%d") % [season_name_at(day), season_day_at(day), SEASON_DAYS]
 
 
 func season_effect_text_at(day: int) -> String:
-	return "In der Saison: %s · je +1 Ertrag und +1 XP" % ", ".join(PackedStringArray(season_crop_names_at(day)))
+	return I18n.t("In der Saison: %s · je +1 Ertrag und +1 XP") % ", ".join(PackedStringArray(season_crop_names_at(day)))
 
 
 func _crop_growth_seconds_in_partial_cycle(start_time: float, end_time: float) -> float:
@@ -620,7 +647,87 @@ func real_seconds_for_crop_growth(start_time: float, growth_needed: float) -> fl
 	return elapsed
 
 
+## Beim Erzeugen werden die Tabellen zunächst unübersetzt aufgebaut: In dieser
+## Phase der Autoload-Einrichtung sind andere Autoload-Globals noch nicht
+## ansprechbar. Tests lesen die Tabellen teils schon vor dem ersten _ready-Lauf.
+var _translate := false
+
+
 func _init() -> void:
+	_apply_tables(false)
+
+
+func _ready() -> void:
+	refresh_locale()
+
+
+## Baut alle Anzeigetabellen in der aktuellen Sprache neu auf. Wird beim Start
+## und nach jedem Sprachwechsel von I18n aufgerufen.
+func refresh_locale() -> void:
+	_apply_tables(true)
+
+
+func _apply_tables(translate: bool) -> void:
+	_translate = translate
+	SEASONS = _localize(SEASONS_SRC)
+	SEASON_GOALS = _localize(SEASON_GOALS_SRC)
+	SEASON_GOAL_STORIES = _localize(SEASON_GOAL_STORIES_SRC)
+	SEASON_YEAR_STORY = I18n.t(SEASON_YEAR_STORY_SRC) if translate else SEASON_YEAR_STORY_SRC
+	HOFBUCH = _localize(HOFBUCH_SRC)
+	CROPS = _localize(CROPS_SRC)
+	FORAGE = _localize(FORAGE_SRC)
+	EXTRA_ITEMS = _localize(EXTRA_ITEMS_SRC)
+	BUILDINGS = _localize(BUILDINGS_SRC)
+	RECIPES = _localize(RECIPES_SRC)
+	DECOS = _localize(DECOS_SRC)
+	ANIMALS = _localize(ANIMALS_SRC)
+	COSMETICS = _localize(COSMETICS_SRC)
+	QUESTS = _localize(QUESTS_SRC)
+	ACHIEVEMENTS = _localize(ACHIEVEMENTS_SRC)
+	ANIMAL_TRAITS = _localize(ANIMAL_TRAITS_SRC)
+	ANIMAL_ACTIVITIES = _localize(ANIMAL_ACTIVITIES_SRC)
+	FRIENDSHIP_STORIES = _localize(FRIENDSHIP_STORIES_SRC)
+	DELIVERY_STORIES = _localize(DELIVERY_STORIES_SRC)
+	NEIGHBORHOOD_EVENT_STAGES = _localize(NEIGHBORHOOD_EVENT_STAGES_SRC)
+	NEIGHBORHOOD_EVENT_STORIES = _localize(NEIGHBORHOOD_EVENT_STORIES_SRC)
+	CAFE_VISITOR_STORIES = _localize(CAFE_VISITOR_STORIES_SRC)
+	_build_items()
+
+
+## Übersetzt jeden Text in einer Tabelle, lässt aber Schlüssel unangetastet.
+## IDs ("wheat", "bakery"), Farben und Zahlen bleiben unverändert, weil sie
+## entweder wie Bezeichner aussehen oder gar keinen Katalogeintrag haben.
+func _localize(value: Variant) -> Variant:
+	match typeof(value):
+		TYPE_STRING:
+			return I18n.t(str(value)) if _translate and _is_text(str(value)) else str(value)
+		TYPE_ARRAY:
+			var out: Array = []
+			for entry in value:
+				out.append(_localize(entry))
+			return out
+		TYPE_DICTIONARY:
+			var copy := {}
+			for key in value:
+				copy[key] = _localize(value[key])
+			return copy
+	return value
+
+
+## Bezeichner wie "wheat", "season:spring" oder "#E0B93C" sind keine Sätze und
+## werden nie übersetzt.
+func _is_text(s: String) -> bool:
+	if s.begins_with("#") or s.is_empty():
+		return false
+	for i in s.length():
+		var c := s[i]
+		if c == " " or c == "\n" or c.to_upper() != c:
+			return true
+	return false
+
+
+func _build_items() -> void:
+	items = {}
 	for id in CROPS:
 		var c: Dictionary = CROPS[id]
 		items[id] = {"id": id, "name": c.name, "sell": c.sell, "col": c.col, "kind": "crop", "level": c.level}
@@ -633,6 +740,66 @@ func _init() -> void:
 	for id in RECIPES:
 		var r: Dictionary = RECIPES[id]
 		items[id] = {"id": id, "name": r.name, "sell": r.sell, "col": r.col, "kind": "product", "level": r.level}
+
+
+## Alle deutschen Quelltexte der Datentabellen – Grundlage für den CI-Test, der
+## prüft, ob jede Sprache vollständig ist.
+const TEXT_KEYS := ["name", "description", "text", "story", "stories", "note", "title", "intro", "feature"]
+
+
+func source_texts() -> Array:
+	var out: Array = []
+	_collect_texts(SEASONS_SRC, out, false)
+	_collect_texts(SEASON_GOALS_SRC, out, false)
+	_collect_texts(SEASON_GOAL_STORIES_SRC, out, true)
+	_collect_texts([SEASON_YEAR_STORY_SRC], out, true)
+	_collect_texts(HOFBUCH_SRC, out, false)
+	_collect_texts(CROPS_SRC, out, false)
+	_collect_texts(FORAGE_SRC, out, false)
+	_collect_texts(EXTRA_ITEMS_SRC, out, false)
+	_collect_texts(BUILDINGS_SRC, out, false)
+	_collect_texts(RECIPES_SRC, out, false)
+	_collect_texts(DECOS_SRC, out, false)
+	_collect_texts(ANIMALS_SRC, out, false)
+	_collect_texts(COSMETICS_SRC, out, false)
+	_collect_texts(QUESTS_SRC, out, false)
+	_collect_texts(ACHIEVEMENTS_SRC, out, false)
+	_collect_texts(ANIMAL_TRAITS_SRC, out, false)
+	_collect_texts(ANIMAL_ACTIVITIES_SRC, out, false)
+	_collect_texts(FRIENDSHIP_STORIES_SRC, out, true)
+	_collect_texts(DELIVERY_STORIES_SRC, out, false)
+	_collect_texts(NEIGHBORHOOD_EVENT_STAGES_SRC, out, false)
+	_collect_texts(NEIGHBORHOOD_EVENT_STORIES_SRC, out, true)
+	_collect_texts(CAFE_VISITOR_STORIES_SRC, out, true)
+	return out
+
+
+## Sammelt Anzeigetexte. Mit blanket = true gilt jeder Text der Tabelle als
+## Anzeige (für reine Textlisten wie Café-Geschichten).
+func _collect_texts(value: Variant, out: Array, blanket: bool) -> void:
+	match typeof(value):
+		TYPE_STRING:
+			if blanket:
+				out.append(str(value))
+		TYPE_ARRAY:
+			for entry in value:
+				_collect_texts(entry, out, blanket)
+		TYPE_DICTIONARY:
+			for key in value:
+				var k := str(key)
+				var child: Variant = value[key]
+				if not TEXT_KEYS.has(k):
+					_collect_texts(child, out, false)
+				elif typeof(child) == TYPE_STRING:
+					out.append(str(child))
+				elif typeof(child) == TYPE_ARRAY:
+					for entry in child:
+						if typeof(entry) == TYPE_STRING:
+							out.append(str(entry))
+						else:
+							_collect_texts(entry, out, false)
+				else:
+					_collect_texts(child, out, false)
 
 
 ## Erfahrung für den Aufstieg von lvl auf lvl + 1. Früh moderat, später deutlich

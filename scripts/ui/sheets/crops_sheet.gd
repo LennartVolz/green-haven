@@ -10,9 +10,9 @@ static func _weather_text() -> String:
 static func _growth_text(id: String) -> String:
 	var crop: Dictionary = GameData.CROPS[id]
 	var seconds := GameData.real_seconds_for_crop_growth(GameState.now(), float(crop["grow"]))
-	var text := "Reif in ca. %s · Ertrag %d" % [GameData.format_time(seconds), GameState.harvest_yield(id)]
+	var text := I18n.t("Reif in ca. %s · Ertrag %d") % [GameData.format_time(seconds), GameState.harvest_yield(id)]
 	if GameState.crop_in_season(id):
-		text += " · Saison"
+		text += I18n.t(" · Saison")
 	return text
 
 
@@ -57,7 +57,7 @@ static func build(ui, args: Dictionary) -> void:
 		v.add_child(UiKit.label(String(d["name"]), 32))
 		var growth_label := UiKit.label(_growth_text(id), 24, UiKit.earth_dark())
 		if locked:
-			growth_label.text = "Ab Stufe %d" % int(d["level"])
+			growth_label.text = I18n.t("Ab Stufe %d") % int(d["level"])
 		growth_labels[id] = growth_label
 		v.add_child(growth_label)
 		h.add_child(v)

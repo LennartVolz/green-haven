@@ -12,6 +12,8 @@ var _exit_armed_until_msec := 0
 func _enter_tree() -> void:
 	get_tree().auto_accept_quit = false
 	if SaveSystem.has_save() and SaveSystem.load_game():
+		# Die gespeicherte Sprache gilt ab hier für Welt und Oberfläche.
+		I18n.apply(str(GameState.settings.get("language", I18n.AUTO)))
 		Sfx.refresh_volume()
 		BackgroundMusic.refresh()
 		return

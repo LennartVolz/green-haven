@@ -13,7 +13,7 @@ static func build(ui, _args: Dictionary) -> void:
 			capacity += int(GameData.BUILDINGS[o.type]["capacity"])
 	var shelter_summary := UiKit.card(12)
 	var summary := UiKit.vbox(6)
-	summary.add_child(UiKit.label("Gehegeübersicht · %d Tiere von %d Plätzen" % [GameState.animals.size(), capacity], 28))
+	summary.add_child(UiKit.label(I18n.t("Gehegeübersicht · %d Tiere von %d Plätzen") % [GameState.animals.size(), capacity], 28))
 	if paddocks == 0:
 		summary.add_child(UiKit.wrap_label("Noch kein Gehege gebaut.", 24, UiKit.earth_dark()))
 	else:
@@ -27,11 +27,11 @@ static func build(ui, _args: Dictionary) -> void:
 				min_mood = minf(min_mood, GameState.wellbeing(animal))
 			var row := UiKit.hbox(8)
 			row.add_child(UiKit.icon("paw", 36))
-			var mood_text := " · niedrigstes Wohlbefinden %d%%" % int(round(min_mood)) if not occupants.is_empty() else " · bereit für eine Rettung"
-			row.add_child(UiKit.label("Gehege %d: %d/%d Tiere%s" % [int(o.uid), occupants.size(), cap, mood_text], 23, UiKit.earth_dark()))
+			var mood_text := I18n.t(" · niedrigstes Wohlbefinden %d%%") % int(round(min_mood)) if not occupants.is_empty() else I18n.t(" · bereit für eine Rettung")
+			row.add_child(UiKit.label(I18n.t("Gehege %d: %d/%d Tiere%s") % [int(o.uid), occupants.size(), cap, mood_text], 23, UiKit.earth_dark()))
 			summary.add_child(row)
 	c.add_child(shelter_summary)
-	var diary_button := UiKit.button("Refugiums-Tagebuch · %d Erinnerungen" % GameState.diary.size(), "warm", 27)
+	var diary_button := UiKit.button(I18n.t("Refugiums-Tagebuch · %d Erinnerungen") % GameState.diary.size(), "warm", 27)
 	diary_button.pressed.connect(ui.act_open_diary)
 	c.add_child(diary_button)
 	if not GameState.rescue_case.is_empty():
@@ -43,7 +43,7 @@ static func build(ui, _args: Dictionary) -> void:
 		rescue_v.add_child(UiKit.label("Ein Tier braucht ein Zuhause", 30))
 		var rescue_story: String = rescue_def["stories"][clampi(int(rescue.get("story", 0)), 0, rescue_def["stories"].size() - 1)]
 		rescue_v.add_child(UiKit.wrap_label("%s · %s" % [rescue_def["name"], rescue_story], 24, UiKit.earth_dark()))
-		var rescue_button := UiKit.button("%s aufnehmen" % rescue_def["name"], "warm", 28)
+		var rescue_button := UiKit.button(I18n.t("%s aufnehmen") % rescue_def["name"], "warm", 28)
 		rescue_button.disabled = GameState.free_paddock().is_empty()
 		rescue_button.pressed.connect(ui.act_adopt.bind(species, true))
 		rescue_v.add_child(rescue_button)
@@ -56,7 +56,7 @@ static func build(ui, _args: Dictionary) -> void:
 		b.pressed.connect(ui.act_open_shop_tab.bind("buildings"))
 		c.add_child(b)
 		return
-	c.add_child(UiKit.wrap_label("Plätze: %d von %d belegt. Die Tiere geben nichts her – sie dürfen einfach leben." % [GameState.animals.size(), capacity], 26, UiKit.earth_dark()))
+	c.add_child(UiKit.wrap_label(I18n.t("Plätze: %d von %d belegt. Die Tiere geben nichts her – sie dürfen einfach leben.") % [GameState.animals.size(), capacity], 26, UiKit.earth_dark()))
 	if not GameState.animals.is_empty():
 		c.add_child(UiKit.label("Deine Schützlinge", 30, UiKit.earth_dark()))
 	for a in GameState.animals:
@@ -109,12 +109,12 @@ static func build(ui, _args: Dictionary) -> void:
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		v.add_child(UiKit.label(String(d["name"]), 32))
 		v.add_child(UiKit.icon_text("coin", str(int(d["cost"])), 28, UiKit.ink() if GameState.coins >= int(d["cost"]) else UiKit.red()))
-		v.add_child(UiKit.label("Mag: %s" % GameData.item_name(String(d["food"])), 24, UiKit.earth_dark()))
+		v.add_child(UiKit.label(I18n.t("Mag: %s") % GameData.item_name(String(d["food"])), 24, UiKit.earth_dark()))
 		h.add_child(v)
 		var b := UiKit.button("Retten", "primary", 28)
 		b.custom_minimum_size = Vector2(190, 96)
 		if locked:
-			b.text = "Stufe %d" % int(d["level"])
+			b.text = I18n.t("Stufe %d") % int(d["level"])
 			b.disabled = true
 		elif free.is_empty() or GameState.coins < int(d["cost"]):
 			b.disabled = true

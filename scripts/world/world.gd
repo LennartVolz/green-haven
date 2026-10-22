@@ -182,7 +182,7 @@ func _on_fx(kind: String, pos: Vector2, text: String) -> void:
 func _on_event(event_name: String, data: Dictionary) -> void:
 	if event_name == "friendship_milestone" and _animal_nodes.has(int(data.uid)):
 		_animal_nodes[int(data.uid)].friendship_milestone()
-		GameState.fx.emit("collect", _animal_nodes[int(data.uid)].position, "Freundschaft!")
+		GameState.fx.emit("collect", _animal_nodes[int(data.uid)].position, I18n.t("Freundschaft!"))
 	elif event_name == "petted" and _animal_nodes.has(int(data.uid)):
 		_animal_nodes[int(data.uid)].petted()
 		GameState.fx.emit("coin", _animal_nodes[int(data.uid)].position, "")
@@ -221,8 +221,8 @@ static func time_text_at(seconds: float) -> String:
 
 static func clock_text_at(seconds: float) -> String:
 	var hour := floori(fposmod(seconds, DAY_LENGTH_SECONDS) / 3600.0)
-	var period := "Tag" if hour >= 6 and hour < 18 else "Nacht"
-	return "%s · %s" % [time_text_at(seconds), period]
+	var period := I18n.t("Tag") if hour >= 6 and hour < 18 else I18n.t("Nacht")
+	return I18n.t("%s · %s") % [time_text_at(seconds), period]
 
 
 func day_time_text() -> String:
@@ -532,7 +532,7 @@ func _tap_forage(cell: Vector2i) -> void:
 		GameState.toast.emit(GameState.last_error, "info")
 		return
 	var pos := Vector2(cell) * GameData.TILE + Vector2(GameData.TILE * 0.5, GameData.TILE * 0.6)
-	GameState.fx.emit("collect", pos, "+%d %s" % [int(got["amount"]), String(got["name"])])
+	GameState.fx.emit("collect", pos, I18n.t("+%d %s") % [int(got["amount"]), String(got["name"])])
 
 
 func _tap_field(cell: Vector2i) -> void:
@@ -548,7 +548,7 @@ func _tap_field(cell: Vector2i) -> void:
 		GameState.harvest(cell)
 	else:
 		GameState.sound.emit("tap")
-		GameState.toast.emit("%s: noch %s" % [GameData.CROPS[f.crop]["name"], GameData.format_time(GameState.crop_remaining(cell))], "info")
+		GameState.toast.emit(I18n.t("%s: noch %s") % [GameData.CROPS[f.crop]["name"], GameData.format_time(GameState.crop_remaining(cell))], "info")
 
 
 # ----------------------------------------------------------- Werkzeuge
@@ -674,7 +674,7 @@ func confirm_placement() -> bool:
 	if tool_mode != "place":
 		return false
 	if not place_valid:
-		GameState.last_error = "Hier ist kein Platz"
+		GameState.last_error = I18n.t("Hier ist kein Platz")
 		_error()
 		return false
 	if moving_uid >= 0:

@@ -8,3 +8,4 @@ build/
 export_credentials.cfg
 .import/
 android/build/
+locale/_missing.json

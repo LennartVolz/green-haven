@@ -17,7 +17,7 @@ static func build(ui, args: Dictionary) -> void:
 		c.add_child(back)
 	var ready := GameState.ready_count(o)
 	if ready > 0:
-		var cb := UiKit.button("Abholen (%d)" % ready, "warm", 36)
+		var cb := UiKit.button(I18n.t("Abholen (%d)") % ready, "warm", 36)
 		cb.pressed.connect(ui.act_collect.bind(uid))
 		c.add_child(cb)
 	c.add_child(UiKit.label("Produktion", 30, UiKit.earth_dark()))
@@ -41,11 +41,11 @@ static func build(ui, args: Dictionary) -> void:
 				bar.value = GameState.entry_progress(e)
 				var rem: float = float(e["end"]) - GameState.now()
 				if rem <= 0.0:
-					tl.text = "Fertig!"
+					tl.text = I18n.t("Fertig!")
 				elif float(e["start"]) > GameState.now():
-					tl.text = "wartet · dann %s" % GameData.format_time(float(e["end"]) - float(e["start"]))
+					tl.text = I18n.t("wartet · dann %s") % GameData.format_time(float(e["end"]) - float(e["start"]))
 				else:
-					tl.text = "noch %s" % GameData.format_time(rem))
+					tl.text = I18n.t("noch %s") % GameData.format_time(rem))
 		else:
 			var lbl := UiKit.label("Freier Platz", 30, UiKit.earth_dark())
 			lbl.custom_minimum_size = Vector2(0, 80)
@@ -55,7 +55,7 @@ static func build(ui, args: Dictionary) -> void:
 		c.add_child(card)
 	if int(o.upgrades) < GameState.MAX_UPGRADES:
 		var cost := GameState.upgrade_cost(o)
-		var ub := UiKit.button("Platz ausbauen  ·  %d Münzen" % cost, "light", 28)
+		var ub := UiKit.button(I18n.t("Platz ausbauen  ·  %d Münzen") % cost, "light", 28)
 		ub.disabled = GameState.coins < cost
 		ub.pressed.connect(ui.act_upgrade.bind(uid))
 		c.add_child(ub)
@@ -76,9 +76,9 @@ static func build(ui, args: Dictionary) -> void:
 		var tv := UiKit.vbox(2)
 		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tv.add_child(UiKit.label(String(r["name"]), 32))
-		var sub := "%s · Wert %d · %d XP" % [GameData.format_time(float(r["time"])), int(r["sell"]), int(r["xp"])]
+		var sub := I18n.t("%s · Wert %d · %d XP") % [GameData.format_time(float(r["time"])), int(r["sell"]), int(r["xp"])]
 		if locked:
-			sub = "Ab Stufe %d" % int(r["level"])
+			sub = I18n.t("Ab Stufe %d") % int(r["level"])
 		tv.add_child(UiKit.label(sub, 24, UiKit.earth_dark()))
 		top.add_child(tv)
 		v.add_child(top)
@@ -95,7 +95,7 @@ static func build(ui, args: Dictionary) -> void:
 		if locked or full or not can:
 			b.disabled = true
 			if full and not locked:
-				b.text = "Voll"
+				b.text = I18n.t("Voll")
 		else:
 			b.pressed.connect(ui.act_start_recipe.bind(uid, rid))
 		bottom.add_child(b)

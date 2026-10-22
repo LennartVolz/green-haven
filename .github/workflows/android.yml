@@ -25,6 +25,7 @@ jobs:
           godot --headless --path . -s res://tests/save_transfer_ui.gd
           godot --headless --path . -s res://tests/production_overview_ui.gd
           godot --headless --path . -s res://tests/boot_ui.gd
+          godot --headless --path . -s res://tests/i18n.gd
 
       - name: Export-Templates bereitstellen
         run: |

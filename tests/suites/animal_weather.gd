@@ -63,7 +63,7 @@ func test_animal_ambience() -> void:
 		animal.position = Vector2(animal.bounds.position.x + 20.0, animal.bounds.end.y - 15.0)
 		animal.set_ambient("Regen", false, 12.0 * 3600.0)
 		animal_nodes.append(animal)
-	_check(_game_state.SAVE_VERSION == 10, "Save-Version 10 bleibt unverändert")
+	_check(_game_state.SAVE_VERSION == 11, "Save-Version 11 bleibt unverändert")
 	var all_in_shelter := true
 	var shelter_slots: Array[int] = []
 	for animal in animal_nodes:
@@ -112,7 +112,7 @@ func test_animal_ambience() -> void:
 		animal.set_ambient("Sonnig", false, 12.0 * 3600.0)
 		_check(not bool(animal.get("sleeping")) and not bool(animal.get("sheltering")), "am Tag bei Sonne kehrt normales Umherlaufen zurück")
 	var save_after: Dictionary = _game_state.serialize()
-	_check(int(save_after["version"]) == 10 and save_before["stats"] == save_after["stats"], "Ambient-Zustände ändern weder Save-Version noch Statistiken")
+	_check(int(save_after["version"]) == 11 and save_before["stats"] == save_after["stats"], "Ambient-Zustände ändern weder Save-Version noch Statistiken")
 	_check(before_night["coins"] == save_after["coins"] and before_night["inventory"] == save_after["inventory"], "kosmetisches Verhalten beeinflusst keine Wirtschaftsdaten")
 	_game_state.new_game()
 	_game_state.time_offset = original_offset

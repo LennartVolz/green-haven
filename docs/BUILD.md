@@ -77,9 +77,11 @@ godot --headless --path . -s res://tests/achievements_ui.gd   # UI-Test (Menüs,
 godot --headless --path . -s res://tests/save_transfer_ui.gd # UI-Test (Spielstand-Export/Import)
 godot --headless --path . -s res://tests/production_overview_ui.gd # UI-Test (Produktions-Dashboard)
 godot --headless --path . -s res://tests/boot_ui.gd           # UI-Test (Ladebildschirm und Start)
+godot --headless --path . -s res://tests/i18n.gd              # Übersetzungen (Kataloge, Oberfläche, Sprachwahl)
 ```
 
-Exit-Code 0 bedeutet: alle Prüfungen bestanden. Alle fünf Läufe sind auch in der CI eingebunden.
+Exit-Code 0 bedeutet: alle Prüfungen bestanden. Alle sechs Läufe sind auch in der CI eingebunden.
+`tests/i18n.gd` prüft mit `I18N_LOCALES=en,fr` auch nur eine Auswahl; ohne die Variable laufen alle vier Sprachen.
 
 `tests/screenshots.gd` ist kein Test, sondern ein Hilfsskript für die visuelle Prüfung: Es spielt eine Szenenfolge durch
 und speichert Screenshots. Es braucht ein Display (z. B. `xvfb`) und läuft nicht in der CI:
@@ -100,8 +102,10 @@ scripts/world/   Welt, Kamera/Touch, Gelände, Felder, Objekte, Tiere, Painter
 scripts/ui/      UiRoot (HUD, Aktionen), UiKit, Icons, BootScreen, sheets/ (Menüs)
 scenes/          boot, main, world, ui_root, entity, animal
 tests/           run_tests.gd, achievements_ui.gd, save_transfer_ui.gd, boot_ui.gd,
-                 screenshots.gd, suites/ (Testgruppen), fixtures/ (Test-Spielstände)
-tools/           make_boot_splash.gd (PNG aus der SVG-Quelle erzeugen)
+                 i18n.gd, screenshots.gd, suites/ (Testgruppen), fixtures/ (Test-Spielstände)
+locale/          Übersetzungskataloge de/en/fr/es/it.json (deutsche Texte = Schlüssel)
+tools/           make_boot_splash.gd (PNG aus der SVG-Quelle erzeugen),
+                 dump_i18n.gd (fehlende Schlüssel sammeln), merge_tr.py (Kataloge ergänzen)
 docs/            diese Anleitung
 ```
 
@@ -118,6 +122,23 @@ Oberfläche (`ui_root.gd`) nur über Signale und Methodenaufrufe benutzt.
 - Zeitbasierte Systeme speichern nur Zeitstempel, deshalb laufen Wachstum und
   Produktion offline „weiter“: beim Start wird aus der verstrichenen Zeit der Zustand abgeleitet.
   Das Pflanzenwachstum berücksichtigt dabei den Wetterverlauf der verstrichenen Zeit
+
+## Mehrsprachigkeit
+
+Deutsch ist die Quelle: der deutsche Text im Code ist zugleich der Schlüssel. `I18n.t("Vorrat")` und
+`UiKit.label("Vorrat")` liefern den Eintrag aus `locale/<sprache>.json` – fehlt er, erscheint der deutsche
+Text. Angebotene Sprachen und ihre Reihenfolge stehen in `I18n.LOCALES` (de, en, fr, es, it).
+
+- Beim Start gilt die Gerätesprache; nicht angebotene Sprachen fallen auf Englisch zurück. In den
+  Einstellungen lässt sich eine Sprache fest wählen, sie liegt im Spielstand und überlebt ein neues Spiel.
+- Datennamen, Story-Texte, Meldungen und Tagebucheinträge nutzen dieselben Schlüssel. Tagebucheinträge
+  speichern Schlüssel und Parameter statt des fertigen Satzes; ältere Stände werden in
+  `SaveSystem.migrate()` übernommen.
+- Neuer Text: deutschen Text einbauen, dann je Sprache `python3 tools/merge_tr.py en` mit Zeilen der Form
+  `Deutsch|English` ergänzen. `tests/i18n.gd` meldet fehlende Schlüssel, abweichende Platzhalter und
+  Literale, die in keinem Katalog stehen; der Test läuft in der CI mit.
+- `tools/dump_i18n.gd` öffnet alle Bereiche in allen Sprachen und schreibt fehlende Schlüssel nach
+  `locale/_missing.json` – der Startpunkt für eine weitere Sprache.
 
 ## Wetter, Tageszeit und Tier-Ambiente
 

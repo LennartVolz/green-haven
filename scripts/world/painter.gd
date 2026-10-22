@@ -962,7 +962,7 @@ static func draw_building(ci: CanvasItem, type: String, t: float, working: bool)
 			poly(ci, [Vector2(-104.0 + float(i) * 26.0, -112), Vector2(-78.0 + float(i) * 26.0, -112), Vector2(-82.0 + float(i) * 26.0, -90), Vector2(-100.0 + float(i) * 26.0, -90)], stripe)
 		# Kleines Gartenschild und Blumenkübel im bestehenden warmen Stil.
 		rrect(ci, Rect2(-102, -176, 46, 30), col("#FFF6E0"), 5)
-		ci.draw_string(ThemeDB.fallback_font, Vector2(-96, -155), "CAFE", HORIZONTAL_ALIGNMENT_LEFT, 36, 12, col("#6F6248"))
+		ci.draw_string(ThemeDB.fallback_font, Vector2(-96, -155), I18n.t("CAFE"), HORIZONTAL_ALIGNMENT_LEFT, 36, 12, col("#6F6248"))
 		ellipse(ci, Vector2(-84, -87), 14, 8, col("#9CC47A"))
 		ellipse(ci, Vector2(82, -87), 14, 8, col("#9CC47A"))
 	elif type == "icecream":

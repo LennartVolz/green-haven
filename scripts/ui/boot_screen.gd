@@ -49,7 +49,7 @@ func _build_labels() -> void:
 	status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	add_child(status_label)
 
-	version_label = UiKit.label("Version %s" % ProjectSettings.get_setting("application/config/version", "0.1.0"), 20, Color(UiKit.earth_dark(), 0.7))
+	version_label = UiKit.label(I18n.t("Version %s") % ProjectSettings.get_setting("application/config/version", "0.1.0"), 20, Color(UiKit.earth_dark(), 0.7))
 	version_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	add_child(version_label)
@@ -92,7 +92,7 @@ func _place(label: Label, top: float, height: float) -> void:
 
 ## Setzt die Begrüßung, sobald bekannt ist, ob ein Spielstand vorliegt.
 func set_greeting(has_save: bool) -> void:
-	greeting_label.text = "Willkommen zurück" if has_save else "Ein neuer Hof entsteht"
+	greeting_label.text = I18n.t("Willkommen zurück") if has_save else I18n.t("Ein neuer Hof entsteht")
 
 
 ## Neuer Schritt: Text und Zielwert des Fortschritts.

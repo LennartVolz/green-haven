@@ -56,7 +56,7 @@ static func _season_block(ui, c: VBoxContainer) -> void:
 	var v := UiKit.vbox(8)
 	var head := UiKit.hbox(10)
 	head.add_child(UiKit.icon("leaf", 40))
-	var title := UiKit.label("%s · %s" % [String(season["name"]), _days_text(GameState.season_days_left())], 30, UiKit.ink())
+	var title := UiKit.label(I18n.t("%s · %s") % [String(season["name"]), _days_text(GameState.season_days_left())], 30, UiKit.ink())
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title)
 	v.add_child(head)
@@ -95,18 +95,18 @@ static func _season_block(ui, c: VBoxContainer) -> void:
 static func _season_reward_label(season_id: String) -> Control:
 	var deco := str(GameData.SEASON_REWARD_DECOS.get(season_id, ""))
 	var deco_name := str(GameData.DECOS.get(deco, {}).get("name", "Deko"))
-	var text := "Alle drei Ziele schalten %s frei." % deco_name
+	var text := I18n.t("Alle drei Ziele schalten %s frei.") % deco_name
 	if GameState.deco_unlocked(deco):
-		text = "%s ist freigeschaltet und im Shop unter Deko kostenlos platzierbar." % deco_name
+		text = I18n.t("%s ist freigeschaltet und im Shop unter Deko kostenlos platzierbar.") % deco_name
 	return UiKit.wrap_label(text, 22, UiKit.earth_dark())
 
 
 static func _days_text(days_left: int) -> String:
 	if days_left <= 0:
-		return "letzter Tag"
+		return I18n.t("letzter Tag")
 	if days_left == 1:
-		return "noch 1 Tag"
-	return "noch %d Tage" % days_left
+		return I18n.t("noch 1 Tag")
+	return I18n.t("noch %d Tage") % days_left
 
 
 static func _rank(q: Dictionary) -> int:

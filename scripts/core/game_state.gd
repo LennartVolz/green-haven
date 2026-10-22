@@ -21,7 +21,7 @@ signal game_event(event_name: String, data: Dictionary)
 signal fx(kind: String, world_pos: Vector2, text: String)
 signal sound(sound_name: String)
 
-const SAVE_VERSION := 10
+const SAVE_VERSION := 11
 const MAX_ORDERS := 4
 const NEIGHBORHOOD_EVENT_CYCLE_SECONDS := 3.0 * 60.0 * 60.0
 const NEIGHBORHOOD_EVENT_DURATION_SECONDS := 30.0 * 60.0
@@ -71,6 +71,9 @@ var diary: Array = []
 var stats: Dictionary = {}
 var claimed_quests: Array = []
 var claimed_achievements: Array = []
+## "language" steht nur im Spielstand, wenn eine Sprache fest gewählt wurde; fehlt
+## der Schlüssel, folgt das Spiel der Gerätesprache. So bleiben alte Stände
+## unverändert und brauchen keine Migration.
 var settings: Dictionary = {"sound": true, "music": true, "vibration": true, "sound_volume": 1.0, "music_volume": 1.0}
 var tutorial_step := 0
 var next_uid := 1
@@ -261,11 +264,11 @@ func _check_season_rewards() -> void:
 		var deco := str(GameData.SEASON_REWARD_DECOS.get(season_id, ""))
 		if deco != "" and not unlocked_decos.has(deco):
 			unlocked_decos.append(deco)
-			add_diary_entry("%s · Saisonziele: %s" % [String(season["name"]), String(GameData.SEASON_GOAL_STORIES.get(season_id, ""))])
-			toast.emit("%s ist geschafft · %s freigeschaltet" % [String(season["name"]), String(GameData.DECOS[deco]["name"])], "good")
+			add_diary_entry("DIARY_SEASON_GOALS", [String(season["name"]), String(GameData.SEASON_GOAL_STORIES.get(season_id, ""))])
+			toast.emit(I18n.t("%s ist geschafft · %s freigeschaltet") % [String(season["name"]), String(GameData.DECOS[deco]["name"])], "good")
 	if all_seasons_done and not unlocked_decos.has(GameData.SEASON_YEAR_DECO):
 		unlocked_decos.append(GameData.SEASON_YEAR_DECO)
-		add_diary_entry("Jahreskranz · %s" % GameData.SEASON_YEAR_STORY)
+		add_diary_entry("DIARY_YEAR_WREATH", [GameData.SEASON_YEAR_STORY])
 		toast.emit("Alle zwölf Saisonziele sind geschafft · Jahreskranz freigeschaltet", "good")
 
 
@@ -348,10 +351,10 @@ func claim_hofbuch(id: String) -> bool:
 		var deco := str(entry.get("deco", ""))
 		if deco != "" and not unlocked_decos.has(deco):
 			unlocked_decos.append(deco)
-		add_diary_entry("Hofbuch · %s: %s" % [String(entry["text"]), String(entry.get("story", ""))])
+		add_diary_entry("DIARY_HOFBUCH_ENTRY", [String(entry["text"]), String(entry.get("story", ""))])
 		quests_changed.emit()
 		sound.emit("collect")
-		toast.emit("%s · %s freigeschaltet" % [String(entry["text"]), String(GameData.DECOS.get(deco, {}).get("name", "Deko"))], "good")
+		toast.emit(I18n.t("%s · %s freigeschaltet") % [String(entry["text"]), String(GameData.DECOS.get(deco, {}).get("name", I18n.t("Deko")))], "good")
 		return true
 	return false
 
@@ -485,10 +488,25 @@ func bump(stat: String, n: int = 1) -> void:
 	stats[stat] = int(stats.get(stat, 0)) + n
 
 
-func add_diary_entry(text: String, animal_uid: int = -1) -> void:
-	diary.append({"time": now(), "text": text, "animal_uid": animal_uid})
+func add_diary_entry(key: String, args: Array = [], animal_uid: int = -1) -> void:
+	diary.append({"time": now(), "key": key, "args": args.duplicate(true), "animal_uid": animal_uid})
 	while diary.size() > 100:
 		diary.pop_front()
+
+
+## Anzeigetext eines Tagebucheintrags. Neue Einträge speichern nur Schlüssel und
+## Parameter und werden in der aktuellen Sprache gerendert; Einträge aus älteren
+## Spielständen behalten ihren damaligen Text als historische Notiz.
+func diary_text(entry: Dictionary) -> String:
+	if entry.has("legacy_text"):
+		return str(entry["legacy_text"])
+	if entry.has("text"):
+		return str(entry["text"])
+	var template := I18n.t(str(entry.get("key", "")))
+	var args_value: Variant = entry.get("args", [])
+	if typeof(args_value) == TYPE_ARRAY and not (args_value as Array).is_empty():
+		return template % (args_value as Array)
+	return template
 
 
 func friendship_level(a: Dictionary) -> int:
@@ -502,12 +520,12 @@ func friendship_level(a: Dictionary) -> int:
 func record_animal_moment(a: Dictionary, moment: String, hearts_gained: int) -> void:
 	var old_level := friendship_level(a)
 	a.hearts = int(a.get("hearts", 0)) + hearts_gained
-	add_diary_entry("%s: %s" % [a.name, moment], int(a.uid))
+	add_diary_entry("DIARY_ANIMAL_MOMENT", [a.name, moment], int(a.uid))
 	var new_level := friendship_level(a)
 	if new_level > old_level:
 		var species: String = str(a.species)
 		var story: String = GameData.FRIENDSHIP_STORIES[species][new_level - 1]
-		add_diary_entry("%s vertraut dir jetzt mehr und %s" % [a.name, story], int(a.uid))
+		add_diary_entry("DIARY_ANIMAL_TRUST", [a.name, story], int(a.uid))
 		event("friendship_milestone", {"uid": int(a.uid), "level": new_level})
 
 
@@ -613,7 +631,7 @@ func buy_item(id: String, n: int = 1) -> bool:
 		return false
 	var d: Dictionary = GameData.EXTRA_ITEMS[id]
 	if level < int(d["level"]):
-		last_error = "Ab Stufe %d" % int(d["level"])
+		last_error = I18n.t("Ab Stufe %d") % int(d["level"])
 		return false
 	if not spend_coins(int(d["shop"]) * n):
 		last_error = "Nicht genug Münzen"
@@ -708,10 +726,10 @@ func place_object(type: String, cell: Vector2i) -> int:
 		last_error = "Unbekanntes Objekt"
 		return -1
 	if level < int(d["level"]):
-		last_error = "Ab Stufe %d" % int(d["level"])
+		last_error = I18n.t("Ab Stufe %d") % int(d["level"])
 		return -1
 	if d.has("max") and count_type(type) >= int(d["max"]):
-		last_error = "Davon ist nur %d Stück möglich" % int(d["max"])
+		last_error = I18n.t("Davon ist nur %d Stück möglich") % int(d["max"])
 		return -1
 	if not can_place(type, cell):
 		last_error = "Hier ist kein Platz"
@@ -780,7 +798,7 @@ func expand_land() -> bool:
 		last_error = "Die Farm ist voll ausgebaut"
 		return false
 	if level < int(ex["level"]):
-		last_error = "Ab Stufe %d" % int(ex["level"])
+		last_error = I18n.t("Ab Stufe %d") % int(ex["level"])
 		return false
 	var grown := land.grow(1)
 	if grown.position.x < GameData.WORLD_ORIGIN.x or grown.position.y < GameData.WORLD_ORIGIN.y \
@@ -847,7 +865,7 @@ func plant(cell: Vector2i, crop: String) -> bool:
 		return false
 	var c: Dictionary = GameData.CROPS[crop]
 	if level < int(c["level"]):
-		last_error = "%s ab Stufe %d" % [c["name"], int(c["level"])]
+		last_error = I18n.t("%s ab Stufe %d") % [c["name"], int(c["level"])]
 		return false
 	if not spend_coins(int(c["seed"])):
 		last_error = "Nicht genug Münzen für Saatgut"
@@ -916,10 +934,10 @@ func collect_forage(cell: Vector2i) -> Dictionary:
 		return {}
 	var definition: Dictionary = GameData.FORAGE[id]
 	if level < int(definition["level"]):
-		last_error = "%s ab Stufe %d" % [definition["name"], int(definition["level"])]
+		last_error = I18n.t("%s ab Stufe %d") % [definition["name"], int(definition["level"])]
 		return {}
 	if now() < float(forage.get(cell, 0.0)):
-		last_error = "%s wächst nach · noch %s" % [definition["name"], GameData.format_time(forage_remaining(cell))]
+		last_error = I18n.t("%s wächst nach · noch %s") % [definition["name"], GameData.format_time(forage_remaining(cell))]
 		return {}
 	var amount := int(definition["amount"])
 	add_item(id, amount)
@@ -968,7 +986,7 @@ func start_recipe(uid: int, recipe_id: String) -> bool:
 		last_error = "Dieses Rezept gehört in ein anderes Gebäude"
 		return false
 	if level < int(r["level"]):
-		last_error = "Ab Stufe %d" % int(r["level"])
+		last_error = I18n.t("Ab Stufe %d") % int(r["level"])
 		return false
 	var q: Array = o.queue
 	if q.size() >= queue_capacity(o):
@@ -1326,7 +1344,7 @@ func start_delivery_story(story_id: String) -> bool:
 	if orders.size() >= MAX_ORDERS:
 		# Eine optionale Standardbestellung weicht, damit die angenommene Reihe sofort beginnt.
 		orders.pop_back()
-	add_diary_entry("Begonnen: %s. %s" % [campaign["title"], campaign["intro"]])
+	add_diary_entry("DIARY_STORY_START", [campaign["title"], campaign["intro"]])
 	_fill_orders()
 	orders_changed.emit()
 	return true
@@ -1382,7 +1400,7 @@ func fulfill_order(order_id: int) -> bool:
 		var shared_story := str(o.get("visitor_story", o.get("story_text", "")))
 		if not shared_story.is_empty():
 			bump("cafe_stories_shared")
-			add_diary_entry("%s erzählte im Gartencafé: %s" % [str(o.get("customer", "Ein Gast")), shared_story])
+			add_diary_entry("DIARY_CAFE_SHARED", [str(o.get("customer", I18n.t("Ein Gast"))), shared_story])
 	var event_completed_now := false
 	if neighborhood_event:
 		var neighborhood_cycle := int(o.get("neighborhood_event_cycle", -1))
@@ -1391,14 +1409,14 @@ func fulfill_order(order_id: int) -> bool:
 			var event_def: Dictionary = GameData.NEIGHBORHOOD_EVENT_STAGES[event_stage]
 			neighborhood_event_stage = (event_stage + 1) % NEIGHBORHOOD_EVENT_SERIES_LENGTH
 			var event_story := str(o.get("neighborhood_event_story", ""))
-			add_diary_entry("Gartentag · %s: %s" % [String(event_def["name"]), event_story])
+			add_diary_entry("DIARY_EVENT_STORY", [String(event_def["name"]), event_story])
 			if event_cafe_guest:
 				bump("cafe_stories_shared")
 			if event_stage == NEIGHBORHOOD_EVENT_SERIES_LENGTH - 1:
 				add_coins(NEIGHBORHOOD_EVENT_FINALE_COINS)
 				add_xp(NEIGHBORHOOD_EVENT_FINALE_XP)
 				bump("neighborhood_events_completed")
-				add_diary_entry("Der Gartentag endet mit einem langen Café-Nachmittag. Gemeinsam habt ihr drei Geschichten geteilt!")
+				add_diary_entry("DIARY_EVENT_FINALE")
 				neighborhood_event_completed_cycle = neighborhood_cycle
 				event_completed_now = true
 			neighborhood_event_order = {}
@@ -1406,7 +1424,7 @@ func fulfill_order(order_id: int) -> bool:
 		var campaign: Dictionary = GameData.DELIVERY_STORIES[active_delivery_story]
 		var completed_stage := delivery_story_stage
 		delivery_story_stage += 1
-		add_diary_entry("%s · Abschnitt %d abgeschlossen: %s" % [campaign["title"], completed_stage + 1, str(o.get("story_text", ""))])
+		add_diary_entry("DIARY_STORY_STAGE", [campaign["title"], completed_stage + 1, str(o.get("story_text", ""))])
 		var stages: Array = campaign["stages"]
 		if delivery_story_stage >= stages.size():
 			if str(campaign.get("feature", "")) == "cafe":
@@ -1415,7 +1433,7 @@ func fulfill_order(order_id: int) -> bool:
 			add_xp(int(campaign["bonus_xp"]))
 			bump("stories_completed")
 			bump("story_completed:" + active_delivery_story)
-			add_diary_entry("%s ist abgeschlossen. Die Nachbarschaft bedankt sich für deine Hilfe!" % campaign["title"])
+			add_diary_entry("DIARY_STORY_DONE", [campaign["title"]])
 			active_delivery_story = ""
 			delivery_story_stage = 0
 	add_coins(int(o.coins))
@@ -1424,7 +1442,7 @@ func fulfill_order(order_id: int) -> bool:
 	orders_changed.emit()
 	quests_changed.emit()
 	if event_completed_now:
-		toast.emit("Der Gartentag ist ein voller Erfolg! +%d Münzen · +%d XP" % [NEIGHBORHOOD_EVENT_FINALE_COINS, NEIGHBORHOOD_EVENT_FINALE_XP], "good")
+		toast.emit(I18n.t("Der Gartentag ist ein voller Erfolg! +%d Münzen · +%d XP") % [NEIGHBORHOOD_EVENT_FINALE_COINS, NEIGHBORHOOD_EVENT_FINALE_XP], "good")
 		sound.emit("level")
 	else:
 		sound.emit("coin")
@@ -1488,7 +1506,7 @@ func adopt_animal(species: String, rescue: bool = false) -> int:
 		return -1
 	var d: Dictionary = GameData.ANIMALS[species]
 	if level < int(d["level"]):
-		last_error = "Ab Stufe %d" % int(d["level"])
+		last_error = I18n.t("Ab Stufe %d") % int(d["level"])
 		return -1
 	if rescue and (rescue_case.is_empty() or str(rescue_case.get("species", "")) != species):
 		last_error = "Dieser Rettungsfall ist nicht mehr verfügbar"
@@ -1514,7 +1532,7 @@ func adopt_animal(species: String, rescue: bool = false) -> int:
 		"traits": _choose_animal_traits(species), "accessories": [],
 	}
 	animals.append(a)
-	add_diary_entry("%s hat im Refugium ein sicheres Zuhause gefunden." % a.name, int(a.uid))
+	add_diary_entry("DIARY_RESCUE_HOME", [a.name], int(a.uid))
 	if rescue:
 		rescue_case = {}
 		next_rescue_at = now() + RESCUE_COOLDOWN
@@ -1635,10 +1653,10 @@ func feed_animal(uid: int) -> bool:
 		return false
 	var food: String = GameData.ANIMALS[a.species]["food"]
 	if animal_stat(a, "hunger") >= 95.0:
-		last_error = "%s ist schon satt" % a.name
+		last_error = I18n.t("%s ist schon satt") % a.name
 		return false
 	if not remove_item(food, 1):
-		last_error = "Dir fehlt: %s" % GameData.item_name(food)
+		last_error = I18n.t("Dir fehlt: %s") % GameData.item_name(food)
 		return false
 	_settle(a)
 	a.hunger = minf(100.0, float(a.hunger) + 45.0)
@@ -2105,8 +2123,17 @@ func deserialize(d: Dictionary) -> bool:
 	var story_stage_count := int(GameData.DELIVERY_STORIES.get(active_delivery_story, {}).get("stages", []).size())
 	delivery_story_stage = clampi(int(d.get("delivery_story_stage", 0)), 0, maxi(0, story_stage_count - 1)) if not active_delivery_story.is_empty() else 0
 	for entry in _save_array(d, "diary"):
-		if _has_keys(entry, ["text"]):
-			diary.append({"time": float(entry.get("time", now())), "text": str(entry["text"]), "animal_uid": int(entry.get("animal_uid", -1))})
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var item: Dictionary = entry
+		var at := float(item.get("time", now()))
+		var uid := int(item.get("animal_uid", -1))
+		if item.has("key"):
+			var args_value: Variant = item.get("args", [])
+			var args_out: Array = args_value if typeof(args_value) == TYPE_ARRAY else []
+			diary.append({"time": at, "key": str(item["key"]), "args": args_out.duplicate(true), "animal_uid": uid})
+		elif item.has("legacy_text") or item.has("text"):
+			diary.append({"time": at, "legacy_text": str(item.get("legacy_text", item.get("text", ""))), "animal_uid": uid})
 	while diary.size() > 100:
 		diary.pop_front()
 	claimed_quests = []
@@ -2138,6 +2165,12 @@ func deserialize(d: Dictionary) -> bool:
 	settings["sound"] = float(settings["sound_volume"]) > 0.0
 	settings["music"] = float(settings["music_volume"]) > 0.0
 	settings["vibration"] = bool(s.get("vibration", true))
+	# Unbekannte oder manipulierte Sprach-IDs fallen auf die Gerätesprache zurück.
+	if s.has("language"):
+		var saved_language := str(s.get("language", ""))
+		settings["language"] = saved_language if I18n.has_locale(saved_language) else ""
+	else:
+		settings.erase("language")
 	tutorial_step = int(d.get("tutorial_step", 0))
 	# next_uid darf nie auf eine bereits vergebene ID zeigen, auch nicht bei beschädigten Ständen.
 	var max_uid := 0

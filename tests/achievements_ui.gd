@@ -247,7 +247,7 @@ func run() -> void:
 		ui._close_modal()
 		await frames()
 	gs.level = 10
-	gs.add_diary_entry("Testeintrag aus einer Rettung", 1)
+	gs.add_diary_entry("Testeintrag aus einer Rettung", [], 1)
 
 	ui.act_open("refuge", {})
 	await frames()
@@ -402,7 +402,7 @@ func run() -> void:
 	ui.act_open("achievements", {})
 	await frames()
 	check(ui._sheet_name == "achievements" and ui._title.text == "Erfolge", "Erfolge öffnen über die Navigation")
-	check(ui.content.get_child_count() == GameData.ACHIEVEMENTS.size() + 2, "alle Erfolge und der Hofbuch-Knopf werden angezeigt")
+	check(ui.content.get_child_count() == root.get_node("GameData").ACHIEVEMENTS.size() + 2, "alle Erfolge und der Hofbuch-Knopf werden angezeigt")
 	check(contains_label(ui.content, "Geschichten am Kaffeetisch"), "Café-Meilenstein erscheint in der echten Erfolge-UI")
 	var book_button := find_button(ui.content, "Hofbuch öffnen")
 	if check(book_button != null, "Erfolge bieten das Hofbuch an"):
@@ -411,11 +411,13 @@ func run() -> void:
 		check(ui._sheet_name == "hofbuch" and ui._title.text == "Hofbuch", "Hofbuch öffnet über die Erfolge")
 		check(contains_label(ui.content, "Ein Jahr im Garten"), "Hofbuch zeigt die Jahres-Auszeichnung")
 		check(contains_label(ui.content, "Jahresbaum"), "Hofbuch nennt die Belohnungsdeko")
-		check(ui.content.get_child_count() == GameData.HOFBUCH.size() + 1, "alle acht Auszeichnungen werden angezeigt")
+		check(ui.content.get_child_count() == root.get_node("GameData").HOFBUCH.size() + 1, "alle acht Auszeichnungen werden angezeigt")
 	print("achievements UI checked")
 	save_system.delete_save()
 	quit(1 if failures > 0 else 0)
 
 
 func _initialize() -> void:
+	# Die Prüfungen vergleichen deutsche Texte; unabhängig von der Gerätesprache.
+	I18n.apply("de")
 	call_deferred("run")

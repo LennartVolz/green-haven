@@ -16,12 +16,31 @@ static func build(ui, _args: Dictionary) -> void:
 	c.add_child(UiKit.wrap_label("Ziehe den Griff oder tippe direkt auf die Leiste.", 22, UiKit.earth_dark()))
 	if not music_available:
 		c.add_child(UiKit.wrap_label("Für Hintergrundmusik ist auf diesem Gerät kein Track verfügbar.", 22, UiKit.earth_dark()))
-	var b2 := UiKit.button("Vibration: %s" % ("An" if vib else "Aus"), "primary" if vib else "light", 32)
+	var b2 := UiKit.button(I18n.t("Vibration: %s") % (I18n.t("An") if vib else I18n.t("Aus")), "primary" if vib else "light", 32)
 	b2.pressed.connect(ui.act_toggle.bind("vibration"))
 	c.add_child(b2)
 
+	c.add_child(UiKit.label("Sprache", 30, UiKit.earth_dark()))
+	c.add_child(UiKit.wrap_label("Automatisch folgt der Sprache deines Geräts.", 22, UiKit.earth_dark()))
+	var current_language := str(GameState.settings.get("language", ""))
+	var language_auto := UiKit.button(I18n.t("Automatisch (%s)") % I18n.locale_name(I18n.resolve(I18n.AUTO)), "primary" if current_language == "" else "light", 26)
+	language_auto.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	language_auto.pressed.connect(ui.act_set_language.bind(""))
+	c.add_child(language_auto)
+	var language_grid := GridContainer.new()
+	language_grid.columns = 3
+	language_grid.add_theme_constant_override("h_separation", 10)
+	language_grid.add_theme_constant_override("v_separation", 10)
+	for entry in I18n.LOCALES:
+		var language_id := str(entry["id"])
+		var language_button := UiKit.button(str(entry["name"]), "primary" if current_language == language_id else "light", 26)
+		language_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		language_button.pressed.connect(ui.act_set_language.bind(language_id))
+		language_grid.add_child(language_button)
+	c.add_child(language_grid)
+
 	c.add_child(UiKit.label("Spielstand", 30, UiKit.earth_dark()))
-	var info := "Wird automatisch alle %d Sekunden und beim Verlassen der App gespeichert." % int(SaveSystem.AUTOSAVE_SECONDS)
+	var info := I18n.t("Wird automatisch alle %d Sekunden und beim Verlassen der App gespeichert.") % int(SaveSystem.AUTOSAVE_SECONDS)
 	c.add_child(UiKit.wrap_label(info, 26, UiKit.earth_dark()))
 	var row := UiKit.hbox(12)
 	var save := UiKit.button("Speichern", "warm", 30)
@@ -63,7 +82,7 @@ static func build(ui, _args: Dictionary) -> void:
 	var nb := UiKit.button("Alles löschen und neu beginnen? Nochmal tippen" if armed else "Neues Spiel beginnen", "danger" if armed else "light", 30)
 	nb.pressed.connect(ui.act_new_game)
 	c.add_child(nb)
-	var ver := UiKit.label("Green Haven · Version %s · Spielstand-Format %d" % [ProjectSettings.get_setting("application/config/version", "0.1.0"), GameState.SAVE_VERSION], 22, UiKit.earth_dark())
+	var ver := UiKit.label(I18n.t("Green Haven · Version %s · Spielstand-Format %d") % [ProjectSettings.get_setting("application/config/version", "0.1.0"), GameState.SAVE_VERSION], 22, UiKit.earth_dark())
 	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	c.add_child(ver)
 

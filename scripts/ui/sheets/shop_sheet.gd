@@ -44,13 +44,13 @@ static func _crops(ui, c: VBoxContainer) -> void:
 		var v := UiKit.vbox(2)
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		v.add_child(UiKit.label(String(d["name"]), 34))
-		v.add_child(UiKit.label("Wächst %s · Ertrag %d" % [GameData.format_time(float(d["grow"])), int(d["yield"])], 24, UiKit.earth_dark()))
-		v.add_child(UiKit.label("Saat %d · Verkauf %d · %d XP" % [int(d["seed"]), int(d["sell"]), int(d["xp"])], 24, UiKit.earth_dark()))
+		v.add_child(UiKit.label(I18n.t("Wächst %s · Ertrag %d") % [GameData.format_time(float(d["grow"])), int(d["yield"])], 24, UiKit.earth_dark()))
+		v.add_child(UiKit.label(I18n.t("Saat %d · Verkauf %d · %d XP") % [int(d["seed"]), int(d["sell"]), int(d["xp"])], 24, UiKit.earth_dark()))
 		h.add_child(v)
 		var b := UiKit.button("Pflanzen", "primary", 28)
 		b.custom_minimum_size = Vector2(210, 96)
 		if locked:
-			b.text = "Stufe %d" % int(d["level"])
+			b.text = I18n.t("Stufe %d") % int(d["level"])
 			b.disabled = true
 		else:
 			b.pressed.connect(ui.act_plant_tool.bind(id))
@@ -91,11 +91,11 @@ static func _object_card(ui, c: VBoxContainer, id: String) -> void:
 	var info := ""
 	match String(d["kind"]):
 		"production":
-			info = "%d Produktionsplätze" % int(d["slots"])
+			info = I18n.t("%d Produktionsplätze") % int(d["slots"])
 			if id == "cafe":
 				info = "Veganer Kaffee, Hafer-Latte und Geschichten aus der Nachbarschaft"
 		"paddock":
-			info = "Platz für %d gerettete Tiere" % int(d["capacity"])
+			info = I18n.t("Platz für %d gerettete Tiere") % int(d["capacity"])
 		_:
 			info = "Dekoration"
 			if d.has("unlock"):
@@ -110,13 +110,13 @@ static func _object_card(ui, c: VBoxContainer, id: String) -> void:
 	var b := UiKit.button("Bauen", "primary", 28)
 	b.custom_minimum_size = Vector2(190, 96)
 	if locked:
-		b.text = "Stufe %d" % int(d["level"])
+		b.text = I18n.t("Stufe %d") % int(d["level"])
 		b.disabled = true
 	elif maxed:
-		b.text = "Gebaut"
+		b.text = I18n.t("Gebaut")
 		b.disabled = true
 	elif reward_locked:
-		b.text = "Noch nicht frei"
+		b.text = I18n.t("Noch nicht frei")
 		b.disabled = true
 	elif GameState.coins < cost:
 		b.disabled = true
@@ -132,7 +132,7 @@ static func _land(ui, c: VBoxContainer) -> void:
 	var card := UiKit.card(14)
 	var v := UiKit.vbox(8)
 	v.add_child(UiKit.label("Neue Felder anlegen", 34))
-	v.add_child(UiKit.wrap_label("Tippe auf freie Wiese. Jedes Feld kostet %d Münzen." % GameData.TILL_COST, 26, UiKit.earth_dark()))
+	v.add_child(UiKit.wrap_label(I18n.t("Tippe auf freie Wiese. Jedes Feld kostet %d Münzen.") % GameData.TILL_COST, 26, UiKit.earth_dark()))
 	var b := UiKit.button("Felder anlegen", "primary", 30)
 	b.pressed.connect(ui.act_till)
 	v.add_child(b)
@@ -144,14 +144,14 @@ static func _land(ui, c: VBoxContainer) -> void:
 	var v2 := UiKit.vbox(8)
 	v2.add_child(UiKit.label("Farm erweitern", 34))
 	var land_size: Vector2i = GameState.land.size
-	v2.add_child(UiKit.wrap_label("Eine zusammenhängende Farm, die du mit einem Finger über die Karte erkundest. Aktuell %d × %d Felder." % [land_size.x, land_size.y], 26, UiKit.earth_dark()))
+	v2.add_child(UiKit.wrap_label(I18n.t("Eine zusammenhängende Farm, die du mit einem Finger über die Karte erkundest. Aktuell %d × %d Felder.") % [land_size.x, land_size.y], 26, UiKit.earth_dark()))
 	if ex.is_empty():
 		v2.add_child(UiKit.wrap_label("Deine Farm ist vollständig auf 24 × 24 Felder ausgebaut. Wunderschön!", 26, UiKit.earth_dark()))
 	else:
-		v2.add_child(UiKit.wrap_label("Mehr Platz für Felder, Gebäude und Gehege · danach %d × %d Felder." % [land_size.x + 2, land_size.y + 2], 26, UiKit.earth_dark()))
-		var e := UiKit.button("Erweitern  ·  %d Münzen" % int(ex["cost"]), "warm", 30)
+		v2.add_child(UiKit.wrap_label(I18n.t("Mehr Platz für Felder, Gebäude und Gehege · danach %d × %d Felder.") % [land_size.x + 2, land_size.y + 2], 26, UiKit.earth_dark()))
+		var e := UiKit.button(I18n.t("Erweitern  ·  %d Münzen") % int(ex["cost"]), "warm", 30)
 		if GameState.level < int(ex["level"]):
-			e.text = "Ab Stufe %d" % int(ex["level"])
+			e.text = I18n.t("Ab Stufe %d") % int(ex["level"])
 			e.disabled = true
 		elif GameState.coins < int(ex["cost"]):
 			e.disabled = true
@@ -172,7 +172,7 @@ static func _land(ui, c: VBoxContainer) -> void:
 		var vv := UiKit.vbox(2)
 		vv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		vv.add_child(UiKit.label(String(d["name"]), 32))
-		vv.add_child(UiKit.icon_text("coin", "%d pro Stück · im Vorrat: %d" % [int(d["shop"]), GameState.item_count(id)], 24))
+		vv.add_child(UiKit.icon_text("coin", I18n.t("%d pro Stück · im Vorrat: %d") % [int(d["shop"]), GameState.item_count(id)], 24))
 		h.add_child(vv)
 		var b1 := UiKit.button("Kaufen", "primary", 28)
 		b1.custom_minimum_size = Vector2(190, 96)

@@ -4,6 +4,8 @@ extends RefCounted
 ## Salbeigrün, Cremeweiß, warmes Gelb und Erdtöne, große Touchflächen.
 
 const MIN_TOUCH := 96
+## Innenabstand eines Buttons links und rechts (siehe style_button: pad 14 + Rand).
+const BUTTON_PAD_X := 18
 const VolumeSliderScript := preload("res://scripts/ui/volume_slider.gd")
 
 static func sage() -> Color: return Painter.col("#8DB580")
@@ -132,12 +134,26 @@ static func button(text: String, kind: String = "primary", font_size: int = 34) 
 	# Übersetzungen sind oft länger als das Deutsche („Alle" → „Tout vendre").
 	# Statt den Text abzuschneiden, bricht der Button um und wächst in die Höhe.
 	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	b.custom_minimum_size = Vector2(0, MIN_TOUCH)
+	# Ein umbrechender Button hat von sich aus fast keine Mindestbreite. Steht
+	# neben ihm ein spacer(), schrumpft er deshalb auf die Innenabstände und
+	# bricht Buchstabe für Buchstabe – der Text verschwindet. Die Mindestbreite
+	# ist darum das längste Wort: Umbruch bleibt erlaubt, aber nur an Wortgrenzen.
+	b.custom_minimum_size = Vector2(_widest_word(b.get_theme_font("font"), b.text, font_size) + BUTTON_PAD_X * 2.0, MIN_TOUCH)
 	b.add_theme_font_size_override("font_size", font_size)
 	b.focus_mode = Control.FOCUS_NONE
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	style_button(b, kind)
 	return b
+
+
+## Breite des längsten Wortes in der Schrift, in der der Text erscheint.
+static func _widest_word(font: Font, text: String, size: int) -> float:
+	if font == null or text.is_empty():
+		return 0.0
+	var widest := 0.0
+	for word in text.split(" ", false):
+		widest = maxf(widest, font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x)
+	return widest
 
 
 static func style_button(b: Button, kind: String) -> void:
@@ -266,12 +282,27 @@ static func icon_text(icon_name: String, text: String, size: int = 30, color: Co
 	var ic := icon(icon_name, int(size * 1.1))
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(ic)
+	# Einzeilig und ohne EXPAND_FILL: Zahlen wie „+18" sind kurz. Mit Umbruch
+	# hatte der Text in einer schmalen Zeile 1 px Breite und stapelte sich
+	# senkrecht (ein Belohnungswert je Zeichen in einer eigenen Zeile).
 	var l := label(text, size, color)
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(l)
 	return h
+
+
+## Belohnung als einzeilige Pille: Symbol + Wert, überall gleich breit und hoch.
+static func reward_chip(icon_name: String, text: String, size: int = 26) -> PanelContainer:
+	var p := panel(cream_dark(), 18, 6)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var h := hbox(4)
+	h.add_child(icon(icon_name, int(size * 1.25)))
+	var l := label(text, size, ink())
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(l)
+	p.add_child(h)
+	return p
 
 
 static func item_chip(id: String, have: int, need: int) -> HBoxContainer:

@@ -78,9 +78,10 @@ godot --headless --path . -s res://tests/save_transfer_ui.gd # UI-Test (Spielsta
 godot --headless --path . -s res://tests/production_overview_ui.gd # UI-Test (Produktions-Dashboard)
 godot --headless --path . -s res://tests/boot_ui.gd           # UI-Test (Ladebildschirm und Start)
 godot --headless --path . -s res://tests/i18n.gd              # Übersetzungen (Kataloge, Oberfläche, Sprachwahl)
+godot --headless --path . -s res://tests/layout_ui.gd         # Layout (Karten, Hinweisstreifen, Sheet-Höhe, Werkzeugleiste)
 ```
 
-Exit-Code 0 bedeutet: alle Prüfungen bestanden. Alle sechs Läufe sind auch in der CI eingebunden.
+Exit-Code 0 bedeutet: alle Prüfungen bestanden. Alle sieben Läufe sind auch in der CI eingebunden.
 `tests/i18n.gd` prüft mit `I18N_LOCALES=en,fr` auch nur eine Auswahl; ohne die Variable laufen alle vier Sprachen.
 
 `tests/screenshots.gd` ist kein Test, sondern ein Hilfsskript für die visuelle Prüfung: Es spielt eine Szenenfolge durch
@@ -102,7 +103,8 @@ scripts/world/   Welt, Kamera/Touch, Gelände, Felder, Objekte, Tiere, Painter
 scripts/ui/      UiRoot (HUD, Aktionen), UiKit, Icons, BootScreen, sheets/ (Menüs)
 scenes/          boot, main, world, ui_root, entity, animal
 tests/           run_tests.gd, achievements_ui.gd, save_transfer_ui.gd, boot_ui.gd,
-                 i18n.gd, screenshots.gd, suites/ (Testgruppen), fixtures/ (Test-Spielstände)
+                 i18n.gd, layout_ui.gd, screenshots.gd, suites/ (Testgruppen),
+                 fixtures/ (Test-Spielstände)
 locale/          Übersetzungskataloge de/en/fr/es/it.json (deutsche Texte = Schlüssel)
 tools/           make_boot_splash.gd (PNG aus der SVG-Quelle erzeugen),
                  dump_i18n.gd (fehlende Schlüssel sammeln), merge_tr.py (Kataloge ergänzen)
@@ -147,6 +149,23 @@ Text. Angebotene Sprachen und ihre Reihenfolge stehen in `I18n.LOCALES` (de, en,
   Schritt 1 beginnt.
 - `tools/dump_i18n.gd` öffnet alle Bereiche in allen Sprachen und schreibt fehlende Schlüssel nach
   `locale/_missing.json` – der Startpunkt für eine weitere Sprache.
+
+## Layout
+
+- Das Sheet wird so hoch wie sein Inhalt (höchstens 82 % der Höhe, mindestens ein
+  Drittel) – kurze Listen lassen keinen leeren Kasten stehen. `UiRoot._apply_layout()`
+  rechnet die Höhe aus Kopfzeile und Inhalt; ein Frame später wird sie nachgezogen,
+  weil Titel und Texte erst dann mit echter Breite vermessen sind.
+- Text, der umbrechen darf, hat trotzdem eine Mindestbreite: Buttons mindestens ihr
+  längstes Wort. Ohne diese Grenze schrumpft ein Button neben einem `spacer()` auf die
+  Innenabstände und bricht Buchstabe für Buchstabe (umbrechende Labels melden fast
+  0 px Mindestbreite). `UiKit.icon_text()` bleibt darum bewusst einzeilig.
+- Der Tutorial-Hinweis ist ein Streifen unten links über der Navigation
+  (max. 72 % Breite, 1180 px), keine Karte über dem halben Acker.
+- Bei offenem Sheet weicht die Werkzeugleiste; sie kommt beim Schließen in alter Höhe
+  zurück, die Werkzeugwahl bleibt erhalten.
+- `tests/layout_ui.gd` prüft all das in allen fünf Sprachen: kein zusammengequetschter
+  Text, vier Aufträge ohne Scrollen, Kartenhöhe, Hinweisstreifen und Werkzeugleiste.
 
 ## Wetter, Tageszeit und Tier-Ambiente
 

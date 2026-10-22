@@ -278,10 +278,11 @@ func run() -> void:
 	ui.refresh_sheet()
 	await frames(3)
 	await shot("sheet_shop_land")
-	# Mehrere hohe Aufträge erzwingen echte Scrollstrecke und testen Touch-Drag im Sheet.
+	# Acht Aufträge erzwingen echte Scrollstrecke und testen Touch-Drag im Sheet.
+	# Vier reichen seit den kompakten Auftragskarten nicht mehr: Sie passen auf einen Blick.
 	var order_template: Dictionary = gs.generate_order()
 	gs.orders.clear()
-	for i in range(gs.MAX_ORDERS):
+	for i in range(gs.MAX_ORDERS * 2):
 		var order: Dictionary = order_template.duplicate(true)
 		order["id"] = 9000 + i
 		order["customer"] = "Kundschaft %d" % (i + 1)
@@ -290,7 +291,7 @@ func run() -> void:
 	await frames(5)
 	var orders_scroll: ScrollContainer = ui._scroll
 	var scroll_bar := orders_scroll.get_v_scroll_bar()
-	assert(scroll_bar.max_value > scroll_bar.page, "Auftragsbuch mit vier Karten muss scrollbar sein")
+	assert(scroll_bar.max_value > scroll_bar.page, "Auftragsbuch mit acht Karten muss scrollbar sein")
 	var scroll_rect := orders_scroll.get_global_rect()
 	var start_scroll := Vector2(scroll_rect.position.x + scroll_rect.size.x * 0.5, scroll_rect.position.y + scroll_rect.size.y * 0.8)
 	var end_scroll := Vector2(start_scroll.x, scroll_rect.position.y + scroll_rect.size.y * 0.25)

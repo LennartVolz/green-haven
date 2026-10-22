@@ -1,20 +1,132 @@
 extends RefCounted
 ## Auftragsbuch: Kundenbestellungen mit Fortschritt und Belohnung.
+## Die Aufträge stehen bewusst oben – sie sind der Grund, das Buch zu öffnen.
+## Ereignisse, Tagesgericht und Geschichten folgen darunter.
 
 
 static func build(ui, _args: Dictionary) -> void:
 	ui.set_title("Auftragsbuch")
+	ui.set_subtitle("Kleine Geschichten aus der Nachbarschaft")
 	var c: VBoxContainer = ui.content
+	_build_orders(ui, c)
+	_build_extras(ui, c)
+
+
+## Eine kompakte Karte je Auftrag: Name und Belohnung in der Kopfzeile, die Ware
+## darunter, „Liefern" rechts über beide Zeilen. Vorher wuchs jede Karte auf ein
+## Drittel des Bildschirms, weil die Belohnungstexte senkrecht umbrachen und der
+## Knopf auf die Höhe der kaputten Zeile mitwuchs.
+static func _build_orders(ui, c: VBoxContainer) -> void:
+	if GameState.orders.is_empty():
+		c.add_child(UiKit.wrap_label("Gerade wartet niemand. Bald kommen neue Kundinnen und Kunden vorbei!", 28))
+	for o in GameState.orders:
+		c.add_child(_order_card(ui, o))
+	if GameState.orders.size() < GameState.MAX_ORDERS:
+		var wait := UiKit.label("", 24, UiKit.earth_dark())
+		wait.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		c.add_child(wait)
+		ui.ticker.append(func() -> void:
+			var rem := GameState.next_order_at - GameState.now()
+			wait.text = I18n.t("Nächster Kunde in %s") % GameData.format_time(rem) if rem > 0.0 else I18n.t("Ein neuer Kunde kommt gleich …"))
+
+
+static func _order_card(ui, o: Dictionary) -> PanelContainer:
+	var ok := GameState.can_fulfill(o)
+	var card := UiKit.panel(UiKit.cream(), 22, 12, UiKit.sage() if ok else UiKit.cream_dark(), 3)
+	card.mouse_filter = Control.MOUSE_FILTER_PASS
+	card.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var row := UiKit.hbox(12)
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	var v := UiKit.vbox(6)
+	v.mouse_filter = Control.MOUSE_FILTER_PASS
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_child(_head(ui, o))
+	for line in _notes(o):
+		v.add_child(UiKit.wrap_label(line, 21, UiKit.sage_dark()))
+	v.add_child(_wares(o))
+	row.add_child(v)
+	var deliver := UiKit.button("Liefern", "primary" if ok else "light", 28)
+	deliver.custom_minimum_size = Vector2(190, 96)
+	deliver.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	deliver.disabled = not ok
+	deliver.pressed.connect(ui.act_fulfill.bind(int(o["id"])))
+	row.add_child(deliver)
+	card.add_child(row)
+	return card
+
+
+static func _head(ui, o: Dictionary) -> HBoxContainer:
+	var head := UiKit.hbox(8)
+	head.add_child(UiKit.icon("heart", 34))
+	var name_label := UiKit.label(I18n.t("%s wünscht sich:") % String(o["customer"]), 30)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(name_label)
+	head.add_child(UiKit.reward_chip("coin", "+%d" % int(o["coins"])))
+	head.add_child(UiKit.reward_chip("star", "+%d XP" % int(o["xp"])))
+	var skip := UiKit.button("✕", "ghost", 26)
+	skip.custom_minimum_size = Vector2(56, 56)
+	if o.has("story_id") or o.has("visitor_story") or o.has("neighborhood_event_cycle"):
+		skip.disabled = true
+		skip.tooltip_text = I18n.t("Geschichts- und Gartentag-Gäste bleiben, bis du ihre Bestellung annimmst.")
+	else:
+		skip.pressed.connect(ui.act_skip_order.bind(int(o["id"])))
+	head.add_child(skip)
+	return head
+
+
+## Begleitzeilen eines Auftrags – nur wenn es sie gibt, damit normale Aufträge
+## eine Zeile hoch bleiben.
+static func _notes(o: Dictionary) -> Array:
+	var lines: Array = []
+	if o.has("neighborhood_event_cycle"):
+		lines.append(I18n.t("Gartentag · Etappe %d/%d\n%s") % [int(o["neighborhood_event_stage"]) + 1, GameState.NEIGHBORHOOD_EVENT_SERIES_LENGTH, String(o.get("neighborhood_event_story", ""))])
+	if o.has("story_text"):
+		lines.append(I18n.t("Geschichte · %s") % String(o["story_text"]))
+	if o.has("visitor_story"):
+		lines.append(I18n.t("Zu Besuch im Café · %s") % String(o["visitor_story"]))
+	if bool(o.get("cafe_daily_special", false)):
+		lines.append(I18n.t("Tagesgericht · +50%% Münzen · +5 XP"))
+	return lines
+
+
+## Ware als Chip (Symbol, „3/3", Name) in einem Flow: mehrere Waren bleiben in
+## einer Zeile, bis der Platz wirklich zu Ende ist.
+static func _wares(o: Dictionary) -> HFlowContainer:
+	var chips := HFlowContainer.new()
+	chips.mouse_filter = Control.MOUSE_FILTER_PASS
+	chips.add_theme_constant_override("h_separation", 20)
+	chips.add_theme_constant_override("v_separation", 4)
+	for id in o["items"]:
+		var have: int = GameState.item_count(id)
+		var need: int = int(o["items"][id])
+		var color := UiKit.sage_dark() if have >= need else UiKit.red()
+		var chip := UiKit.hbox(6)
+		chip.mouse_filter = Control.MOUSE_FILTER_PASS
+		chip.add_child(UiKit.item_icon(id, 40))
+		var count := UiKit.label("%d/%d" % [mini(have, need), need], 26, color)
+		count.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		chip.add_child(count)
+		var item_name := UiKit.label(GameData.item_name(id), 26, color)
+		item_name.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		chip.add_child(item_name)
+		chips.add_child(chip)
+	return chips
+
+
+## Gartentag, Tagesgericht und Geschichten – hinter den Aufträgen.
+static func _build_extras(ui, c: VBoxContainer) -> void:
 	if GameState.has_building("cafe"):
 		var event_card := UiKit.card(14)
 		var event_v := UiKit.vbox(6)
 		var event_stage := clampi(GameState.neighborhood_event_stage, 0, GameState.NEIGHBORHOOD_EVENT_SERIES_LENGTH - 1)
 		var event_def: Dictionary = GameData.NEIGHBORHOOD_EVENT_STAGES[event_stage]
-		event_v.add_child(UiKit.label(I18n.t("Gartentag · %s") % String(event_def["name"]), 30, UiKit.earth_dark()))
-		event_v.add_child(UiKit.wrap_label(String(event_def["description"]), 23, UiKit.earth_dark()))
+		event_v.add_child(UiKit.label(I18n.t("Gartentag · %s") % String(event_def["name"]), 26, UiKit.earth_dark()))
+		event_v.add_child(UiKit.wrap_label(String(event_def["description"]), 22, UiKit.earth_dark()))
 		var event_progress := I18n.t("Etappe %d/%d · %d Gartentage abgeschlossen") % [event_stage + 1, GameState.NEIGHBORHOOD_EVENT_SERIES_LENGTH, int(GameState.stats.get("neighborhood_events_completed", 0))]
 		event_v.add_child(UiKit.label(event_progress, 21, UiKit.sage_dark()))
-		var event_timer := UiKit.label("", 22, UiKit.earth_dark())
+		var event_timer := UiKit.label("", 21, UiKit.earth_dark())
 		event_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		event_v.add_child(event_timer)
 		event_card.add_child(event_v)
@@ -28,14 +140,14 @@ static func build(ui, _args: Dictionary) -> void:
 	if not daily_special.is_empty():
 		var special_card := UiKit.card(14)
 		var special_v := UiKit.vbox(6)
-		special_v.add_child(UiKit.label("Heutiges Café-Gericht", 30, UiKit.earth_dark()))
+		special_v.add_child(UiKit.label("Heutiges Café-Gericht", 26, UiKit.earth_dark()))
 		var special_row := UiKit.hbox(12)
-		special_row.add_child(UiKit.item_icon(daily_special, 72))
-		var special_text := UiKit.wrap_label(I18n.t("%s · Gäste bestellen es heute besonders gern!\n+50%% Münzen und +5 XP pro Lieferung") % GameData.item_name(daily_special), 24, UiKit.sage_dark())
+		special_row.add_child(UiKit.item_icon(daily_special, 64))
+		var special_text := UiKit.wrap_label(I18n.t("%s · Gäste bestellen es heute besonders gern!\n+50%% Münzen und +5 XP pro Lieferung") % GameData.item_name(daily_special), 22, UiKit.sage_dark())
 		special_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		special_row.add_child(special_text)
 		special_v.add_child(special_row)
-		var special_timer := UiKit.label("", 22, UiKit.earth_dark())
+		var special_timer := UiKit.label("", 21, UiKit.earth_dark())
 		special_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		special_v.add_child(special_timer)
 		special_card.add_child(special_v)
@@ -46,92 +158,25 @@ static func build(ui, _args: Dictionary) -> void:
 	if not GameState.active_delivery_story.is_empty():
 		var campaign: Dictionary = GameData.DELIVERY_STORIES[GameState.active_delivery_story]
 		var stages: Array = campaign["stages"]
-		var story_card := UiKit.card(16)
+		var story_card := UiKit.card(14)
 		var story_v := UiKit.vbox(8)
-		story_v.add_child(UiKit.label(I18n.t("Geschichtenreihe · %s") % campaign["title"], 30, UiKit.earth_dark()))
+		story_v.add_child(UiKit.label(I18n.t("Geschichtenreihe · %s") % campaign["title"], 26, UiKit.earth_dark()))
 		if GameState.delivery_story_stage < stages.size():
-			story_v.add_child(UiKit.wrap_label(I18n.t("Abschnitt %d von %d · %s") % [GameState.delivery_story_stage + 1, stages.size(), str(stages[GameState.delivery_story_stage]["text"])], 24, UiKit.earth_dark()))
-		story_v.add_child(UiKit.label(I18n.t("Fortschritt: %d/%d") % [GameState.delivery_story_stage, stages.size()], 22, UiKit.sage_dark()))
+			story_v.add_child(UiKit.wrap_label(I18n.t("Abschnitt %d von %d · %s") % [GameState.delivery_story_stage + 1, stages.size(), str(stages[GameState.delivery_story_stage]["text"])], 22, UiKit.earth_dark()))
+		story_v.add_child(UiKit.label(I18n.t("Fortschritt: %d/%d") % [GameState.delivery_story_stage, stages.size()], 21, UiKit.sage_dark()))
 		if str(campaign.get("feature", "")) == "cafe":
-			story_v.add_child(UiKit.wrap_label(I18n.t("Café-Geschichten abgeschlossen: %d · Gäste bedient: %d") % [int(GameState.stats.get("cafe_stories_completed", 0)), int(GameState.stats.get("cafe_orders", 0))], 22, UiKit.sage_dark()))
+			story_v.add_child(UiKit.wrap_label(I18n.t("Café-Geschichten abgeschlossen: %d · Gäste bedient: %d") % [int(GameState.stats.get("cafe_stories_completed", 0)), int(GameState.stats.get("cafe_orders", 0))], 21, UiKit.sage_dark()))
 		story_card.add_child(story_v)
 		c.add_child(story_card)
 	else:
-		c.add_child(UiKit.label("Kleine Geschichten aus der Nachbarschaft", 28, UiKit.earth_dark()))
 		for story_id in GameState.available_delivery_stories():
 			var campaign: Dictionary = GameData.DELIVERY_STORIES[story_id]
 			var story_card := UiKit.card(14)
 			var story_v := UiKit.vbox(8)
-			story_v.add_child(UiKit.label(String(campaign["title"]), 30))
-			story_v.add_child(UiKit.wrap_label(String(campaign["intro"]), 23, UiKit.earth_dark()))
-			var start := UiKit.button(I18n.t("Geschichte beginnen · %d Abschnitte") % campaign["stages"].size(), "warm", 26)
+			story_v.add_child(UiKit.label(String(campaign["title"]), 26))
+			story_v.add_child(UiKit.wrap_label(String(campaign["intro"]), 22, UiKit.earth_dark()))
+			var start := UiKit.button(I18n.t("Geschichte beginnen · %d Abschnitte") % campaign["stages"].size(), "warm", 24)
 			start.pressed.connect(ui.act_start_delivery_story.bind(story_id))
 			story_v.add_child(start)
 			story_card.add_child(story_v)
 			c.add_child(story_card)
-	if GameState.orders.is_empty():
-		c.add_child(UiKit.wrap_label("Gerade wartet niemand. Bald kommen neue Kundinnen und Kunden vorbei!", 32))
-	for o in GameState.orders:
-		var ok := GameState.can_fulfill(o)
-		var card := UiKit.panel(UiKit.cream(), 26, 14, UiKit.sage() if ok else UiKit.cream_dark(), 4)
-		card.mouse_filter = Control.MOUSE_FILTER_PASS
-		card.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var v := UiKit.vbox(8)
-		v.mouse_filter = Control.MOUSE_FILTER_PASS
-		var head := UiKit.hbox(10)
-		head.add_child(UiKit.icon("heart", 40))
-		var nm := UiKit.label(I18n.t("%s wünscht sich:") % String(o["customer"]), 32)
-		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		head.add_child(nm)
-		var skip := UiKit.button("✕", "ghost", 30)
-		skip.custom_minimum_size = Vector2(80, 80)
-		if o.has("story_id") or o.has("visitor_story") or o.has("neighborhood_event_cycle"):
-			skip.disabled = true
-			skip.tooltip_text = I18n.t("Geschichts- und Gartentag-Gäste bleiben, bis du ihre Bestellung annimmst.")
-		else:
-			skip.pressed.connect(ui.act_skip_order.bind(int(o["id"])))
-		head.add_child(skip)
-		v.add_child(head)
-		if o.has("neighborhood_event_cycle"):
-			v.add_child(UiKit.wrap_label(I18n.t("Gartentag · Etappe %d/%d\n%s") % [int(o["neighborhood_event_stage"]) + 1, GameState.NEIGHBORHOOD_EVENT_SERIES_LENGTH, String(o.get("neighborhood_event_story", ""))], 23, UiKit.sage_dark()))
-		if o.has("story_text"):
-			v.add_child(UiKit.wrap_label(I18n.t("Geschichte · %s") % String(o["story_text"]), 23, UiKit.earth_dark()))
-		if o.has("visitor_story"):
-			v.add_child(UiKit.wrap_label(I18n.t("Zu Besuch im Café · %s") % String(o["visitor_story"]), 23, UiKit.earth_dark()))
-		if bool(o.get("cafe_daily_special", false)):
-			v.add_child(UiKit.wrap_label(I18n.t("Tagesgericht · +50%% Münzen · +5 XP"), 22, UiKit.sage_dark()))
-		var chips := HFlowContainer.new()
-		chips.mouse_filter = Control.MOUSE_FILTER_PASS
-		chips.add_theme_constant_override("h_separation", 22)
-		chips.add_theme_constant_override("v_separation", 6)
-		for id in o["items"]:
-			var chip := UiKit.hbox(6)
-			chip.mouse_filter = Control.MOUSE_FILTER_PASS
-			chip.add_child(UiKit.item_icon(id, 64))
-			var have: int = GameState.item_count(id)
-			var need: int = int(o["items"][id])
-			var l := UiKit.label("%d/%d  %s" % [mini(have, need), need, GameData.item_name(id)], 26, UiKit.sage_dark() if have >= need else UiKit.red())
-			l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			chip.add_child(l)
-			chips.add_child(chip)
-		v.add_child(chips)
-		var foot := UiKit.hbox(14)
-		foot.add_child(UiKit.icon_text("coin", "+%d" % int(o["coins"]), 32))
-		foot.add_child(UiKit.icon_text("star", "+%d XP" % int(o["xp"]), 32))
-		foot.add_child(UiKit.spacer())
-		var b := UiKit.button("Liefern", "primary" if ok else "light", 30)
-		b.custom_minimum_size = Vector2(220, 96)
-		b.disabled = not ok
-		b.pressed.connect(ui.act_fulfill.bind(int(o["id"])))
-		foot.add_child(b)
-		v.add_child(foot)
-		card.add_child(v)
-		c.add_child(card)
-	if GameState.orders.size() < GameState.MAX_ORDERS:
-		var wait := UiKit.label("", 26, UiKit.earth_dark())
-		wait.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		c.add_child(wait)
-		ui.ticker.append(func() -> void:
-			var rem := GameState.next_order_at - GameState.now()
-			wait.text = I18n.t("Nächster Kunde in %s") % GameData.format_time(rem) if rem > 0.0 else I18n.t("Ein neuer Kunde kommt gleich …"))

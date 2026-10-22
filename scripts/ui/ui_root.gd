@@ -31,6 +31,10 @@ const TUTORIAL := [
 ]
 const TUTORIAL_INFO_FROM := 4
 const TUTORIAL_DONE := 99
+## Innenabstand und Zeilenabstand des Sheets. Beides steckt auch in der
+## Höhenrechnung, damit das Sheet genau so hoch wird wie sein Inhalt.
+const SHEET_PAD := 14
+const SHEET_SEP := 8
 
 var world: Node2D
 var content: VBoxContainer
@@ -42,8 +46,10 @@ var _safe: MarginContainer
 var _top: PanelContainer
 var _bottom: VBoxContainer
 var _sheet: PanelContainer
+var _sheet_head: HBoxContainer
 var _scroll: ScrollContainer
 var _title: Label
+var _subtitle: Label
 var _toolbar: PanelContainer
 var _nav: PanelContainer
 var _side: VBoxContainer
@@ -58,6 +64,7 @@ var _toast_label: Label
 var _toast_tween: Tween
 var _tut_panel: PanelContainer
 var _tut_label: Label
+var _tut_step: Label
 var _tut_button: Button
 var _modal: Control
 var _nav_buttons: Dictionary = {}
@@ -224,26 +231,39 @@ func _build_side() -> void:
 
 
 func _build_tutorial() -> void:
-	_tut_panel = UiKit.panel(UiKit.cream(), 28, 16, UiKit.yellow(), 4, 8)
+	# Kompakter Hinweis über der Navigation statt einer Karte über dem halben
+	# Acker: Symbol, Schritt-Zähler, zwei Zeilen Text und die Aktionen rechts.
+	_tut_panel = UiKit.panel(UiKit.cream(), 22, 12, UiKit.yellow(), 3, 6)
+	_tut_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_layer.add_child(_tut_panel)
-	_tut_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	_tut_panel.offset_top = 150
-	_tut_panel.offset_right = -120
-	var v := UiKit.vbox(8)
-	_tut_label = UiKit.wrap_label("", 28)
+	_tut_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	var h := UiKit.hbox(10)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var flag := UiKit.icon("flag", 44)
+	flag.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	h.add_child(flag)
+	var v := UiKit.vbox(2)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tut_step = UiKit.label("", 18, UiKit.sage_dark())
+	v.add_child(_tut_step)
+	_tut_label = UiKit.wrap_label("", 24)
 	v.add_child(_tut_label)
-	var row := UiKit.hbox(10)
-	row.add_child(UiKit.spacer())
-	var skip := UiKit.button("Überspringen", "ghost", 24)
-	skip.custom_minimum_size = Vector2(0, 64)
+	h.add_child(v)
+	var actions := UiKit.vbox(6)
+	actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var skip := UiKit.button("Überspringen", "ghost", 20)
+	skip.custom_minimum_size.y = 48
 	skip.pressed.connect(_tutorial_skip)
-	row.add_child(skip)
-	_tut_button = UiKit.button("Weiter", "warm", 26)
-	_tut_button.custom_minimum_size = Vector2(200, 64)
+	actions.add_child(skip)
+	# „Weiter“ blättert durch die Hinweisschritte, „Verstanden“ beendet den letzten.
+	_tut_button = UiKit.button("Weiter", "warm", 22)
+	_tut_button.custom_minimum_size.y = 52
 	_tut_button.pressed.connect(_tutorial_next)
-	row.add_child(_tut_button)
-	v.add_child(row)
-	_tut_panel.add_child(v)
+	actions.add_child(_tut_button)
+	h.add_child(actions)
+	_tut_panel.add_child(h)
 
 
 func _build_toast() -> void:
@@ -267,20 +287,30 @@ func _build_bottom() -> void:
 	_bottom.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_bottom.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	# Sheet
-	var sb := UiKit.style(UiKit.cream(), 40, UiKit.cream_dark(), 4, 14, 18)
+	var sb := UiKit.style(UiKit.cream(), 40, UiKit.cream_dark(), 4, 14, SHEET_PAD)
 	_sheet = PanelContainer.new()
 	_sheet.add_theme_stylebox_override("panel", sb)
 	_sheet.visible = false
-	var sv := UiKit.vbox(10)
+	var sv := UiKit.vbox(SHEET_SEP)
 	sv.mouse_filter = Control.MOUSE_FILTER_PASS
-	var head := UiKit.hbox(12)
-	_title = UiKit.label("", 42)
+	var head := UiKit.hbox(8)
+	_sheet_head = head
+	var titles := UiKit.vbox(2)
+	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_title = UiKit.label("", 36)
 	# Sheet-Titel wie „Chronik des Refugiums" sind in anderen Sprachen länger als
 	# die Kopfzeile breit ist – umbrechen statt abschneiden.
 	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(_title)
-	var close := UiKit.icon_button("close", "danger", 84)
+	titles.add_child(_title)
+	# Untertitel statt loser Zeile im Scrollbereich: bleibt beim Scrollen stehen
+	# und erklärt den Bereich in einem halben Satz.
+	_subtitle = UiKit.label("", 22, UiKit.sage_dark())
+	_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_subtitle.visible = false
+	titles.add_child(_subtitle)
+	head.add_child(titles)
+	var close := UiKit.icon_button("close", "danger", 72)
 	close.pressed.connect(close_sheet)
 	head.add_child(close)
 	_close_button = close
@@ -293,7 +323,7 @@ func _build_bottom() -> void:
 	_scroll.follow_focus = false
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.custom_minimum_size = Vector2.ZERO
-	content = UiKit.vbox(14)
+	content = UiKit.vbox(10)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(content)
 	sv.add_child(_scroll)
@@ -358,7 +388,7 @@ func _apply_layout() -> void:
 	_nav.add_theme_constant_override("margin_bottom", int(margin * 0.35))
 	for button in _nav_buttons.values():
 		button.custom_minimum_size = Vector2(0, nav_height)
-	var close_size := minf(84.0, maxf(56.0, size.y * 0.15))
+	var close_size := minf(72.0, maxf(52.0, size.y * 0.13))
 	if _close_button != null:
 		_close_button.custom_minimum_size = Vector2(close_size, close_size)
 	var bottom_reserved := nav_height + margin * 2.0
@@ -367,13 +397,36 @@ func _apply_layout() -> void:
 	var available_height := maxf(0.0, size.y - header_height - bottom_reserved - margin * 4.0)
 	var sheet_height := minf(available_height, size.y * (0.82 if _layout_wide else 0.56))
 	if _sheet != null:
-		_sheet.custom_minimum_size.y = sheet_height if _sheet.visible else 0.0
+		if _sheet.visible:
+			# So hoch wie der Inhalt, höchstens 82 % (bzw. 56 % im Hochformat).
+			# Vorher nahm sich jedes Sheet die volle Höhe und ließ unter kurzen
+			# Listen eine große leere Fläche stehen.
+			# Bewusst aus den Teilen gerechnet: das Sheet selbst trägt seine alte
+			# Mindesthöhe noch, solange die Layout-Aktualisierung aussteht.
+			var wanted := float(SHEET_PAD * 2 + SHEET_SEP)
+			if _sheet_head != null:
+				# Der Titel ist im ersten Durchlauf noch ohne Breite gemessen und
+				# meldet dann eine Zeile je Zeichen. Der Deckel hält das Sheet
+				# ruhig; nach dem nächsten Frame stimmt der Wert ohnehin.
+				wanted += minf(_sheet_head.get_combined_minimum_size().y, 320.0)
+			if content != null:
+				wanted += content.get_combined_minimum_size().y
+			wanted = clampf(wanted, minf(sheet_height, size.y * 0.34), sheet_height)
+			_sheet.custom_minimum_size.y = wanted
+		else:
+			_sheet.custom_minimum_size.y = 0.0
 	if _scroll != null:
 		_scroll.custom_minimum_size.y = 0.0
 	if _tut_panel != null:
-		_tut_panel.offset_top = header_height + margin * 2.0
+		# Unten links über der Navigation, Breite gedeckelt. Die Höhe kommt aus
+		# dem Inhalt: gedeckelt durch zwei Textzeilen wächst sie nach oben.
+		var tut_width := clampf(size.x * 0.72, 340.0, 1180.0)
+		tut_width = minf(tut_width, size.x - margin * 2.0)
 		_tut_panel.offset_left = margin
-		_tut_panel.offset_right = -(side_width + margin * 2.0) if _layout_wide else -margin
+		_tut_panel.offset_right = margin + tut_width
+		# Bei aktivem Werkzeug liegt die Werkzeugleiste dazwischen.
+		_tut_panel.offset_bottom = -bottom_reserved
+		_tut_panel.offset_top = _tut_panel.offset_bottom - 1.0
 	if _toast_panel != null:
 		_toast_panel.position.y = header_height + margin * 3.0
 	if _modal != null and _modal.visible:
@@ -400,6 +453,12 @@ func set_title(text: String) -> void:
 	_title.text = I18n.t(text)
 
 
+## Zweite, kleinere Zeile unter dem Titel. Leerer Text blendet sie aus.
+func set_subtitle(text: String) -> void:
+	_subtitle.text = I18n.t(text)
+	_subtitle.visible = not _subtitle.text.is_empty()
+
+
 func set_state(key: String, value: Variant) -> void:
 	state[key] = value
 	refresh_sheet()
@@ -412,18 +471,26 @@ func open_sheet(sheet_name: String, args: Dictionary = {}) -> void:
 		state["shop_tab"] = _sheet_args["tab"]
 	if sheet_name == "shop" and state.get("shop_tab", "") == "":
 		state["shop_tab"] = "crops"
+	set_subtitle("")
 	_sheet.visible = true
-	_toolbar.visible = false if world.tool_mode == "" else _toolbar.visible
+	# Das Sheet nimmt der Werkzeugleiste den Platz. Bliebe sie sichtbar, würde sie
+	# zwischen Sheet und Navigation auf einen schmalen Streifen gequetscht.
+	_toolbar.visible = false
 	_scroll.scroll_vertical = 0
 	_rebuild()
 	_apply_layout()
+	_queue_layout_settle()
+	_update_tutorial()
 	_update_nav_highlight()
 
 
 func close_sheet() -> void:
 	_sheet_name = ""
 	_sheet.visible = false
+	_toolbar.visible = world.tool_mode != ""
 	ticker.clear()
+	_apply_layout()
+	_update_tutorial()
 	_update_nav_highlight()
 
 
@@ -439,12 +506,21 @@ func handle_back() -> bool:
 	return false
 
 
+## Ein Frame später sind Titel und Inhalte mit echter Breite vermessen; dann
+## stimmt die Höhe des Sheets, die im ersten Durchlauf nur geschätzt war.
+func _queue_layout_settle() -> void:
+	var tree := get_tree()
+	if tree != null and not tree.process_frame.is_connected(_apply_layout):
+		tree.process_frame.connect(_apply_layout, CONNECT_ONE_SHOT)
+
+
 func refresh_sheet() -> void:
 	if _sheet_name == "":
 		return
 	var keep := _scroll.scroll_vertical
 	_rebuild()
 	_apply_layout()
+	_queue_layout_settle()
 	_scroll_restore_generation += 1
 	_pending_scroll_position = keep
 	if not _pending_scroll_restore:
@@ -1156,9 +1232,11 @@ func _update_tutorial() -> void:
 		GameState.tutorial_step += 1
 	var step := GameState.tutorial_step
 	var active := step < TUTORIAL.size()
-	_tut_panel.visible = active and (_modal == null or not _modal.visible)
+	# Ein offenes Sheet liegt genau über dem Hinweis – dann bleibt er weg.
+	_tut_panel.visible = active and _sheet_name == "" and (_modal == null or not _modal.visible)
 	if active:
 		_tut_label.text = I18n.t(TUTORIAL[step])
+		_tut_step.text = I18n.t("Schritt %d von %d") % [step + 1, TUTORIAL.size()]
 		_tut_button.visible = step >= TUTORIAL_INFO_FROM
 		var last := step == TUTORIAL.size() - 1
 		_tut_button.text = I18n.t("Verstanden") if last else I18n.t("Weiter")

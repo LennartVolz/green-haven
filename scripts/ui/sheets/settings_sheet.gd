@@ -39,6 +39,28 @@ static func build(ui, _args: Dictionary) -> void:
 		language_grid.add_child(language_button)
 	c.add_child(language_grid)
 
+	# Lesbarkeit: wirkt auf jedes Menü, jede Karte und die Navigation.
+	c.add_child(UiKit.label("Lesbarkeit", 30, UiKit.earth_dark()))
+	c.add_child(UiKit.wrap_label("Größere Schrift und kräftigere Farben helfen auf kleinen Bildschirmen und bei Sonnenlicht.", 22, UiKit.earth_dark()))
+	c.add_child(UiKit.label("Schriftgröße", 26, UiKit.earth_dark()))
+	var current_scale := float(GameState.settings.get("text_scale", 1.0))
+	var scale_row := UiKit.hbox(10)
+	for entry in UiKit.TEXT_SCALES:
+		var factor := float(entry["factor"])
+		var scale_button := UiKit.button(str(entry["label"]), "primary" if is_equal_approx(factor, current_scale) else "light", 26)
+		scale_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scale_button.pressed.connect(ui.act_set_text_scale.bind(factor))
+		scale_row.add_child(scale_button)
+	c.add_child(scale_row)
+	var bigger: bool = GameState.settings.get("large_targets", false)
+	var bigger_button := UiKit.button(I18n.t("Größere Schaltflächen: %s") % (I18n.t("An") if bigger else I18n.t("Aus")), "primary" if bigger else "light", 28)
+	bigger_button.pressed.connect(ui.act_toggle_accessibility.bind("large_targets"))
+	c.add_child(bigger_button)
+	var contrast: bool = GameState.settings.get("high_contrast", false)
+	var contrast_button := UiKit.button(I18n.t("Hoher Kontrast: %s") % (I18n.t("An") if contrast else I18n.t("Aus")), "primary" if contrast else "light", 28)
+	contrast_button.pressed.connect(ui.act_toggle_accessibility.bind("high_contrast"))
+	c.add_child(contrast_button)
+
 	c.add_child(UiKit.label("Spielstand", 30, UiKit.earth_dark()))
 	var info := I18n.t("Wird automatisch alle %d Sekunden und beim Verlassen der App gespeichert.") % int(SaveSystem.AUTOSAVE_SECONDS)
 	c.add_child(UiKit.wrap_label(info, 26, UiKit.earth_dark()))

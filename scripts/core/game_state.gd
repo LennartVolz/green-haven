@@ -76,7 +76,8 @@ var claimed_achievements: Array = []
 ## "language" steht nur im Spielstand, wenn eine Sprache fest gewählt wurde; fehlt
 ## der Schlüssel, folgt das Spiel der Gerätesprache. So bleiben alte Stände
 ## unverändert und brauchen keine Migration.
-var settings: Dictionary = {"sound": true, "music": true, "vibration": true, "sound_volume": 1.0, "music_volume": 1.0}
+var settings: Dictionary = {"sound": true, "music": true, "vibration": true, "sound_volume": 1.0, "music_volume": 1.0,
+	"text_scale": 1.0, "large_targets": false, "high_contrast": false}
 var tutorial_step := 0
 ## Stand der Gesamtstatistik beim Start des Tutorials. Die Tutorial-Schritte zählen
 ## nur, was seitdem passiert ist; sonst würde „Tutorial wiederholen“ sofort bis zum
@@ -2192,6 +2193,12 @@ func deserialize(d: Dictionary) -> bool:
 	settings["sound"] = float(settings["sound_volume"]) > 0.0
 	settings["music"] = float(settings["music_volume"]) > 0.0
 	settings["vibration"] = bool(s.get("vibration", true))
+	# Lesbarkeit. Ältere Stände kennen die Werte nicht und starten mit normaler
+	# Schrift, normalen Schaltflächen und der gewohnten Palette; die Grenzen
+	# halten manipulierte Spielstände im Rahmen, den die Oberfläche verträgt.
+	settings["text_scale"] = clampf(float(s.get("text_scale", 1.0)), 0.9, 1.35)
+	settings["large_targets"] = bool(s.get("large_targets", false))
+	settings["high_contrast"] = bool(s.get("high_contrast", false))
 	# Unbekannte oder manipulierte Sprach-IDs fallen auf die Gerätesprache zurück.
 	if s.has("language"):
 		var saved_language := str(s.get("language", ""))

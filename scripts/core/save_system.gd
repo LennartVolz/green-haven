@@ -434,6 +434,11 @@ func migrate(data: Dictionary) -> Dictionary:
 		migrated_settings["music_volume"] = clampf(float(migrated_settings.get("music_volume", 1.0 if legacy_music else 0.0)), 0.0, 1.0)
 		migrated_settings["sound"] = float(migrated_settings["sound_volume"]) > 0.0
 		migrated_settings["music"] = float(migrated_settings["music_volume"]) > 0.0
+		# Lesbarkeit: ältere Stände starten mit normaler Schrift, normalen
+		# Schaltflächen und der gewohnten Palette – dieselben Grenzen wie beim Laden.
+		migrated_settings["text_scale"] = clampf(float(migrated_settings.get("text_scale", 1.0)), 0.9, 1.35)
+		migrated_settings["large_targets"] = bool(migrated_settings.get("large_targets", false))
+		migrated_settings["high_contrast"] = bool(migrated_settings.get("high_contrast", false))
 		data["settings"] = migrated_settings
 	return data
 

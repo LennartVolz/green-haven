@@ -8,15 +8,49 @@ const MIN_TOUCH := 96
 const BUTTON_PAD_X := 18
 const VolumeSliderScript := preload("res://scripts/ui/volume_slider.gd")
 
+## Lesbarkeit: Die drei Stufen der Schriftgröße. `label` ist der deutsche Text,
+## den I18n übersetzt.
+const TEXT_SCALES := [
+	{"label": "Klein", "factor": 0.9},
+	{"label": "Normal", "factor": 1.0},
+	{"label": "Groß", "factor": 1.2},
+]
+## Diese drei Werte kommen aus GameState.settings. Alle Texte, Mindesthöhen und
+## Farben der Oberfläche laufen hier durch – deshalb genügt ein Regler in den
+## Einstellungen, statt jede Ansicht doppelt zu bauen.
+static var text_scale := 1.0
+static var large_targets := false
+static var high_contrast := false
+
+
+## Übernimmt die gespeicherten Einstellungen. Muss vor dem Aufbau der Oberfläche
+## laufen, damit schon das erste Sheet in der richtigen Größe entsteht.
+static func apply_accessibility(settings: Dictionary) -> void:
+	text_scale = clampf(float(settings.get("text_scale", 1.0)), TEXT_SCALES[0]["factor"], 1.35)
+	large_targets = bool(settings.get("large_targets", false))
+	high_contrast = bool(settings.get("high_contrast", false))
+
+
+## Schriftgröße in Pixeln. Die Untergrenze hält auch kleine Nebentexte lesbar.
+static func font_px(size: int) -> int:
+	return maxi(11, roundi(float(size) * text_scale))
+
+
+## Kantenlänge einer Schaltfläche. „Größere Schaltflächen“ wächst überall mit,
+## damit die Mindesthöhe nicht nur auf dem Papier größer wird.
+static func target_px(px: float) -> float:
+	return px * (1.16 if large_targets else 1.0)
+
+
 static func sage() -> Color: return Painter.col("#8DB580")
-static func sage_dark() -> Color: return Painter.col("#6F9A63")
-static func cream() -> Color: return Painter.col("#FFF6E0")
-static func cream_dark() -> Color: return Painter.col("#F0E2BF")
+static func sage_dark() -> Color: return Painter.col("#3F6B38") if high_contrast else Painter.col("#6F9A63")
+static func cream() -> Color: return Painter.col("#FFFDF6") if high_contrast else Painter.col("#FFF6E0")
+static func cream_dark() -> Color: return Painter.col("#E0CFA4") if high_contrast else Painter.col("#F0E2BF")
 static func yellow() -> Color: return Painter.col("#F4C95D")
-static func yellow_dark() -> Color: return Painter.col("#D9A93A")
+static func yellow_dark() -> Color: return Painter.col("#C08F1F") if high_contrast else Painter.col("#D9A93A")
 static func earth() -> Color: return Painter.col("#B58A5A")
-static func earth_dark() -> Color: return Painter.col("#8E6240")
-static func ink() -> Color: return Painter.col("#4A3A2A")
+static func earth_dark() -> Color: return Painter.col("#54351D") if high_contrast else Painter.col("#8E6240")
+static func ink() -> Color: return Painter.col("#231910") if high_contrast else Painter.col("#4A3A2A")
 static func red() -> Color: return Painter.col("#D9644A")
 
 
@@ -39,7 +73,7 @@ static func style(bg: Color, radius: int = 24, border: Color = Color(0, 0, 0, 0)
 
 static func make_theme() -> Theme:
 	var th := Theme.new()
-	th.default_font_size = 34
+	th.default_font_size = font_px(34)
 	th.set_color("font_color", "Label", ink())
 	th.set_color("font_color", "Button", ink())
 	return th
@@ -48,16 +82,18 @@ static func make_theme() -> Theme:
 ## Alle Texte laufen hier durch I18n: Ein Aufruf mit deutschem Text zeigt in jeder
 ## Sprache den passenden Eintrag. Bereits zusammengesetzte Texte ("Stufe 3")
 ## haben keinen Eintrag und bleiben unverändert.
-static func label(text: String, size: int = 34, color: Color = Color(0.29, 0.23, 0.16)) -> Label:
+## Ohne Farbe gilt die Tintenfarbe der Palette – so folgt jeder Standardtext dem
+## Kontrastschalter, ohne dass jede Aufrufstelle ihn kennen muss.
+static func label(text: String, size: int = 34, color: Color = Color(0, 0, 0, 0)) -> Label:
 	var l := Label.new()
 	l.text = I18n.t(text)
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", color)
+	l.add_theme_font_size_override("font_size", font_px(size))
+	l.add_theme_color_override("font_color", ink() if color.a == 0.0 else color)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
 
-static func wrap_label(text: String, size: int = 30, color: Color = Color(0.29, 0.23, 0.16)) -> Label:
+static func wrap_label(text: String, size: int = 30, color: Color = Color(0, 0, 0, 0)) -> Label:
 	var l := label(text, size, color)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -138,8 +174,9 @@ static func button(text: String, kind: String = "primary", font_size: int = 34) 
 	# neben ihm ein spacer(), schrumpft er deshalb auf die Innenabstände und
 	# bricht Buchstabe für Buchstabe – der Text verschwindet. Die Mindestbreite
 	# ist darum das längste Wort: Umbruch bleibt erlaubt, aber nur an Wortgrenzen.
-	b.custom_minimum_size = Vector2(_widest_word(b.get_theme_font("font"), b.text, font_size) + BUTTON_PAD_X * 2.0, MIN_TOUCH)
-	b.add_theme_font_size_override("font_size", font_size)
+	var px := font_px(font_size)
+	b.custom_minimum_size = Vector2(_widest_word(b.get_theme_font("font"), b.text, px) + BUTTON_PAD_X * 2.0, target_px(MIN_TOUCH))
+	b.add_theme_font_size_override("font_size", px)
 	b.focus_mode = Control.FOCUS_NONE
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	style_button(b, kind)
@@ -202,6 +239,7 @@ static func style_button(b: Button, kind: String) -> void:
 
 static func icon_button(icon_name: String, kind: String = "primary", px: int = 88) -> Button:
 	var b := button("", kind)
+	px = roundi(target_px(float(px)))
 	b.custom_minimum_size = Vector2(px, px)
 	b.icon = Icons.tex(icon_name, 96)
 	b.expand_icon = true
@@ -275,11 +313,11 @@ static func progress(ratio: float, fill: Color, height: int = 22) -> ProgressBar
 
 
 ## Zeile aus Symbol + Text, z. B. Münzen oder Stufe.
-static func icon_text(icon_name: String, text: String, size: int = 30, color: Color = Color(0.29, 0.23, 0.16)) -> HBoxContainer:
+static func icon_text(icon_name: String, text: String, size: int = 30, color: Color = Color(0, 0, 0, 0)) -> HBoxContainer:
 	var h := hbox(6)
 	h.alignment = BoxContainer.ALIGNMENT_BEGIN
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ic := icon(icon_name, int(size * 1.1))
+	var ic := icon(icon_name, int(font_px(size) * 1.1))
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(ic)
 	# Einzeilig und ohne EXPAND_FILL: Zahlen wie „+18" sind kurz. Mit Umbruch
@@ -297,7 +335,7 @@ static func reward_chip(icon_name: String, text: String, size: int = 26) -> Pane
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var h := hbox(4)
-	h.add_child(icon(icon_name, int(size * 1.25)))
+	h.add_child(icon(icon_name, int(font_px(size) * 1.25)))
 	var l := label(text, size, ink())
 	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(l)

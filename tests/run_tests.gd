@@ -68,6 +68,7 @@ func _initialize() -> void:
 	test_save_roundtrip()
 	test_tutorial_restart()
 	test_audio_volumes()
+	test_accessibility()
 	test_offline_progress()
 	test_corrupt_and_migration()
 	test_save_hardening()
@@ -1215,6 +1216,58 @@ func test_audio_volumes() -> void:
 	gs.settings = previous
 	sfx.refresh_volume()
 	music.refresh()
+
+
+## Lesbarkeit: Schriftgröße, größere Schaltflächen und Kontrast laufen über
+## UiKit, damit ein Regler in den Einstellungen genügt. Geprüft werden Skalierung,
+## Grenzen und dass die Werte im Spielstand bleiben.
+func test_accessibility() -> void:
+	begin("Lesbarkeit")
+	# Zur Laufzeit geladen: Beim Kompilieren des `-s`-Skripts sind die Autoloads,
+	# auf die painter.gd zugreift, noch nicht angemeldet.
+	var uk: GDScript = load("res://scripts/ui/ui_kit.gd")
+	uk.apply_accessibility(gs.settings)
+	check(is_equal_approx(float(gs.settings.get("text_scale", -1.0)), 1.0), "neue Spiele starten mit normaler Schrift")
+	check(not bool(gs.settings.get("large_targets", true)) and not bool(gs.settings.get("high_contrast", true)), "neue Spiele starten ohne Zusatzschalter")
+	check(uk.font_px(20) == 20, "normale Schrift bleibt unverändert")
+	var normal_ink: Color = uk.ink()
+	var normal_button: Button = uk.button("Weizen", "light", 30)
+	check(normal_button.custom_minimum_size.y >= uk.MIN_TOUCH, "Schaltflächen sind mindestens 96 px hoch")
+	uk.apply_accessibility({"text_scale": 1.2, "large_targets": true, "high_contrast": true})
+	check(uk.font_px(20) == 24, "Schriftgröße skaliert auf 120 Prozent")
+	var big_button: Button = uk.button("Weizen", "light", 30)
+	check(big_button.get_theme_font_size("font_size") == uk.font_px(30), "Buttontext nutzt die skalierte Schriftgröße")
+	check(big_button.custom_minimum_size.y >= normal_button.custom_minimum_size.y + 10.0,
+		"größere Schaltflächen wachsen mit (%.0f statt %.0f px)" % [big_button.custom_minimum_size.y, normal_button.custom_minimum_size.y])
+	check(uk.ink().get_luminance() < normal_ink.get_luminance(), "hoher Kontrast dunkelt die Schrift ab")
+	uk.apply_accessibility({"text_scale": 9.0})
+	check(uk.text_scale <= 1.35, "zu große Schrift wird begrenzt")
+	uk.apply_accessibility({"text_scale": 0.1})
+	check(uk.text_scale >= 0.9, "zu kleine Schrift wird begrenzt")
+	normal_button.free()
+	big_button.free()
+	# Die Werte gehören in den Spielstand, sonst wäre die Einstellung nach jedem
+	# Neustart wieder weg.
+	gs.settings["text_scale"] = 1.2
+	gs.settings["large_targets"] = true
+	gs.settings["high_contrast"] = true
+	check(ss.save_game(), "Einstellungen speichern")
+	check(ss.load_game(), "Einstellungen laden")
+	check(is_equal_approx(float(gs.settings.get("text_scale", 0.0)), 1.2), "Schriftgröße überlebt Speichern und Laden")
+	check(bool(gs.settings.get("large_targets", false)) and bool(gs.settings.get("high_contrast", false)),
+		"Kontrast und große Schaltflächen überleben Speichern und Laden")
+	# Ältere Spielstände ohne diese Felder starten mit den Standardwerten.
+	var old: Dictionary = gs.serialize()
+	(old["settings"] as Dictionary).erase("text_scale")
+	(old["settings"] as Dictionary).erase("large_targets")
+	(old["settings"] as Dictionary).erase("high_contrast")
+	check(gs.deserialize(old), "Spielstand ohne Lesbarkeits-Felder lässt sich laden")
+	check(is_equal_approx(float(gs.settings.get("text_scale", 0.0)), 1.0) and not bool(gs.settings.get("large_targets", true)),
+		"ältere Stände starten mit normaler Schrift")
+	gs.settings["text_scale"] = 1.0
+	gs.settings["large_targets"] = false
+	gs.settings["high_contrast"] = false
+	uk.apply_accessibility(gs.settings)
 
 
 func test_offline_progress() -> void:

@@ -89,6 +89,8 @@ var _layout_wide := true
 
 func _ready() -> void:
 	world = get_parent().get_node("World")
+	# Vor dem Aufbau: Schriftgröße, Schaltflächen und Palette aus den Einstellungen.
+	UiKit.apply_accessibility(GameState.settings)
 	_build()
 	world.ui_blocker = Callable(self, "is_over_ui")
 	world.open_sheet.connect(open_sheet)
@@ -364,8 +366,11 @@ func _apply_layout() -> void:
 		size = get_viewport().get_visible_rect().size
 	_layout_wide = size.x >= size.y
 	var margin := maxf(8.0, minf(size.y * 0.018, 22.0))
-	var header_height := minf(124.0, maxf(82.0, size.y * 0.19))
-	var nav_height := minf(130.0, maxf(76.0, size.y * 0.22))
+	# Mit „größeren Schaltflächen“ wachsen Kopfzeile und Navigation mit, sonst
+	# würden die höheren Mindesthöhen den Inhalt darüber quetschen.
+	var grow := UiKit.target_px(1.0)
+	var header_height := minf(124.0, maxf(82.0, size.y * 0.19)) * grow
+	var nav_height := minf(130.0, maxf(76.0, size.y * 0.22)) * grow
 	_top.offset_left = margin
 	_top.offset_top = margin
 	_top.offset_right = -margin
@@ -374,7 +379,7 @@ func _apply_layout() -> void:
 	_side.offset_right = -margin
 	_side.offset_top = header_height + margin * 2.0
 	_side.add_theme_constant_override("separation", int(margin * 0.65))
-	var side_button := minf(96.0, maxf(64.0, size.y * 0.145))
+	var side_button := minf(96.0, maxf(64.0, size.y * 0.145)) * grow
 	for button in [_side.get_child(0), _land_button, _edit_button]:
 		if button is Control:
 			button.custom_minimum_size = Vector2(side_width, side_button)
@@ -388,12 +393,12 @@ func _apply_layout() -> void:
 	_nav.add_theme_constant_override("margin_bottom", int(margin * 0.35))
 	for button in _nav_buttons.values():
 		button.custom_minimum_size = Vector2(0, nav_height)
-	var close_size := minf(72.0, maxf(52.0, size.y * 0.13))
+	var close_size := minf(72.0, maxf(52.0, size.y * 0.13)) * grow
 	if _close_button != null:
 		_close_button.custom_minimum_size = Vector2(close_size, close_size)
 	var bottom_reserved := nav_height + margin * 2.0
 	if _toolbar.visible:
-		bottom_reserved += 104.0 + margin * 0.5
+		bottom_reserved += UiKit.target_px(104.0) + margin * 0.5
 	var available_height := maxf(0.0, size.y - header_height - bottom_reserved - margin * 4.0)
 	var sheet_height := minf(available_height, size.y * (0.82 if _layout_wide else 0.56))
 	if _sheet != null:
@@ -420,7 +425,11 @@ func _apply_layout() -> void:
 	if _tut_panel != null:
 		# Unten links über der Navigation, Breite gedeckelt. Die Höhe kommt aus
 		# dem Inhalt: gedeckelt durch zwei Textzeilen wächst sie nach oben.
-		var tut_width := clampf(size.x * 0.72, 340.0, 1180.0)
+		# Bei großer Schrift wird der Streifen breiter statt höher: Französisch
+		# braucht dann eine Zeile mehr, die quer besser Platz hat.
+		var tut_share := 0.72 if UiKit.text_scale <= 1.0 else 0.82
+		var tut_max := 1180.0 if UiKit.text_scale <= 1.0 else 1440.0
+		var tut_width := clampf(size.x * tut_share, 340.0, tut_max)
 		tut_width = minf(tut_width, size.x - margin * 2.0)
 		_tut_panel.offset_left = margin
 		_tut_panel.offset_right = margin + tut_width
@@ -1008,6 +1017,38 @@ func act_toggle(key: String) -> void:
 	refresh_sheet()
 
 
+## Schriftgröße. Sie wirkt auf jedes Sheet und jede Zeile, deshalb wird die
+## Oberfläche neu aufgebaut statt nur eingefärbt – sonst blieben Umbrüche,
+## Mindesthöhen und die Sheet-Höhe auf dem alten Maß.
+func act_set_text_scale(factor: float) -> void:
+	var next := clampf(factor, float(UiKit.TEXT_SCALES[0]["factor"]), 1.35)
+	if is_equal_approx(next, float(GameState.settings.get("text_scale", 1.0))):
+		return
+	GameState.settings["text_scale"] = next
+	_apply_accessibility_and_reload()
+
+
+## „Größere Schaltflächen“ und „Hoher Kontrast“ – beide ändern die Palette bzw.
+## die Mindesthöhen, also gilt derselbe Weg wie bei der Schriftgröße.
+func act_toggle_accessibility(key: String) -> void:
+	if key != "large_targets" and key != "high_contrast":
+		return
+	GameState.settings[key] = not bool(GameState.settings.get(key, false))
+	_apply_accessibility_and_reload()
+
+
+func _apply_accessibility_and_reload() -> void:
+	UiKit.apply_accessibility(GameState.settings)
+	SaveSystem.save_game()
+	GameState.sound.emit("tap")
+	# Das offene Menü bleibt offen, damit die Wirkung sofort sichtbar ist.
+	var sheet := _sheet_name
+	var args := _sheet_args.duplicate(true)
+	relocalize(true)
+	if sheet != "":
+		open_sheet(sheet, args)
+
+
 ## Sprachwechsel. Alle Texte werden beim Aufbau der Oberfläche übersetzt,
 ## deshalb lädt die Szene danach einmal neu – das ist ehrlicher als ein
 ## halb aktualisiertes Menü und dauert nur einen Wimpernschlag.
@@ -1026,10 +1067,11 @@ func act_set_language(language_id: String) -> void:
 
 ## Baut die Oberfläche in der neuen Sprache neu auf. Welt und Kamera bleiben, wo
 ## sie sind – ein Szenenwechsel mitten im Spiel wäre ein sichtbarer Sprung.
-func relocalize() -> void:
+func relocalize(keep_tool: bool = false) -> void:
 	if _safe == null:
 		return
-	if world != null:
+	UiKit.apply_accessibility(GameState.settings)
+	if world != null and not keep_tool:
 		world.clear_tool()
 	_sheet_name = ""
 	_sheet.visible = false

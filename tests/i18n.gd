@@ -94,7 +94,7 @@ func check_catalogs() -> void:
 func check_code_literals() -> void:
 	var patterns := [
 		RegEx.create_from_string("I18n\\.t\\(\\s*\"([^\"]*)\""),
-		RegEx.create_from_string("(?:UiKit\\.(?:label|wrap_label|button|nav_button)|set_title)\\(\\s*\"([^\"]*)\""),
+		RegEx.create_from_string("(?:UiKit\\.(?:label|wrap_label|button|nav_button)|set_title|set_subtitle)\\(\\s*\"([^\"]*)\""),
 		# Bei icon_text ist das erste Argument ein Symbol, erst das zweite ein Text.
 		RegEx.create_from_string("UiKit\\.icon_text\\(\\s*\"[^\"]*\",\\s*\"([^\"]*)\""),
 		# Hinweise, Fehlermeldungen und Popup-Zeilen laufen erst beim Anzeigen durch

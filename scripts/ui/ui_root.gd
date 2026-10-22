@@ -16,6 +16,7 @@ const AnimalSheet := preload("res://scripts/ui/sheets/animal_sheet.gd")
 const DiarySheet := preload("res://scripts/ui/sheets/diary_sheet.gd")
 const AchievementsSheet := preload("res://scripts/ui/sheets/achievements_sheet.gd")
 const HofbuchSheet := preload("res://scripts/ui/sheets/hofbuch_sheet.gd")
+const LexiconSheet := preload("res://scripts/ui/sheets/lexicon_sheet.gd")
 
 ## Die ersten Schritte (bis TUTORIAL_INFO_FROM) warten auf eine Handlung des
 ## Spielers, die späteren sind reine Hinweise und werden mit „Weiter“ gelesen.
@@ -569,6 +570,8 @@ func _rebuild() -> void:
 			AchievementsSheet.build(self, _sheet_args)
 		"hofbuch":
 			HofbuchSheet.build(self, _sheet_args)
+		"lexicon":
+			LexiconSheet.build(self, _sheet_args)
 		"settings":
 			SettingsSheet.build(self, _sheet_args)
 		"production":

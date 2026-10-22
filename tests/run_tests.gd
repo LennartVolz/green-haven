@@ -80,6 +80,7 @@ func _initialize() -> void:
 	test_new_production()
 	test_sugar_chain()
 	test_foraging()
+	test_lexicon()
 	test_level_curve()
 	test_landscape_chunks()
 	section = "Tierverhalten bei Wetter und Nacht"
@@ -1633,6 +1634,77 @@ func test_foraging() -> void:
 	var foraged_achievement: Dictionary = _achievement("forage_15")
 	check(not foraged_achievement.is_empty() and gd.QUESTS.any(func(q: Dictionary) -> bool: return str(q["id"]) == "q_forage5"), "Erfolg und Quest begleiten das Sammeln")
 	check(gd.RECIPES["mushroom_soup"]["inputs"].has("mushroom") and gd.RECIPES["herb_potatoes"]["inputs"].has("wild_herbs"), "Wildware wird in der Küche verarbeitet")
+
+
+## Hoflexikon: Ein Eintrag gilt als entdeckt, sobald er einmal geerntet,
+## hergestellt, gesammelt oder aufgenommen wurde. Alles kommt aus vorhandenen
+## Zählern und dem Vorrat – es gibt keinen eigenen Spielstand-Eintrag, den alte
+## Stände nachtragen müssten.
+func test_lexicon() -> void:
+	begin("Hoflexikon")
+	check(gs.lexicon_ids("crop").size() == gd.CROPS.size(), "alle Pflanzen stehen im Lexikon")
+	check(gs.lexicon_ids("recipe").size() == gd.RECIPES.size(), "alle Rezepte stehen im Lexikon")
+	check(gs.lexicon_ids("forage").size() == gd.FORAGE.size(), "alle Fundstücke stehen im Lexikon")
+	check(gs.lexicon_ids("animal").size() == gd.ANIMALS.size(), "alle Tierarten stehen im Lexikon")
+	check(int(gs.lexicon_progress("crop")["seen"]) == 0, "ein neuer Hof hat noch nichts entdeckt")
+	check(not gs.lexicon_discovered("crop", "wheat") and not gs.lexicon_discovered("animal", "rabbit"), "nichts ist zu Beginn entdeckt")
+	var crops: Array = gs.lexicon_ids("crop")
+	check(int(gd.CROPS[crops[0]]["level"]) <= int(gd.CROPS[crops[crops.size() - 1]]["level"]), "das Lexikon wächst mit der Stufe")
+	# Ernten entdeckt die Sorte.
+	gs.coins = 100
+	var cell: Vector2i = gs.fields.keys()[0]
+	check(gs.plant(cell, "wheat"), "Weizen säen")
+	gs.time_offset += 120.0
+	check(gs.harvest(cell), "Weizen ernten")
+	check(gs.lexicon_discovered("crop", "wheat"), "geernteter Weizen steht im Lexikon")
+	check(not gs.lexicon_discovered("crop", "carrot"), "ungesäte Sorten bleiben unbekannt")
+	check(int(gs.lexicon_progress("crop")["seen"]) == 1, "genau eine Pflanze ist entdeckt")
+	# Herstellen entdeckt das Rezept, nicht schon das Ansetzen.
+	level_to(3)
+	gs.coins = 4000
+	var bak: int = gs.place_object("bakery", Vector2i(8, 11))
+	gs.add_item("wheat", 3)
+	check(gs.start_recipe(bak, "bread"), "Brot ansetzen")
+	check(not gs.lexicon_discovered("recipe", "bread"), "ein angesetztes Brot ist noch nicht entdeckt")
+	gs.time_offset += 200.0
+	check(gs.collect_ready(bak).size() == 1, "Brot abholen")
+	check(gs.lexicon_discovered("recipe", "bread"), "gebackenes Brot steht im Lexikon")
+	# Ware im Vorrat zählt mit: ältere Stände kennen keinen Sammelzähler je Stelle.
+	check(not gs.lexicon_discovered("forage", "mushroom"), "Pilze sind noch unbekannt")
+	gs.add_item("mushroom", 1)
+	check(gs.lexicon_discovered("forage", "mushroom"), "Ware im Vorrat gilt als entdeckt")
+	# Tiere: nur die Arten, die wirklich hier gelebt haben.
+	var pad: int = gs.place_object("paddock", Vector2i(12, 11))
+	check(pad > 0, "Gehege gebaut")
+	check(gs.adopt_animal("rabbit") > 0, "Kaninchen aufgenommen")
+	check(gs.lexicon_discovered("animal", "rabbit"), "das Kaninchen steht im Lexikon")
+	check(not gs.lexicon_discovered("animal", "chicken"), "andere Arten bleiben unbekannt")
+	var animals: Dictionary = gs.lexicon_progress("animal")
+	check(int(animals["seen"]) == 1 and int(animals["total"]) == gd.ANIMALS.size(), "der Tierfortschritt zählt Arten")
+	# Sammeln setzt einen eigenen Zähler je Fundstelle.
+	level_to(10)
+	var sample := Vector2i(-999, -999)
+	var band: Rect2i = gs.land.grow(gd.FORAGE_BAND_CELLS)
+	for x in range(band.position.x, band.end.x):
+		for y in range(band.position.y, band.end.y):
+			if sample.x != -999:
+				continue
+			var spot := Vector2i(x, y)
+			var spot_id: String = gs.forage_spot_at(spot)
+			if spot_id != "" and not gs.land.has_point(spot):
+				sample = spot
+	if sample.x != -999:
+		var got: Dictionary = gs.collect_forage(sample)
+		check(not got.is_empty(), "wilde Fundstelle sammeln")
+		check(gs.lexicon_discovered("forage", str(got["id"])), "gesammelte Fundstelle steht im Lexikon")
+		check(int(gs.stats.get("foraged:" + str(got["id"]), 0)) == 1, "der Sammelzähler gilt je Fundstelle")
+	else:
+		check(false, "es gibt eine erreichbare Fundstelle")
+	# Kein eigener Spielstand-Eintrag, damit alte Stände nichts nachtragen müssen.
+	var saved: Dictionary = gs.serialize()
+	check(not saved.has("lexicon"), "das Lexikon speichert keine eigene Liste")
+	check(gs.deserialize(saved), "Spielstand mit Lexikon-Zählern lässt sich laden")
+	check(gs.lexicon_discovered("crop", "wheat") and gs.lexicon_discovered("animal", "rabbit"), "Entdeckungen überleben Speichern und Laden")
 
 
 func test_level_curve() -> void:

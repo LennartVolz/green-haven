@@ -404,6 +404,26 @@ func run() -> void:
 	check(ui._sheet_name == "achievements" and ui._title.text == "Erfolge", "Erfolge öffnen über die Navigation")
 	check(ui.content.get_child_count() == root.get_node("GameData").ACHIEVEMENTS.size() + 2, "alle Erfolge und der Hofbuch-Knopf werden angezeigt")
 	check(contains_label(ui.content, "Geschichten am Kaffeetisch"), "Café-Meilenstein erscheint in der echten Erfolge-UI")
+	# Hoflexikon: Entdecktes mit Namen, Unbekanntes verdeckt.
+	var lexicon_button := find_button(ui.content, "Hoflexikon öffnen")
+	if check(lexicon_button != null, "Erfolge bieten das Hoflexikon an"):
+		lexicon_button.pressed.emit()
+		await frames()
+		check(ui._sheet_name == "lexicon" and ui._title.text == "Hoflexikon", "Hoflexikon öffnet über die Erfolge")
+		check(contains_label(ui.content, "Feldfrüchte") and contains_label(ui.content, "Rezepte"), "Lexikon zeigt Pflanzen und Rezepte")
+		check(contains_label(ui.content, "Wilde Funde") and contains_label(ui.content, "Tierarten"), "Lexikon zeigt Fundstücke und Tierarten")
+		check(contains_label(ui.content, "Erdbeere"), "eine geerntete Sorte steht mit Namen im Lexikon")
+		check(not contains_label(ui.content, "Weizen"), "unbekannte Sorten verraten ihren Namen nicht")
+		check(contains_label(ui.content, "???"), "unbekannte Einträge bleiben verdeckt")
+		var total_seen := 0
+		var total_all := 0
+		for kind in gs.LEXICON_KINDS:
+			var progress: Dictionary = gs.lexicon_progress(str(kind))
+			total_seen += int(progress["seen"])
+			total_all += int(progress["total"])
+		check(contains_label(ui.content, "Zusammen %d von %d entdeckt" % [total_seen, total_all]), "Lexikon nennt die Gesamtzahl")
+		ui.act_open("achievements", {})
+		await frames()
 	var book_button := find_button(ui.content, "Hofbuch öffnen")
 	if check(book_button != null, "Erfolge bieten das Hofbuch an"):
 		book_button.pressed.emit()

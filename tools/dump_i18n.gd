@@ -7,7 +7,7 @@ extends SceneTree
 
 const SHEETS := [
 	"shop", "orders", "production_overview", "production", "inventory",
-	"refuge", "quests", "achievements", "hofbuch", "settings", "diary",
+	"refuge", "quests", "achievements", "hofbuch", "lexicon", "settings", "diary",
 ]
 
 
@@ -45,7 +45,7 @@ func walk(value: Variant) -> void:
 func source_literals() -> Dictionary:
 	var patterns := [
 		RegEx.create_from_string("I18n\\.t\\(\\s*\"([^\"]*)\""),
-		RegEx.create_from_string("(?:UiKit\\.(?:label|wrap_label|button|nav_button)|set_title)\\(\\s*\"([^\"]*)\""),
+		RegEx.create_from_string("(?:UiKit\\.(?:label|wrap_label|button|nav_button)|set_title|set_subtitle)\\(\\s*\"([^\"]*)\""),
 		RegEx.create_from_string("UiKit\\.icon_text\\(\\s*\"[^\"]*\",\\s*\"([^\"]*)\""),
 		# Deutsche Datennamen stehen als Tabellenwerte im Quelltext.
 		RegEx.create_from_string("\"name\": \"([^\"]*)\""),

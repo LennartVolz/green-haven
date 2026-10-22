@@ -9,7 +9,7 @@ extends SceneTree
 
 const TRANSLATED := ["en", "fr", "es", "it"]
 ## Sheets, die Belohnungszeilen zeigen – dort brach der Text vorher um.
-const CHECKED_SHEETS := ["orders", "quests", "achievements", "inventory", "shop"]
+const CHECKED_SHEETS := ["orders", "quests", "achievements", "hofbuch", "lexicon", "inventory", "shop"]
 
 var gs: Node
 var ui: Node

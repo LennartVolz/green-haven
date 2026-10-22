@@ -510,6 +510,64 @@ func restart_tutorial() -> void:
 		tutorial_base[stat_key] = int(stats.get(stat_key, 0))
 
 
+# ------------------------------------------------------------- Hoflexikon
+
+## Das Lexikon zeigt, was der Hof schon hervorgebracht hat. Ein Eintrag gilt als
+## entdeckt, sobald er einmal geerntet, hergestellt, gesammelt oder gerettet
+## wurde. Alles davon steckt schon in den Lebenszeit-Zählern und im Vorrat –
+## deshalb braucht das Lexikon keinen eigenen Spielstand-Eintrag und alte Stände
+## tragen nichts nach.
+const LEXICON_KINDS := ["crop", "recipe", "forage", "animal"]
+
+
+func lexicon_discovered(kind: String, id: String) -> bool:
+	match kind:
+		"crop":
+			return int(stats.get("harvested:" + id, 0)) > 0 or item_count(id) > 0
+		"recipe":
+			return int(stats.get("crafted_" + id, 0)) > 0 or item_count(id) > 0
+		"forage":
+			return int(stats.get("foraged:" + id, 0)) > 0 or item_count(id) > 0
+		"animal":
+			for a in animals:
+				if str(a.species) == id:
+					return true
+	return false
+
+
+## Alle Einträge einer Gruppe, nach Stufe und Name sortiert – so wächst das
+## Lexikon in derselben Reihenfolge, in der die Farm wächst.
+func lexicon_ids(kind: String) -> Array:
+	var table: Dictionary = {}
+	match kind:
+		"crop":
+			table = GameData.CROPS
+		"recipe":
+			table = GameData.RECIPES
+		"forage":
+			table = GameData.FORAGE
+		"animal":
+			table = GameData.ANIMALS
+	var ids: Array = table.keys()
+	ids.sort_custom(func(a: String, b: String) -> bool:
+		var la := int(table[a].get("level", 0))
+		var lb := int(table[b].get("level", 0))
+		if la != lb:
+			return la < lb
+		return String(table[a].get("name", a)) < String(table[b].get("name", b)))
+	return ids
+
+
+## Entdeckte und vorhandene Einträge einer Gruppe, z. B. für „12 von 23 entdeckt".
+func lexicon_progress(kind: String) -> Dictionary:
+	var ids: Array = lexicon_ids(kind)
+	var seen := 0
+	for id in ids:
+		if lexicon_discovered(kind, str(id)):
+			seen += 1
+	return {"seen": seen, "total": ids.size()}
+
+
 func add_diary_entry(key: String, args: Array = [], animal_uid: int = -1) -> void:
 	diary.append({"time": now(), "key": key, "args": args.duplicate(true), "animal_uid": animal_uid})
 	while diary.size() > 100:
@@ -967,6 +1025,8 @@ func collect_forage(cell: Vector2i) -> Dictionary:
 	add_xp(int(definition["xp"]))
 	forage[cell] = now() + float(definition["respawn"])
 	bump("foraged")
+	# Für das Hoflexikon: welche Fundstelle schon einmal gesammelt wurde.
+	bump("foraged:" + id)
 	quests_changed.emit()
 	forage_changed.emit()
 	sound.emit("collect")

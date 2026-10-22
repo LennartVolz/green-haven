@@ -885,7 +885,7 @@ func unlocks_at(lvl: int) -> Array:
 			out.append(CROPS[id].name)
 	for id in FORAGE:
 		if FORAGE[id].level == lvl:
-			out.append("Wildnis: " + String(FORAGE[id].name))
+			out.append(I18n.t("Wildnis: %s") % String(FORAGE[id].name))
 	for id in RECIPES:
 		if RECIPES[id].level == lvl:
 			out.append(RECIPES[id].name)

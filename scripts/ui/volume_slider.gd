@@ -36,7 +36,7 @@ func _ready() -> void:
 	size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	tooltip_text = "Ziehen oder tippen, um die Lautstärke zu ändern"
+	tooltip_text = I18n.t("Ziehen oder tippen, um die Lautstärke zu ändern")
 
 
 func _apply_value(raw: float) -> void:

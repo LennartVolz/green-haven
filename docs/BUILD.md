@@ -137,6 +137,14 @@ Text. Angebotene Sprachen und ihre Reihenfolge stehen in `I18n.LOCALES` (de, en,
 - Neuer Text: deutschen Text einbauen, dann je Sprache `python3 tools/merge_tr.py en` mit Zeilen der Form
   `Deutsch|English` ergänzen. `tests/i18n.gd` meldet fehlende Schlüssel, abweichende Platzhalter und
   Literale, die in keinem Katalog stehen; der Test läuft in der CI mit.
+- Was der Test sieht: Literale in `I18n.t`, `UiKit.label/button/…`, `show_toast`, `last_error = …`,
+  `lines.append(…)` und `_show_modal`, die Tutorial-Texte (`TUTORIAL`), die Saison-Geschichten sowie
+  Katalogschlüssel mit Leerzeichen am Rand, die kein Code verwendet. Was er nicht sieht: ein Text, den man
+  direkt mit `label.text = "…"` setzt. Solche Texte immer in `I18n.t(…)` fassen.
+- Das Tutorial (`TUTORIAL` in `ui_root.gd`) hat Aktionsschritte (warten auf Pflanzen, Ernten, Auftrag) und
+  danach Hinweisschritte mit „Weiter“ (ab `TUTORIAL_INFO_FROM`). Die Aktionsschritte zählen nur, was seit dem
+  Start des Tutorials passiert ist (`GameState.tutorial_base`), damit „Tutorial wiederholen“ wirklich bei
+  Schritt 1 beginnt.
 - `tools/dump_i18n.gd` öffnet alle Bereiche in allen Sprachen und schreibt fehlende Schlüssel nach
   `locale/_missing.json` – der Startpunkt für eine weitere Sprache.
 

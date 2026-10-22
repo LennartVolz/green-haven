@@ -66,6 +66,7 @@ func _initialize() -> void:
 	test_land_and_objects()
 	test_land_expansion_chain()
 	test_save_roundtrip()
+	test_tutorial_restart()
 	test_audio_volumes()
 	test_offline_progress()
 	test_corrupt_and_migration()
@@ -1169,6 +1170,34 @@ func test_save_roundtrip() -> void:
 	var d: Dictionary = gs.serialize()
 	check(int(d.version) == gs.SAVE_VERSION, "Version im Spielstand")
 	check(gs.SAVE_VERSION == 11, "Gartentage und Tageszähler verwenden Save-Version 11")
+
+
+## „Tutorial wiederholen“ darf nicht an der Gesamtstatistik hängen: Wer schon gespielt
+## hat, soll wieder bei Schritt 1 beginnen und nur neue Handlungen zählen lassen.
+func test_tutorial_restart() -> void:
+	begin("Tutorial wiederholen")
+	gs.stats = {"planted": 12, "harvested": 9, "orders": 4}
+	gs.tutorial_step = 99
+	check(gs.tutorial_progress("planted") == 12, "ohne Basis zählt die ganze Statistik")
+	gs.restart_tutorial()
+	check(gs.tutorial_step == 0, "Neustart beginnt bei Schritt 0")
+	check(gs.tutorial_progress("planted") == 0 and gs.tutorial_progress("harvested") == 0 and gs.tutorial_progress("orders") == 0,
+		"nach dem Neustart steht jeder Tutorial-Zähler auf null")
+	check(int(gs.stats["planted"]) == 12, "die Gesamtstatistik bleibt unverändert")
+	gs.bump("planted", 2)
+	check(gs.tutorial_progress("planted") == 2, "nur neue Handlungen zählen")
+	var d: Dictionary = gs.serialize()
+	check(d.has("tutorial_base") and int(d["tutorial_base"].get("planted", -1)) == 12, "die Basis wird gespeichert")
+	gs.new_game()
+	check(gs.tutorial_base.is_empty(), "ein neues Spiel beginnt ohne Basis")
+	check(gs.deserialize(d), "Spielstand mit Basis lässt sich laden")
+	check(gs.tutorial_progress("planted") == 2, "die Basis überlebt Speichern und Laden")
+	d.erase("tutorial_base")
+	check(gs.deserialize(d), "Spielstand ohne Basis (ältere Version) lässt sich laden")
+	check(gs.tutorial_progress("planted") == 14, "ohne gespeicherte Basis zählt die ganze Statistik")
+	d["tutorial_base"] = {"planted": -5, "harvested": "x", "orders": 1.0}
+	check(gs.deserialize(d), "beschädigte Basis lässt sich laden")
+	check(gs.tutorial_progress("planted") == 14 and gs.tutorial_progress("orders") == 3, "beschädigte Basis wird bereinigt")
 
 
 func test_audio_volumes() -> void:

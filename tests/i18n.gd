@@ -97,6 +97,14 @@ func check_code_literals() -> void:
 		RegEx.create_from_string("(?:UiKit\\.(?:label|wrap_label|button|nav_button)|set_title)\\(\\s*\"([^\"]*)\""),
 		# Bei icon_text ist das erste Argument ein Symbol, erst das zweite ein Text.
 		RegEx.create_from_string("UiKit\\.icon_text\\(\\s*\"[^\"]*\",\\s*\"([^\"]*)\""),
+		# Hinweise, Fehlermeldungen und Popup-Zeilen laufen erst beim Anzeigen durch
+		# I18n.t – ohne Katalogeintrag blieben sie in jeder Sprache deutsch.
+		RegEx.create_from_string("show_toast\\(\\s*\"([^\"]*)\""),
+		RegEx.create_from_string("last_error = \"([^\"]*)\""),
+		RegEx.create_from_string("lines\\.append\\(\\s*\"([^\"]*)\""),
+		RegEx.create_from_string("_show_modal\\(\\s*\"([^\"]*)\""),
+		RegEx.create_from_string(",\\s*\"([^\"]*)\",\\s*\"(?:leaf|star|clock)\"\\)"),
+		RegEx.create_from_string("record_animal_moment\\([^,]+,\\s*\"([^\"]*)\""),
 	]
 	var files: Array = []
 	_collect_scripts("res://scripts", files)
@@ -117,6 +125,47 @@ func check_code_literals() -> void:
 	for literal in missing:
 		printerr("  Literal ohne Übersetzung: ", literal)
 	check(missing.is_empty(), "alle Texte der Oberfläche stehen in den Katalogen (%d fehlen)" % missing.size())
+
+
+## Texte in Konstanten (Tutorial, Saison-Geschichten) stehen nicht in I18n.t(...)
+## und blieben der Literal-Prüfung oben verborgen.
+func check_constant_texts() -> void:
+	var texts: Array = []
+	var ui_constants: Dictionary = load("res://scripts/ui/ui_root.gd").get_script_constant_map()
+	check(ui_constants.has("TUTORIAL"), "das Tutorial steht als Konstante TUTORIAL im UI")
+	for step in ui_constants.get("TUTORIAL", []):
+		texts.append(str(step))
+	var data_constants: Dictionary = root.get_node("GameData").get_script().get_script_constant_map()
+	for key in data_constants.get("SEASON_GOAL_STORIES_SRC", {}):
+		texts.append(str(data_constants["SEASON_GOAL_STORIES_SRC"][key]))
+	texts.append(str(data_constants.get("SEASON_YEAR_STORY_SRC", "")))
+	check(texts.size() >= 10, "Tutorial und Saison-Geschichten wurden gefunden (%d Texte)" % texts.size())
+	var missing := 0
+	for locale in TRANSLATED:
+		var catalog := _catalog(locale)
+		for text in texts:
+			if not catalog.has(text):
+				missing += 1
+				printerr("  Konstante ohne Übersetzung [%s]: %s" % [locale, text])
+	check(missing == 0, "Tutorial und Saison-Geschichten sind in allen Sprachen übersetzt (%d fehlen)" % missing)
+
+
+## Schlüssel mit Leerzeichen am Rand („ · Saison“) sind nur gewollt, wenn der Code
+## genau diese Zeichenkette verwendet. Sonst ist es ein Tippfehler, den die Suche
+## im Katalog nie findet – so blieben vier Tutorial-Texte unübersetzt.
+func check_whitespace_keys() -> void:
+	var files: Array = []
+	_collect_scripts("res://scripts", files)
+	var source := ""
+	for path in files:
+		source += FileAccess.get_file_as_string(path)
+	var stray := 0
+	for key in _catalog("en"):
+		var text := str(key)
+		if text != text.strip_edges() and not source.contains("\"" + text + "\""):
+			stray += 1
+			printerr("  Schlüssel mit Leerzeichen, den kein Code verwendet: '%s'" % text)
+	check(stray == 0, "Schlüssel mit Leerzeichen am Rand kommen im Code vor (%d verwaist)" % stray)
 
 
 func _collect_scripts(directory: String, files: Array) -> void:
@@ -211,8 +260,41 @@ func check_ui(locale: String) -> void:
 	check(ui._title.text == TITLE_SAMPLE[locale], "der Rückwechsel stellt die Sprache wieder her (%s)" % ui._title.text)
 	# Nach dem Wechsel ist kein Menü mehr offen; für den nächsten Lauf sauber.
 	ui.close_sheet()
+	check_tutorial_ui(locale)
 	main.queue_free()
 	await frames(2)
+
+
+## Jeder Tutorial-Schritt erscheint in der gewählten Sprache; die Hinweisschritte
+## blättern mit „Weiter“, der letzte schließt das Tutorial.
+func check_tutorial_ui(locale: String) -> void:
+	var constants: Dictionary = ui.get_script().get_script_constant_map()
+	var steps: Array = constants["TUTORIAL"]
+	var first_info: int = constants["TUTORIAL_INFO_FROM"]
+	check(first_info > 0 and first_info < steps.size(), "das Tutorial hat Aktions- und Hinweisschritte")
+	for step in range(steps.size()):
+		gs.tutorial_step = step
+		ui._update_tutorial()
+		var expected := I18n.t(str(steps[step]))
+		check(ui._tut_label.text == expected, "%s: Tutorial-Schritt %d zeigt den Katalogtext" % [locale, step])
+		if locale != "de":
+			check(ui._tut_label.text != str(steps[step]), "%s: Tutorial-Schritt %d ist nicht deutsch geblieben" % [locale, step])
+		check(ui._tut_button.visible == (step >= first_info), "%s: „Weiter“ erscheint erst bei Hinweisschritten (Schritt %d)" % [locale, step])
+	gs.tutorial_step = first_info
+	ui._update_tutorial()
+	check(ui._tut_button.text == I18n.t("Weiter"), "%s: Hinweisschritte haben „Weiter“ (%s)" % [locale, ui._tut_button.text])
+	for step in range(first_info, steps.size() - 1):
+		ui._tutorial_next()
+		check(gs.tutorial_step == step + 1, "%s: „Weiter“ blättert zu Schritt %d" % [locale, step + 1])
+	check(ui._tut_button.text == I18n.t("Verstanden"), "%s: der letzte Schritt hat „Verstanden“ (%s)" % [locale, ui._tut_button.text])
+	ui._tutorial_next()
+	check(gs.tutorial_step == int(constants["TUTORIAL_DONE"]), "%s: nach dem letzten Schritt ist das Tutorial beendet" % locale)
+	check(not ui._tut_panel.visible, "%s: das Tutorial verschwindet danach" % locale)
+	# Wiederholen: Basis setzen, Schritt 0, nichts springt weiter.
+	gs.stats = {"planted": 9, "harvested": 5, "orders": 3}
+	ui.act_restart_tutorial()
+	check(gs.tutorial_step == 0, "%s: „Tutorial wiederholen“ beginnt bei Schritt 0 trotz Fortschritt" % locale)
+	check(ui._tut_label.text == I18n.t(str(steps[0])), "%s: der Neustart zeigt den ersten Schritt" % locale)
 
 
 func run() -> void:
@@ -223,6 +305,8 @@ func run() -> void:
 
 	check_catalogs()
 	check_code_literals()
+	check_constant_texts()
+	check_whitespace_keys()
 	check_saved_language()
 
 	# Optional nur eine Auswahl prüfen, damit der Lauf in der Cloud kurz bleibt.

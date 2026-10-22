@@ -96,7 +96,7 @@ static func _volume_row(ui, key: String, title: String, value: float, enabled: b
 	slider.name = "Volume_" + key
 	slider.editable = enabled
 	if not enabled:
-		slider.tooltip_text = "Kein Hintergrundmusik-Track verfügbar"
+		slider.tooltip_text = I18n.t("Kein Hintergrundmusik-Track verfügbar")
 	row.add_child(slider)
 	var percent := UiKit.label("%d%%" % roundi(value * 100.0), 28, UiKit.earth_dark())
 	percent.custom_minimum_size = Vector2(90, 0)

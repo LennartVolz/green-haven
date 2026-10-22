@@ -177,7 +177,7 @@ static func _land(ui, c: VBoxContainer) -> void:
 		var b1 := UiKit.button("Kaufen", "primary", 28)
 		b1.custom_minimum_size = Vector2(190, 96)
 		if locked:
-			b1.text = "Stufe %d" % int(d["level"])
+			b1.text = I18n.t("Stufe %d") % int(d["level"])
 			b1.disabled = true
 		elif GameState.coins < int(d["shop"]):
 			b1.disabled = true

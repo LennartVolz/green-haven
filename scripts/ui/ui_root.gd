@@ -17,13 +17,19 @@ const DiarySheet := preload("res://scripts/ui/sheets/diary_sheet.gd")
 const AchievementsSheet := preload("res://scripts/ui/sheets/achievements_sheet.gd")
 const HofbuchSheet := preload("res://scripts/ui/sheets/hofbuch_sheet.gd")
 
+## Die ersten Schritte (bis TUTORIAL_INFO_FROM) warten auf eine Handlung des
+## Spielers, die späteren sind reine Hinweise und werden mit „Weiter“ gelesen.
 const TUTORIAL := [
 	"Willkommen auf Green Haven! Tippe auf ein leeres Feld und wähle Weizen.",
 	"Prima! Tippe auf leere Felder, um zu säen. Mit einem Finger ziehst du die Karte über die ganze Farm.",
 	"Warte, bis der Weizen reif ist (ca. 30 Sekunden). Tippe dann auf die reifen Pflanzen, um zu ernten.",
-	"Öffne unten das Auftragsbuch und erfülle deinen ersten Kundenauftrag.",
-	"Gut gemacht! Verkaufe Überschüsse im Vorrat, baue ab Stufe 2 eine Bäckerei und rette später Tiere. Mit einem Finger verschiebst du die Kamera, mit zwei zoomst du.",
+	"Öffne unten die Aufträge und erfülle deinen ersten Kundenauftrag.",
+	"Mit dem „+“ rechts oben legst du neue Felder an, „Land“ erweitert deine Farm. Mit dem Hammer verschiebst oder verkaufst du Gebäude und Deko.",
+	"Verkaufe Überschüsse im Vorrat. Im Shop findest du Pflanzen, Gebäude und Deko – ab Stufe 2 lohnt sich die Bäckerei. Unter „Produktion“ siehst du alle Gebäude auf einen Blick.",
+	"Ab Stufe 3 kannst du ein Gehege bauen und im Refugium Tiere retten. „Ziele“ und „Erfolge“ belohnen dich – ganz ohne Zeitdruck.",
+	"Mit einem Finger verschiebst du die Kamera, mit zwei zoomst du. Viel Freude auf deiner Farm!",
 ]
+const TUTORIAL_INFO_FROM := 4
 const TUTORIAL_DONE := 99
 
 var world: Node2D
@@ -232,9 +238,9 @@ func _build_tutorial() -> void:
 	skip.custom_minimum_size = Vector2(0, 64)
 	skip.pressed.connect(_tutorial_skip)
 	row.add_child(skip)
-	_tut_button = UiKit.button("Verstanden", "warm", 26)
+	_tut_button = UiKit.button("Weiter", "warm", 26)
 	_tut_button.custom_minimum_size = Vector2(200, 64)
-	_tut_button.pressed.connect(_tutorial_skip)
+	_tut_button.pressed.connect(_tutorial_next)
 	row.add_child(_tut_button)
 	v.add_child(row)
 	_tut_panel.add_child(v)
@@ -989,7 +995,7 @@ func _confirm_transfer(key: String, title: String) -> bool:
 		state[key] = false
 		if _sheet_name == "settings":
 			refresh_sheet())
-	show_toast(I18n.t("%s bitte durch erneutes Tippen bestätigen") % title, "info")
+	show_toast(I18n.t("%s bitte durch erneutes Tippen bestätigen") % I18n.t(title), "info")
 	return false
 
 
@@ -1000,7 +1006,7 @@ func _file_dialog_available() -> bool:
 func _show_transfer_dialog(importing: bool) -> void:
 	var filters := PackedStringArray(["*.json;Green Haven-Spielstand;application/json"])
 	var mode := DisplayServer.FILE_DIALOG_MODE_OPEN_FILE if importing else DisplayServer.FILE_DIALOG_MODE_SAVE_FILE
-	var err := DisplayServer.file_dialog_show("Spielstand importieren" if importing else "Spielstand exportieren",
+	var err := DisplayServer.file_dialog_show(I18n.t("Spielstand importieren") if importing else I18n.t("Spielstand exportieren"),
 		"", "savegame.json", false, mode, filters,
 		_on_transfer_file_selected.bind(importing))
 	if err != OK:
@@ -1104,7 +1110,7 @@ func act_recenter() -> void:
 
 
 func act_restart_tutorial() -> void:
-	GameState.tutorial_step = 0
+	GameState.restart_tutorial()
 	close_sheet()
 	_update_tutorial()
 
@@ -1129,30 +1135,43 @@ func act_new_game() -> void:
 
 # ----------------------------------------------------------------- Tutorial
 
+## Zählt nur, was seit dem Start des Tutorials passiert ist (GameState.tutorial_base).
 func _tutorial_cond(step: int) -> bool:
 	match step:
 		0:
-			return int(GameState.stats.get("planted", 0)) >= 1
+			return GameState.tutorial_progress("planted") >= 1
 		1:
-			return int(GameState.stats.get("planted", 0)) >= 3
+			return GameState.tutorial_progress("planted") >= 3
 		2:
-			return int(GameState.stats.get("harvested", 0)) >= 1
+			return GameState.tutorial_progress("harvested") >= 1
 		3:
-			return int(GameState.stats.get("orders", 0)) >= 1
+			return GameState.tutorial_progress("orders") >= 1
 	return false
 
 
 func _update_tutorial() -> void:
 	if _tut_panel == null:
 		return
-	while GameState.tutorial_step < TUTORIAL.size() - 1 and _tutorial_cond(GameState.tutorial_step):
+	while GameState.tutorial_step < TUTORIAL_INFO_FROM and _tutorial_cond(GameState.tutorial_step):
 		GameState.tutorial_step += 1
 	var step := GameState.tutorial_step
 	var active := step < TUTORIAL.size()
 	_tut_panel.visible = active and (_modal == null or not _modal.visible)
 	if active:
 		_tut_label.text = I18n.t(TUTORIAL[step])
-		_tut_button.visible = step == TUTORIAL.size() - 1
+		_tut_button.visible = step >= TUTORIAL_INFO_FROM
+		var last := step == TUTORIAL.size() - 1
+		_tut_button.text = I18n.t("Verstanden") if last else I18n.t("Weiter")
+
+
+## Hinweisschritte: „Weiter“ blättert, nach dem letzten ist das Tutorial vorbei.
+func _tutorial_next() -> void:
+	GameState.sound.emit("tap")
+	if GameState.tutorial_step >= TUTORIAL.size() - 1:
+		GameState.tutorial_step = TUTORIAL_DONE
+	else:
+		GameState.tutorial_step += 1
+	_update_tutorial()
 
 
 func _tutorial_skip() -> void:

@@ -22,6 +22,8 @@ signal fx(kind: String, world_pos: Vector2, text: String)
 signal sound(sound_name: String)
 
 const SAVE_VERSION := 11
+## Statistiken, die die ersten Tutorial-Schritte zählen (siehe tutorial_base).
+const TUTORIAL_STATS := ["planted", "harvested", "orders"]
 const MAX_ORDERS := 4
 const NEIGHBORHOOD_EVENT_CYCLE_SECONDS := 3.0 * 60.0 * 60.0
 const NEIGHBORHOOD_EVENT_DURATION_SECONDS := 30.0 * 60.0
@@ -76,6 +78,10 @@ var claimed_achievements: Array = []
 ## unverändert und brauchen keine Migration.
 var settings: Dictionary = {"sound": true, "music": true, "vibration": true, "sound_volume": 1.0, "music_volume": 1.0}
 var tutorial_step := 0
+## Stand der Gesamtstatistik beim Start des Tutorials. Die Tutorial-Schritte zählen
+## nur, was seitdem passiert ist; sonst würde „Tutorial wiederholen“ sofort bis zum
+## letzten Schritt springen. Leer heißt: ab dem ersten Spiel zählen (Basis 0).
+var tutorial_base: Dictionary = {}
 var next_uid := 1
 var next_order_at := 0.0
 var away_seconds := 0.0
@@ -436,6 +442,7 @@ func reset_state() -> void:
 	claimed_quests = []
 	claimed_achievements = []
 	tutorial_step = 0
+	tutorial_base = {}
 	next_uid = 1
 	next_order_at = 0.0
 	away_seconds = 0.0
@@ -488,6 +495,20 @@ func bump(stat: String, n: int = 1) -> void:
 	stats[stat] = int(stats.get(stat, 0)) + n
 
 
+## Fortschritt einer Tutorial-Statistik seit dem Start des Tutorials.
+func tutorial_progress(stat_key: String) -> int:
+	return maxi(0, int(stats.get(stat_key, 0)) - int(tutorial_base.get(stat_key, 0)))
+
+
+## Startet das Tutorial von vorn. Die Gesamtstatistik bleibt unangetastet, nur der
+## Zählerstand von jetzt wird zur neuen Basis.
+func restart_tutorial() -> void:
+	tutorial_step = 0
+	tutorial_base = {}
+	for stat_key in TUTORIAL_STATS:
+		tutorial_base[stat_key] = int(stats.get(stat_key, 0))
+
+
 func add_diary_entry(key: String, args: Array = [], animal_uid: int = -1) -> void:
 	diary.append({"time": now(), "key": key, "args": args.duplicate(true), "animal_uid": animal_uid})
 	while diary.size() > 100:
@@ -520,7 +541,8 @@ func friendship_level(a: Dictionary) -> int:
 func record_animal_moment(a: Dictionary, moment: String, hearts_gained: int) -> void:
 	var old_level := friendship_level(a)
 	a.hearts = int(a.get("hearts", 0)) + hearts_gained
-	add_diary_entry("DIARY_ANIMAL_MOMENT", [a.name, moment], int(a.uid))
+	# Der Moment wird als Parameter gespeichert, also gleich in der aktuellen Sprache.
+	add_diary_entry("DIARY_ANIMAL_MOMENT", [a.name, I18n.t(moment)], int(a.uid))
 	var new_level := friendship_level(a)
 	if new_level > old_level:
 		var species: String = str(a.species)
@@ -896,7 +918,7 @@ func harvest(cell: Vector2i) -> bool:
 	world_changed.emit()
 	var fx_text := "+%d %s" % [amount, c["name"]]
 	if seasonal:
-		fx_text += " · Saison"
+		fx_text += I18n.t(" · Saison")
 	fx.emit("harvest", cell_center(cell), fx_text)
 	sound.emit("harvest")
 	event("harvested", {"crop": crop, "cell": cell, "seasonal": seasonal})
@@ -1820,7 +1842,7 @@ func serialize() -> Dictionary:
 	var fo: Array = []
 	for cell in forage:
 		fo.append({"x": cell.x, "y": cell.y, "at": float(forage[cell])})
-	return {
+	var data := {
 		"version": SAVE_VERSION,
 		"saved_at": now(),
 		"coins": coins, "level": level, "xp": xp,
@@ -1856,6 +1878,11 @@ func serialize() -> Dictionary:
 		"last_day_recap": last_day_recap,
 		"day_stats_snapshot": day_stats_snapshot.duplicate(),
 	}
+	# Nur nach „Tutorial wiederholen“ gesetzt; ältere Stände und neue Spiele
+	# bleiben damit unverändert und brauchen keine Migration.
+	if not tutorial_base.is_empty():
+		data["tutorial_base"] = tutorial_base.duplicate()
+	return data
 
 
 ## Liefert ein Array aus einem geladenen Spielstand; ein Wert mit falschem Typ zählt als leer.
@@ -2172,6 +2199,12 @@ func deserialize(d: Dictionary) -> bool:
 	else:
 		settings.erase("language")
 	tutorial_step = int(d.get("tutorial_step", 0))
+	tutorial_base = {}
+	var saved_base: Variant = d.get("tutorial_base", {})
+	if typeof(saved_base) == TYPE_DICTIONARY:
+		for stat_key in TUTORIAL_STATS:
+			if (saved_base as Dictionary).has(stat_key):
+				tutorial_base[stat_key] = maxi(0, int((saved_base as Dictionary)[stat_key]))
 	# next_uid darf nie auf eine bereits vergebene ID zeigen, auch nicht bei beschädigten Ständen.
 	var max_uid := 0
 	for o in objects:

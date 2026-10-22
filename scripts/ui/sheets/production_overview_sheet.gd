@@ -109,11 +109,11 @@ static func _apply_entry_state(bar: ProgressBar, tl: Label, state: Label, entry:
 	bar.value = GameState.entry_progress(entry)
 	if remaining <= 0.0:
 		tl.text = I18n.t("Bereit zum Abholen")
-		state.text = "Fertig"
+		state.text = I18n.t("Fertig")
 		state.add_theme_color_override("font_color", UiKit.sage_dark())
 	elif float(entry["start"]) > GameState.now():
 		tl.text = I18n.t("wartet · fertig in %s") % GameData.format_time(remaining)
-		state.text = "Wartet"
+		state.text = I18n.t("Wartet")
 	else:
 		tl.text = I18n.t("noch %s") % GameData.format_time(remaining)
-		state.text = "Läuft"
+		state.text = I18n.t("Läuft")

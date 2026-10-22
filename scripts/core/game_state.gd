@@ -14,6 +14,7 @@ signal inventory_changed
 signal world_changed
 signal forage_changed
 signal orders_changed
+signal cafe_changed
 signal animals_changed
 signal quests_changed
 signal toast(text: String, kind: String)
@@ -36,6 +37,22 @@ const CAFE_SPECIAL_DURATION := 24.0 * 60.0 * 60.0
 const CAFE_SPECIAL_ORDER_CHANCE := 0.7
 const CAFE_SPECIAL_COIN_BONUS := 0.5
 const CAFE_SPECIAL_XP_BONUS := 5
+## Gartencafé: Öffnungszeiten und Gäste. Die Spieluhr läuft wie das Licht der
+## Welt: ein echter Tag (REAL_DAY_SECONDS) entspricht 24 Spielstunden.
+const CLOCK_DAY_SECONDS := 24.0 * 60.0 * 60.0
+const CLOCK_START_SECONDS := 8.0 * 60.0 * 60.0
+const CAFE_OPEN_HOUR := 10.0
+const CAFE_CLOSE_HOUR := 18.0
+## Abstand zwischen zwei Gästen bei einem einzigen Tisch; jeder weitere Tisch
+## verkürzt ihn, weil ein volles Café mehr Laufkundschaft anzieht.
+const CAFE_GUEST_INTERVAL := 30.0
+## Zeit zwischen Servieren und Bezahlen – der Gast isst in Ruhe.
+const CAFE_EAT_SECONDS := 14.0
+## Aufschlag gegenüber dem Ladenpreis: im Café zu servieren lohnt mehr als der
+## Verkauf aus dem Vorrat, sonst wäre der Ausbau nur Dekoration.
+const CAFE_GUEST_TIP := 0.25
+## Anteil der Gäste, die das Tagesgericht bestellen.
+const CAFE_SPECIAL_GUEST_CHANCE := 0.3
 const ORDER_COOLDOWN := 25.0
 const PET_COOLDOWN := 12.0
 const ACTIVITY_COOLDOWN := 180.0
@@ -66,6 +83,14 @@ var active_delivery_story := ""
 var delivery_story_stage := 0
 var daily_cafe_special_id := ""
 var daily_cafe_special_at := 0.0
+## Café-Gäste leben nur im laufenden Spiel: Sie werden nicht gespeichert und
+## erscheinen deshalb auch nicht rückwirkend nach einer Pause.
+var cafe_guests: Array = []   ## {table, name, dish, pay, ate_at}
+var cafe_next_guest_at := 0.0
+var cafe_day := 0             ## Spieltag der Tageszahlen unten
+var cafe_day_served := 0
+var cafe_day_coins := 0
+var clock_seconds := CLOCK_START_SECONDS   ## Spieluhr, nur zur Laufzeit
 var neighborhood_event_stage := 0
 var neighborhood_event_order: Dictionary = {}
 var neighborhood_event_completed_cycle := -1
@@ -112,6 +137,18 @@ func _ready() -> void:
 
 func now() -> float:
 	return Time.get_unix_time_from_system() + time_offset
+
+
+## Spieluhr in Sekunden (0 bis 86400). Sie beginnt morgens um acht und läuft
+## im selben Tempo wie der Tag-Nacht-Wechsel der Welt.
+func clock_hour() -> float:
+	return clock_seconds / 3600.0
+
+
+## Uhrzeit als "14:20" – dieselbe Schreibweise wie in der Kopfzeile.
+func clock_text() -> String:
+	var minutes := int(floor(clock_seconds / 60.0)) % 1440
+	return "%02d:%02d" % [int(minutes / 60.0), minutes % 60]
 
 
 ## Fortlaufende Nummer des Spieltags, beginnend bei 1.
@@ -405,6 +442,9 @@ func _stat_delta(key: String) -> int:
 func _process(delta: float) -> void:
 	if not loaded:
 		return
+	# Uhr und Café laufen in Echtzeit; alles andere genügt im Sekundentakt.
+	_advance_clock(delta)
+	_tick_cafe(delta)
 	# Aufträge und Rettungsfälle ändern sich nur im Sekundentakt; pro Frame wäre das Verschwendung.
 	_refresh_acc += delta
 	if _refresh_acc < REFRESH_INTERVAL_SECONDS:
@@ -435,6 +475,12 @@ func reset_state() -> void:
 	delivery_story_stage = 0
 	daily_cafe_special_id = ""
 	daily_cafe_special_at = 0.0
+	cafe_guests = []
+	cafe_next_guest_at = 0.0
+	cafe_day = 0
+	cafe_day_served = 0
+	cafe_day_coins = 0
+	clock_seconds = CLOCK_START_SECONDS
 	neighborhood_event_stage = 0
 	neighborhood_event_order = {}
 	neighborhood_event_completed_cycle = -1
@@ -1233,6 +1279,213 @@ func _refresh_daily_cafe_special() -> bool:
 	daily_cafe_special_id = available[rng.randi_range(0, available.size() - 1)]
 	daily_cafe_special_at = now()
 	return true
+
+
+# ------------------------------------------------- Café-Gäste
+# Das Gartencafé ist ein Ort, nicht nur eine Küche: Zu Öffnungszeiten setzen
+# sich Gäste an die Tische, bestellen ein Gericht aus der Karte und zahlen nach
+# dem Essen. Wer nichts vorrätig hat, lässt den Gast höflich gehen – ohne Strafe.
+
+func cafe_object() -> Dictionary:
+	for o in objects:
+		if o.kind == "production" and o.type == "cafe":
+			return o
+	return {}
+
+
+## Ein Tisch je Ausbaustufe: Das Café hat immer mindestens einen Sitzplatz.
+func cafe_tables() -> int:
+	var o := cafe_object()
+	if o.is_empty():
+		return 0
+	return 1 + int(o.upgrades)
+
+
+func cafe_is_open() -> bool:
+	if not has_building("cafe"):
+		return false
+	var hour := clock_hour()
+	return hour >= CAFE_OPEN_HOUR and hour < CAFE_CLOSE_HOUR
+
+
+## Steht schon ein Gericht auf der Karte? Vorher kommen keine Gäste.
+func cafe_menu_ready() -> bool:
+	return not _available_cafe_specials().is_empty()
+
+
+## Sekunden bis zum nächsten Gast; 0, wenn das Café geschlossen ist.
+func cafe_guest_interval() -> float:
+	var tables := cafe_tables()
+	if tables <= 0:
+		return 0.0
+	return CAFE_GUEST_INTERVAL * 2.0 / (1.0 + float(tables))
+
+
+## Gäste, die noch auf ihr Gericht warten.
+func cafe_waiting_count() -> int:
+	var n := 0
+	for g in cafe_guests:
+		if float(g.get("ate_at", 0.0)) <= 0.0:
+			n += 1
+	return n
+
+
+## Preis eines servierten Gerichts: Ladenpreis plus Café-Aufschlag, für das
+## Tagesgericht zusätzlich der Tagesbonus.
+func cafe_guest_price(dish: String) -> int:
+	if not GameData.RECIPES.has(dish):
+		return 0
+	var pay := int(round(float(GameData.RECIPES[dish]["sell"]) * (1.0 + CAFE_GUEST_TIP)))
+	if dish == daily_cafe_special():
+		pay = int(ceil(float(pay) * (1.0 + CAFE_SPECIAL_COIN_BONUS)))
+	return pay
+
+
+func cafe_guest_at(table: int) -> Dictionary:
+	for g in cafe_guests:
+		if int(g.get("table", 0)) == table:
+			return g
+	return {}
+
+
+## Tageszahlen gelten für den laufenden Spieltag und beginnen jeden Tag neu.
+func _sync_cafe_day() -> void:
+	var day := day_number()
+	if cafe_day == day:
+		return
+	cafe_day = day
+	cafe_day_served = 0
+	cafe_day_coins = 0
+
+
+func _advance_clock(delta: float) -> void:
+	clock_seconds = fposmod(clock_seconds + delta * CLOCK_DAY_SECONDS / GameData.REAL_DAY_SECONDS, CLOCK_DAY_SECONDS)
+
+
+## Setzt einen Gast an einen freien Tisch. Nur zur Laufzeit – nie rückwirkend.
+func _new_cafe_guest() -> Dictionary:
+	var menu := _available_cafe_specials()
+	if menu.is_empty():
+		return {}
+	var special := daily_cafe_special()
+	var dish := ""
+	if not special.is_empty() and menu.has(special) and rng.randf() < CAFE_SPECIAL_GUEST_CHANCE:
+		dish = special
+	else:
+		dish = menu[rng.randi_range(0, menu.size() - 1)]
+	var taken: Array = []
+	var names: Array = []
+	for g in cafe_guests:
+		taken.append(int(g.get("table", 0)))
+		names.append(str(g.get("name", "")))
+	var table := 0
+	for i in range(1, cafe_tables() + 1):
+		if not taken.has(i):
+			table = i
+			break
+	if table == 0:
+		return {}
+	var pool: Array = []
+	for candidate in GameData.CUSTOMERS:
+		if not names.has(str(candidate)):
+			pool.append(str(candidate))
+	var guest_name: String = pool[rng.randi_range(0, pool.size() - 1)] if not pool.is_empty() else String(GameData.CUSTOMERS[0])
+	return {"table": table, "name": guest_name, "dish": dish, "pay": cafe_guest_price(dish), "ate_at": 0.0}
+
+
+## Ein Takt der Gäste: bezahlen, abräumen und neue Gäste hereinlassen.
+## Wird vom Sekundentakt aufgerufen; Tests rufen ihn direkt auf.
+func _tick_cafe(_delta: float) -> void:
+	if not loaded:
+		return
+	_sync_cafe_day()
+	if not has_building("cafe"):
+		if not cafe_guests.is_empty():
+			cafe_guests.clear()
+			cafe_changed.emit()
+		return
+	if not cafe_is_open():
+		# Nach Ladenschluss gehen wartende Gäste nach Hause. Wer schon isst,
+		# bekommt sein Essen und zahlt noch ab.
+		var left := false
+		for i in range(cafe_guests.size() - 1, -1, -1):
+			if float(cafe_guests[i].get("ate_at", 0.0)) <= 0.0:
+				cafe_guests.remove_at(i)
+				left = true
+		if left:
+			cafe_changed.emit()
+		cafe_next_guest_at = now()
+		return
+	var settled := false
+	for i in range(cafe_guests.size() - 1, -1, -1):
+		var g: Dictionary = cafe_guests[i]
+		var ate_at := float(g.get("ate_at", 0.0))
+		if ate_at <= 0.0 or now() < ate_at:
+			continue
+		cafe_guests.remove_at(i)
+		_pay_cafe_guest(g)
+		settled = true
+	if cafe_guests.size() < cafe_tables() and now() >= cafe_next_guest_at:
+		var guest := _new_cafe_guest()
+		if guest.is_empty():
+			# Leere Karte: nicht jeden Frame erneut würfeln.
+			cafe_next_guest_at = now() + CAFE_GUEST_INTERVAL
+		else:
+			cafe_guests.append(guest)
+			cafe_next_guest_at = now() + cafe_guest_interval() * rng.randf_range(0.85, 1.15)
+			toast.emit(I18n.t("%s setzt sich ins Café und bestellt %s") % [str(guest["name"]), GameData.item_name(str(guest["dish"]))], "info")
+			settled = true
+	if settled:
+		cafe_changed.emit()
+
+
+func _pay_cafe_guest(g: Dictionary) -> void:
+	var paid := maxi(0, int(g.get("pay", 0)))
+	add_coins(paid)
+	bump("cafe_guests")
+	bump("cafe_guest_coins", paid)
+	cafe_day_served += 1
+	cafe_day_coins += paid
+	toast.emit(I18n.t("%s hat bezahlt: +%d Münzen") % [str(g.get("name", I18n.t("Ein Gast"))), paid], "good")
+	sound.emit("coin")
+
+
+## Serviert das bestellte Gericht. Der Gast zahlt erst, wenn er gegessen hat.
+func serve_cafe_guest(table: int) -> bool:
+	var idx := -1
+	for i in range(cafe_guests.size()):
+		if int(cafe_guests[i].get("table", 0)) == table:
+			idx = i
+			break
+	if idx < 0:
+		last_error = I18n.t("An diesem Tisch sitzt niemand")
+		return false
+	var g: Dictionary = cafe_guests[idx]
+	if float(g.get("ate_at", 0.0)) > 0.0:
+		last_error = I18n.t("Dieser Gast wird schon bedient")
+		return false
+	var dish := str(g.get("dish", ""))
+	if not remove_item(dish, 1):
+		last_error = I18n.t("Du hast kein %s im Vorrat") % GameData.item_name(dish)
+		return false
+	g["ate_at"] = now() + CAFE_EAT_SECONDS
+	cafe_changed.emit()
+	sound.emit("tap")
+	return true
+
+
+## Schickt einen wartenden Gast höflich nach Hause: kein Verlust, keine Strafe.
+func send_cafe_guest_home(table: int) -> bool:
+	for i in range(cafe_guests.size()):
+		if int(cafe_guests[i].get("table", 0)) != table:
+			continue
+		if float(cafe_guests[i].get("ate_at", 0.0)) > 0.0:
+			return false   # wer schon isst, bleibt bis zum Bezahlen
+		cafe_guests.remove_at(i)
+		cafe_changed.emit()
+		sound.emit("tap")
+		return true
+	return false
 
 
 func generate_order() -> Dictionary:

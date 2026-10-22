@@ -236,6 +236,7 @@ func run() -> void:
 	# Kosmetische Ambient-Szenen für die manuelle Sichtprüfung.
 	var game_data: Node = root.get_node("GameData")
 	gs.time_offset = 2.0 * game_data.WEATHER_DURATION_SECONDS + 30.0 - Time.get_unix_time_from_system()
+	gs.clock_seconds = 12.0 * 3600.0
 	world.day_time_seconds = 12.0 * 3600.0
 	world.current_weather = "Regen"
 	world.overlay.set_weather("Regen")
@@ -248,6 +249,7 @@ func run() -> void:
 	await frames(900)
 	assert(world.current_weather == "Regen" and world._animal_nodes.values().all(func(animal: Node) -> bool: return bool(animal.get("sheltering")) and animal.position.distance_to(animal.get("ambient_target")) < 1.0), "Regen-Screenshot zeigt alle Tiere angekommen im Unterstand")
 	await shot("animals_rain_shelter")
+	gs.clock_seconds = 22.0 * 3600.0
 	world.day_time_seconds = 22.0 * 3600.0
 	world._ambient_night = true
 	for animal_node in world._animal_nodes.values():
@@ -259,6 +261,7 @@ func run() -> void:
 	gs.time_offset = 3.0 * game_data.WEATHER_DURATION_SECONDS + 2.0 - Time.get_unix_time_from_system()
 	world.current_weather = "Nebel"
 	world.overlay.set_weather("Nebel")
+	gs.clock_seconds = 12.0 * 3600.0
 	world.day_time_seconds = 12.0 * 3600.0
 	world._ambient_night = false
 	world._update_animal_ambience()

@@ -307,7 +307,9 @@ func zoom_at(screen_pos: Vector2, factor: float) -> void:
 
 
 func _process(delta: float) -> void:
-	day_time_seconds = fposmod(day_time_seconds + delta * DAY_LENGTH_SECONDS / GameData.REAL_DAY_SECONDS, DAY_LENGTH_SECONDS)
+	# Die Spieluhr gehört dem Spielstand-Autoload, damit Café-Öffnungszeiten und
+	# Lichtwechsel dieselbe Zeit zeigen. Hier wird sie nur übernommen.
+	day_time_seconds = GameState.clock_seconds
 	_ambient_accumulator += delta
 	if _ambient_accumulator >= 0.25:
 		_ambient_accumulator = 0.0

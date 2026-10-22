@@ -57,6 +57,7 @@ func _initialize() -> void:
 	test_orders()
 	test_delivery_stories()
 	test_cafe()
+	test_cafe_guests()
 	test_neighborhood_event()
 	test_story_during_event()
 	test_achievements()
@@ -776,6 +777,117 @@ func test_cafe() -> void:
 	check(int(v6_migrated["version"]) == 11 and bool(v6_migrated["settings"]["sound"]) == false, "Version 6 wird ohne Verlust vorhandener Einstellungen migriert")
 	var v7_migrated: Dictionary = ss.migrate({"version": 7, "settings": {"music": false}, "animals": []})
 	check(int(v7_migrated["version"]) == 11 and v7_migrated["neighborhood_event_order"].is_empty(), "Version 7 erhält leere Event-Migration")
+
+
+func test_cafe_guests() -> void:
+	begin("Café-Gäste")
+	check(gs.cafe_tables() == 0 and not gs.cafe_is_open(), "ohne Café keine Tische und kein Betrieb")
+	level_to(11)
+	gs.coins = 10000
+	var uid: int = gs.place_object("cafe", Vector2i(8, 11))
+	check(uid > 0, "Café gebaut")
+	check(gs.cafe_tables() == 1, "Café beginnt mit einem Tisch")
+	gs.clock_seconds = 9.0 * 3600.0
+	check(not gs.cafe_is_open(), "vor zehn Uhr ist das Café geschlossen")
+	gs.clock_seconds = 10.0 * 3600.0
+	check(gs.cafe_is_open(), "um zehn Uhr öffnet das Café")
+	gs.clock_seconds = 18.0 * 3600.0
+	check(not gs.cafe_is_open(), "um achtzehn Uhr schließt das Café")
+	check(gs.clock_text() == "18:00", "Spieluhr zeigt die Uhrzeit")
+	# Auf Stufe 11 ist noch kein Café-Gericht freigeschaltet: dann kommt niemand.
+	gs.clock_seconds = 11.0 * 3600.0
+	gs.cafe_next_guest_at = 0.0
+	gs._tick_cafe(0.5)
+	check(gs.cafe_guests.is_empty(), "ohne freigeschaltete Karte kommen keine Gäste")
+	var base_interval: float = gs.cafe_guest_interval()
+	for i in range(3):
+		check(gs.upgrade_building(uid), "Café ausbauen")
+		check(gs.cafe_tables() == 2 + i, "jeder Ausbau stellt einen Tisch auf (%d)" % gs.cafe_tables())
+	check(gs.cafe_tables() == 4 and gs.cafe_tables() <= 1 + gs.MAX_UPGRADES, "Café hat höchstens vier Tische")
+	check(gs.cafe_guest_interval() < base_interval, "mehr Tische bringen mehr Gäste")
+	level_to(14)
+	check(not gs._available_cafe_specials().is_empty(), "ab Stufe 14 steht die Café-Karte")
+	check(gs.cafe_guests.is_empty() and gs.cafe_day_served == 0, "das Café startet leer")
+	gs.cafe_next_guest_at = 0.0
+	gs._tick_cafe(0.5)
+	check(gs.cafe_guests.size() == 1, "zu Öffnungszeiten setzt sich ein Gast")
+	var guest: Dictionary = gs.cafe_guests[0]
+	check(int(guest["table"]) >= 1 and int(guest["table"]) <= gs.cafe_tables(), "der Gast bekommt einen Tisch")
+	check(gd.CAFE_MENU.has(str(guest["dish"])), "der Gast bestellt aus der Karte")
+	check(gs.cafe_waiting_count() == 1, "wartende Gäste werden gezählt")
+	check(int(guest["pay"]) > int(gd.RECIPES[str(guest["dish"])]["sell"]), "im Café liegt der Preis über dem Ladenpreis")
+	for i in range(12):
+		gs.cafe_next_guest_at = 0.0
+		gs._tick_cafe(0.5)
+	check(gs.cafe_guests.size() == gs.cafe_tables(), "mehr Gäste als Tische gibt es nicht")
+	var seen := {}
+	for g in gs.cafe_guests:
+		seen[str(g["name"])] = true
+	check(seen.size() == gs.cafe_guests.size(), "kein Gast sitzt doppelt im Café")
+	# Bedienen: erst mit Ware, dann isst der Gast und zahlt danach.
+	var table := int(gs.cafe_guests[0]["table"])
+	var dish := str(gs.cafe_guests[0]["dish"])
+	gs.inventory.erase(dish)
+	check(not gs.serve_cafe_guest(table), "ohne Vorrat lässt sich nichts servieren")
+	gs.add_item(dish, 2)
+	var coins_before: int = gs.coins
+	check(gs.serve_cafe_guest(table), "mit Vorrat wird der Gast bedient")
+	check(gs.item_count(dish) == 1, "Servieren nimmt ein Gericht aus dem Vorrat")
+	check(gs.coins == coins_before, "bezahlt wird erst nach dem Essen")
+	check(not gs.serve_cafe_guest(table), "derselbe Gast wird nicht doppelt bedient")
+	# Kein neuer Gast während des Essens, damit der Tisch eindeutig bleibt.
+	gs.cafe_next_guest_at = gs.now() + 9999.0
+	gs.time_offset += gs.CAFE_EAT_SECONDS + 1.0
+	gs._tick_cafe(0.5)
+	check(gs.coins > coins_before, "nach dem Essen wird bezahlt")
+	check(int(gs.stats.get("cafe_guests", 0)) == 1, "bediente Gäste zählen in der Langzeitstatistik")
+	check(gs.cafe_day_served == 1 and gs.cafe_day_coins == gs.coins - coins_before, "Tagesumsatz zählt den Gast mit")
+	check(gs.cafe_guest_at(table).is_empty(), "der Tisch ist nach dem Bezahlen wieder frei")
+	# Gehen lassen kostet nichts.
+	gs.cafe_guests.clear()
+	gs.cafe_next_guest_at = 0.0
+	gs._tick_cafe(0.5)
+	check(gs.cafe_guests.size() == 1, "neuer Gast nimmt Platz")
+	var coins_now: int = gs.coins
+	check(gs.send_cafe_guest_home(int(gs.cafe_guests[0]["table"])), "Gast lässt sich nach Hause schicken")
+	check(gs.cafe_guests.is_empty() and gs.coins == coins_now, "Gehen lassen kostet nichts")
+	# Ladenschluss räumt wartende Gäste, lässt niemanden neu herein.
+	gs.cafe_next_guest_at = 0.0
+	gs._tick_cafe(0.5)
+	check(gs.cafe_guests.size() == 1, "vor Ladenschluss sitzt noch ein Gast")
+	gs.clock_seconds = 18.2 * 3600.0
+	gs._tick_cafe(0.5)
+	check(gs.cafe_guests.is_empty(), "nach Ladenschluss gehen wartende Gäste")
+	for i in range(4):
+		gs._tick_cafe(0.5)
+	check(gs.cafe_guests.is_empty(), "geschlossen kommen keine neuen Gäste")
+	# Tageszahlen folgen dem Spieltag.
+	gs.cafe_guests.clear()
+	gs.cafe_next_guest_at = gs.now() + 9999.0
+	var served_today: int = gs.cafe_day_served
+	check(served_today == 1, "der Tag merkt sich den bedienten Gast")
+	gs.time_offset += gd.REAL_DAY_SECONDS
+	gs._tick_cafe(0.5)
+	check(gs.cafe_day == gs.day_number(), "Tageszahlen folgen dem Spieltag")
+	check(gs.cafe_day_served == 0 and gs.cafe_day_coins == 0, "Tagesumsatz beginnt jeden Tag neu")
+	check(int(gs.stats.get("cafe_guests", 0)) == 1, "der Langzeitzähler läuft weiter")
+	# Gäste sind flüchtig: kein Spielstand-Feld, keine rückwirkenden Besucher.
+	gs.clock_seconds = 14.0 * 3600.0
+	gs.cafe_next_guest_at = 0.0
+	gs._tick_cafe(0.5)
+	check(gs.cafe_guests.size() >= 1, "am Nachmittag sitzt wieder jemand")
+	var saved: Dictionary = gs.serialize()
+	check(not saved.has("cafe_guests") and not saved.has("cafe_next_guest_at") and not saved.has("cafe_day"), "Gäste und Tageszahlen stehen nicht im Spielstand")
+	check(int(saved["stats"].get("cafe_guests", 0)) == 1, "die Statistik wird dagegen gespeichert")
+	check(gs.deserialize(saved), "Spielstand mit Café lädt")
+	check(gs.cafe_guests.is_empty(), "nach dem Laden sind keine Gäste mehr da")
+	check(gs.cafe_tables() == 4, "Tische bleiben Teil des Ausbaus")
+	check(int(gs.stats.get("cafe_guests", 0)) == 1, "bediente Gäste überleben das Laden")
+	# Nach einer Pause beginnt das Café leer: genau ein Gast, kein nachgeholter Tag.
+	gs.clock_seconds = 12.0 * 3600.0
+	gs._tick_cafe(0.5)
+	check(gs.cafe_guests.size() == 1, "nach dem Laden kommt ein Gast statt eines nachgeholten Tages")
+	check(gs.SAVE_VERSION == 11, "Café-Gäste brauchen keine neue Spielstand-Version")
 
 
 func test_neighborhood_event() -> void:

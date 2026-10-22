@@ -13,6 +13,7 @@ const CHECKED_SHEETS := ["orders", "quests", "achievements", "hofbuch", "lexicon
 
 var gs: Node
 var ui: Node
+var cafe_uid := 0
 var failures := 0
 
 
@@ -151,6 +152,45 @@ func check_sheets(locale: String) -> void:
 		check_overflow(locale, sheet)
 
 
+## Das Café-Sheet zeigt die Gästezeilen: ein wartender Gast mit zwei Schaltflächen
+## und ein Gast beim Essen. Beides muss in jeder Sprache in eine Zeile passen.
+func prepare_cafe() -> void:
+	# Auf Stufe 14 steht die Karte; danach wieder zurück, damit die anderen
+	# Prüfungen weiterhin den frühen Spielstand messen.
+	gs.level = 14
+	gs.clock_seconds = 10.4 * 3600.0
+	for i in range(2):
+		if gs.cafe_guests.size() >= 2:
+			break
+		gs.cafe_next_guest_at = 0.0
+		gs._tick_cafe(0.5)
+	gs.cafe_next_guest_at = gs.now() + 9999.0
+	if gs.cafe_guests.size() >= 2:
+		var dish := str(gs.cafe_guests[1]["dish"])
+		gs.add_item(dish, 1)
+		gs.serve_cafe_guest(int(gs.cafe_guests[1]["table"]))
+		gs.cafe_guests[1]["ate_at"] = gs.now() + 9999.0
+
+
+func check_cafe(locale: String) -> void:
+	var view: Vector2 = ui._layer.size
+	prepare_cafe()
+	ui.open_sheet("production", {"uid": cafe_uid})
+	await frames(5)
+	check(ui._sheet.visible, "[%s] Café-Sheet öffnet sich" % locale)
+	check(has_text(ui.content, I18n.t("Gäste")), "[%s] Café zeigt den Gästebereich" % locale)
+	var serve_prefix := str(I18n.t("Servieren  +%d")).get_slice(" ", 0)
+	check(find_button_prefix(ui.content, serve_prefix) != null, "[%s] wartender Gast lässt sich servieren" % locale)
+	check(find_button(ui.content, I18n.t("Gehen lassen")) != null, "[%s] wartender Gast lässt sich nach Hause schicken" % locale)
+	check(ui._sheet.size.y <= view.y * 0.83,
+		"[%s] Café-Sheet bleibt im Bild (%.0f von %.0f px)" % [locale, ui._sheet.size.y, view.y])
+	check_text(locale, "Café")
+	check_overflow(locale, "Café")
+	ui.close_sheet()
+	gs.level = 1
+	await frames(3)
+
+
 func check_toolbar(locale: String) -> void:
 	ui.close_sheet()
 	await frames(3)
@@ -172,6 +212,16 @@ func check_toolbar(locale: String) -> void:
 	ui.world.tool_mode = ""
 	ui._update_toolbar("", {})
 	await frames(2)
+
+
+func find_button_prefix(node: Node, prefix: String) -> Button:
+	if node is Button and String((node as Button).text).begins_with(prefix):
+		return node as Button
+	for child in node.get_children():
+		var found := find_button_prefix(child, prefix)
+		if found != null:
+			return found
+	return null
 
 
 func find_button(node: Node, text: String) -> Button:
@@ -290,6 +340,17 @@ func run() -> void:
 	gs = root.get_node("GameState")
 	ui = main.get_node("UI")
 	await frames(6)
+	# Ein Café mit zwei Tischen für die Gästezeilen (Stufe 14: die Karte steht).
+	gs.level = 14
+	gs.coins = 99999
+	for y in range(gs.land.position.y, gs.land.end.y):
+		for x in range(gs.land.position.x, gs.land.end.x):
+			if cafe_uid == 0 and gs.can_place("cafe", Vector2i(x, y)):
+				cafe_uid = gs.place_object("cafe", Vector2i(x, y))
+	if cafe_uid > 0:
+		gs.upgrade_building(cafe_uid)
+	# Das Café bleibt stehen, die Stufe kehrt für die übrigen Prüfungen zurück.
+	gs.level = 1
 	for locale in ["de"] + TRANSLATED:
 		I18n.apply(locale)
 		ui.relocalize()
@@ -298,6 +359,8 @@ func run() -> void:
 		await check_text(locale, "Startbildschirm")
 		await check_orders(locale)
 		await check_sheets(locale)
+		if cafe_uid > 0:
+			await check_cafe(locale)
 		await check_toolbar(locale)
 		gs.orders.clear()
 	# Die Lesbarkeitsstufen einmal in der längsten und der kürzesten Sprache:

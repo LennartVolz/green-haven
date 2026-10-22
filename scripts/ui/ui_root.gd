@@ -104,6 +104,7 @@ func _ready() -> void:
 	GameState.inventory_changed.connect(_on_state_changed)
 	GameState.world_changed.connect(_on_state_changed)
 	GameState.orders_changed.connect(_on_state_changed)
+	GameState.cafe_changed.connect(_on_state_changed)
 	GameState.animals_changed.connect(_on_state_changed)
 	GameState.quests_changed.connect(_on_state_changed)
 	GameState.coins_changed.connect(_on_state_changed)
@@ -938,6 +939,16 @@ func act_claim_hofbuch(entry_id: String) -> void:
 
 func act_start_recipe(uid: int, recipe: String) -> void:
 	_check(GameState.start_recipe(uid, recipe))
+
+
+func act_serve_cafe(table: int) -> void:
+	if _check(GameState.serve_cafe_guest(table)):
+		show_toast("Serviert – der Gast isst in Ruhe.", "good")
+
+
+func act_send_cafe_home(table: int) -> void:
+	if _check(GameState.send_cafe_guest_home(table)):
+		show_toast("Der Gast kommt gern wieder.", "info")
 
 
 func act_collect(uid: int) -> void:

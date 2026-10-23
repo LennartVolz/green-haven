@@ -91,7 +91,10 @@ static func _head(ui, o: Dictionary) -> HBoxContainer:
 static func _notes(o: Dictionary) -> Array:
 	var lines: Array = []
 	if o.has("neighborhood_event_cycle"):
-		lines.append(I18n.t("Gartentag · Etappe %d/%d\n%s") % [int(o["neighborhood_event_stage"]) + 1, GameState.NEIGHBORHOOD_EVENT_SERIES_LENGTH, String(o.get("neighborhood_event_story", ""))])
+		# Etappe und Fortschritt stehen in der Gartentag-Karte unter den Aufträgen.
+		# Hier bleibt nur der Satz des Gastes – eine Zeile, damit auch während eines
+		# Gartentags alle vier Aufträge ohne Scrollen ins Buch passen.
+		lines.append(I18n.t("Gartentag · %s") % String(o.get("neighborhood_event_story", "")))
 	if o.has("story_text"):
 		lines.append(I18n.t("Geschichte · %s") % String(o["story_text"]))
 	if o.has("visitor_story"):

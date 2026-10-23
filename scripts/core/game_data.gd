@@ -256,6 +256,13 @@ const DECOS_SRC := {
 	"hofbuch_herbs": {"name": "Kräuterbeet", "cost": 0, "level": 1, "size": [1, 1], "unlock": "hofbuch:green_hands"},
 	"hofbuch_table": {"name": "Café-Tisch", "cost": 0, "level": 1, "size": [2, 1], "unlock": "hofbuch:cafe_table"},
 	"hofbuch_sign": {"name": "Willkommensschild", "cost": 0, "level": 1, "size": [1, 1], "unlock": "hofbuch:home_for_all"},
+	# Namensdeko der Nachbarn: ab Freundschaftsstufe 2 geschenkt, kostenlos.
+	"sign_lena": {"name": "Lenas Schild", "label": "Lena", "cost": 0, "level": 1, "size": [1, 1], "unlock": "neighbor:lena"},
+	"sign_oskar": {"name": "Oskars Schild", "label": "Oskar", "cost": 0, "level": 1, "size": [1, 1], "unlock": "neighbor:oskar"},
+	"sign_fatima": {"name": "Fatimas Schild", "label": "Fatima", "cost": 0, "level": 1, "size": [1, 1], "unlock": "neighbor:fatima"},
+	"sign_jonas": {"name": "Jonas' Schild", "label": "Jonas", "cost": 0, "level": 1, "size": [1, 1], "unlock": "neighbor:jonas"},
+	"sign_mira": {"name": "Miras Schild", "label": "Mira", "cost": 0, "level": 1, "size": [1, 1], "unlock": "neighbor:mira"},
+	"sign_hanna": {"name": "Hannas Schild", "label": "Hanna", "cost": 0, "level": 1, "size": [1, 1], "unlock": "neighbor:hanna"},
 }
 
 ## Gerettete Tiere. Sie produzieren nichts – sie werden gepflegt und geliebt.
@@ -441,6 +448,110 @@ const EXCURSIONS_SRC := {
 	]},
 }
 
+## Sechs Nachbarn mit eigenem Ton. Jeder schreibt drei kurze Briefe: eine Bitte,
+## ein Dank, eine Beobachtung. Ein Brief mit `request` bietet eine kleine
+## Lieferung an – nichts läuft ab, nichts muss angenommen werden. Ab dem zweiten
+## Brief darf man den Hof besuchen; dort erzählen zwei Stellen je einen Satz.
+const NEIGHBORS_SRC := {
+	"lena": {
+		"name": "Lena", "note": "führt das Gartencafé zwei Höfe weiter",
+		"letters": [
+			{"text": "Der erste Kaffee schmeckt doppelt so gut, wenn jemand am Tisch sitzt. Danke, dass du immer wieder vorbeikommst."},
+			{"text": "Für den Kuchen am Nachmittag fehlen mir noch Karotten. Magst du mir ein paar vorbeibringen?",
+				"request": {"items": {"carrot": 3}, "coins": 48, "xp": 14}},
+			{"text": "Heute war zum ersten Mal dein Hafer in meiner Küche – die Gäste haben gelobt. Ein Glas Konfitüre steht für dich bereit.",
+				"request": {"items": {"oat": 4}, "coins": 70, "xp": 20}},
+		],
+		"visit": {
+			"intro": "Lena führt dich hinter das Café: Tische unter Bäumen, und auf jedem ein kleiner Blumenstrauß.",
+			"spots": [
+				"Auf der Terrasse stehen Stühle, die Gäste selbst bemalt haben.",
+				"In der Küche trocknet Kräuterbund neben Kräuterbund an der Wand.",
+			],
+		},
+	},
+	"oskar": {
+		"name": "Oskar", "note": "war Lehrer und schreibt seit vierzig Jahren das Wetter auf",
+		"letters": [
+			{"text": "Ich habe heute Morgen sieben Grad und leichten Westwind notiert. Nur für den Fall, dass es dich interessiert."},
+			{"text": "Meine Enkelin kommt am Sonntag. Ich möchte ihr einen Kartoffelsalat machen wie früher. Hättest du ein paar Kartoffeln?",
+				"request": {"items": {"potato": 4}, "coins": 60, "xp": 16}},
+			{"text": "Deine Sonnenblumen stehen besser als meine. Ich gebe es ungern zu, aber ich habe es notiert."},
+		],
+		"visit": {
+			"intro": "Oskars Hof ist aufgeräumt wie ein Klassenzimmer: jede Reihe ein Beet, jedes Beet ein Schild.",
+			"spots": [
+				"Im Regal stehen vierzig Jahre Wetteraufzeichnungen in ordentlichen Heften.",
+				"Auf der Bank liegt ein Fernglas für die Vögel am Feldrand.",
+			],
+		},
+	},
+	"fatima": {
+		"name": "Fatima", "note": "organisiert das offene Picknick im Park",
+		"letters": [
+			{"text": "Am Samstag decken wir wieder eine lange Tafel. Du musst nichts mitbringen – aber du darfst."},
+			{"text": "Für die Suppe brauche ich noch Karotten und Weizen. Bringst du mit, was du übrig hast?",
+				"request": {"items": {"carrot": 3, "wheat": 4}, "coins": 64, "xp": 18}},
+			{"text": "Zwei Kinder haben heute gelernt, wie man Brot bäckt. Sie haben gefragt, ob du auch kommst."},
+		],
+		"visit": {
+			"intro": "Fatimas Hof ist ein Treffpunkt: Klapptische, Stapelstühle und ein Topf, der immer warm ist.",
+			"spots": [
+				"Eine Tafel an der Wand sammelt, wer diese Woche etwas abgeben kann.",
+				"Im Schuppen stapeln sich Körbe, die nach jedem Picknick zurückkommen.",
+			],
+		},
+	},
+	"jonas": {
+		"name": "Jonas", "note": "ist Tischler und repariert alles, was wackelt",
+		"letters": [
+			{"text": "Deine Gartenbank steht schief. Ich habe es gesehen, als ich vorbeiging. Es ist keine Kritik."},
+			{"text": "Ich habe Eichenholz übrig. Wenn du mir ein paar Hafer bringst, tausche ich gegen ein neues Brett für dein Tor.",
+				"request": {"items": {"oat": 3}, "coins": 54, "xp": 15}},
+			{"text": "Die Bank steht jetzt gerade. Bitte sag nichts. Ich weiß."},
+		],
+		"visit": {
+			"intro": "In Jonas' Werkstatt riecht es nach Sägemehl; an der Wand hängen Werkzeuge in einer Reihe.",
+			"spots": [
+				"Auf dem Hobelbock liegt ein Stuhl, dessen Bein schon zweimal gebrochen ist.",
+				"Hinter der Tür stapeln sich Holzreste, sortiert nach Länge.",
+			],
+		},
+	},
+	"mira": {
+		"name": "Mira", "note": "hat Bienen und schreibt kurze, leise Sätze",
+		"letters": [
+			{"text": "Die Bienen fliegen heute bis zu den Sonnenblumen. Es dauert nicht mehr lange, dann blüht alles."},
+			{"text": "Zum Räuchern brauche ich noch ein paar Weizenähren. Hast du welche übrig?",
+				"request": {"items": {"wheat": 5}, "coins": 52, "xp": 14}},
+			{"text": "Ein Schwarm hat sich an deinem Zaun gesammelt und ist dann weitergezogen. Ich habe ihn gehen lassen."},
+		],
+		"visit": {
+			"intro": "Miras Hof ist still: Beuten unter dem Obstbaum, und über allem ein leises Summen.",
+			"spots": [
+				"Auf einem Stein liegt eine Wasserschale mit kleinen Korkenstücken darin.",
+				"Im Gras steht ein Stuhl, von dem aus man den Bienen zusehen kann.",
+			],
+		},
+	},
+	"hanna": {
+		"name": "Hanna", "note": "wohnt am Ende der Straße und backt für alle",
+		"letters": [
+			{"text": "Ich habe schon wieder zu viel Teig gemacht. Das passiert mir jeden Sonntag, seit die Kinder aus dem Haus sind."},
+			{"text": "Für den Apfelkuchen fehlen mir Kartoffeln für den Teig. Ich tausche gegen ein Stück, sobald er aus dem Ofen kommt.",
+				"request": {"items": {"potato": 3}, "coins": 58, "xp": 16}},
+			{"text": "Der Kuchen war schneller weg, als ich schauen konnte. Du bekommst das nächste Stück ganz allein."},
+		],
+		"visit": {
+			"intro": "Hannas Hof ist warm: Wäsche auf der Leine, ein Ofen, der noch nach Kuchen riecht.",
+			"spots": [
+				"Auf der Fensterbank stehen Gläser mit eingelegten Blüten.",
+				"Im Flur hängen Fotos von Nachbarn, die längst weitergezogen sind.",
+			],
+		},
+	},
+}
+
 ## Eine Geschichte startet erst auf der Stufe, auf der alle ihre Lieferungen herstellbar sind
 ## (cafe_opening braucht die Café-Rezepte bis Stufe 14).
 const DELIVERY_STORIES_SRC := {
@@ -526,6 +637,7 @@ var ANIMAL_TRAITS := {}
 var ANIMAL_ACTIVITIES := {}
 var FRIENDSHIP_STORIES := {}
 var EXCURSIONS := {}
+var NEIGHBORS := {}
 var DELIVERY_STORIES := {}
 var NEIGHBORHOOD_EVENT_STAGES := []
 var NEIGHBORHOOD_EVENT_STORIES := []
@@ -709,6 +821,7 @@ func _apply_tables(translate: bool) -> void:
 	ANIMAL_ACTIVITIES = _localize(ANIMAL_ACTIVITIES_SRC)
 	FRIENDSHIP_STORIES = _localize(FRIENDSHIP_STORIES_SRC)
 	EXCURSIONS = _localize(EXCURSIONS_SRC)
+	NEIGHBORS = _localize(NEIGHBORS_SRC)
 	DELIVERY_STORIES = _localize(DELIVERY_STORIES_SRC)
 	NEIGHBORHOOD_EVENT_STAGES = _localize(NEIGHBORHOOD_EVENT_STAGES_SRC)
 	NEIGHBORHOOD_EVENT_STORIES = _localize(NEIGHBORHOOD_EVENT_STORIES_SRC)
@@ -766,7 +879,7 @@ func _build_items() -> void:
 
 ## Alle deutschen Quelltexte der Datentabellen – Grundlage für den CI-Test, der
 ## prüft, ob jede Sprache vollständig ist.
-const TEXT_KEYS := ["name", "description", "text", "story", "stories", "note", "title", "intro", "feature", "place"]
+const TEXT_KEYS := ["name", "description", "text", "story", "stories", "note", "title", "intro", "feature", "place", "label", "spots"]
 
 
 func source_texts() -> Array:
@@ -790,6 +903,7 @@ func source_texts() -> Array:
 	_collect_texts(ANIMAL_ACTIVITIES_SRC, out, false)
 	_collect_texts(FRIENDSHIP_STORIES_SRC, out, true)
 	_collect_texts(EXCURSIONS_SRC, out, false)
+	_collect_texts(NEIGHBORS_SRC, out, false)
 	_collect_texts(DELIVERY_STORIES_SRC, out, false)
 	_collect_texts(NEIGHBORHOOD_EVENT_STAGES_SRC, out, false)
 	_collect_texts(NEIGHBORHOOD_EVENT_STORIES_SRC, out, true)

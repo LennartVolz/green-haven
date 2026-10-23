@@ -6,6 +6,8 @@
   "DIARY_EVENT_STORY": "Gartentag · %s: %s",
   "DIARY_EXCURSION": "%s und %s waren zusammen unterwegs – %s.",
   "DIARY_HOFBUCH_ENTRY": "Hofbuch · %s: %s",
+  "DIARY_NEIGHBOR_SIGN": "%s schenkt dir ein Namensschild für deinen Hof.",
+  "DIARY_NEIGHBOR_VISIT": "Zu Besuch bei %s: %s",
   "DIARY_RESCUE_HOME": "%s hat im Refugium ein sicheres Zuhause gefunden.",
   "DIARY_SEASON_GOALS": "%s · Saisonziele: %s",
   "DIARY_STORY_DONE": "%s ist abgeschlossen. Die Nachbarschaft bedankt sich für deine Hilfe!",

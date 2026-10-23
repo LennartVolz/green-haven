@@ -427,6 +427,15 @@ func migrate(data: Dictionary) -> Dictionary:
 	data["excursion_count_today"] = clampi(int(data.get("excursion_count_today", 0)), 0, GameState.EXCURSION_MAX_PER_DAY)
 	data["excursion_next_at"] = float(data.get("excursion_next_at", 0.0))
 	data["excursion_last_destination"] = str(data.get("excursion_last_destination", ""))
+	# Nachbarschaftsbriefe sind eine optionale Ergänzung: Altstände starten mit
+	# leerem Briefkasten und ohne Freundschaft. Nichts wird nachgeholt.
+	if typeof(data.get("letters")) != TYPE_ARRAY:
+		data["letters"] = []
+	data["next_letter_at"] = float(data.get("next_letter_at", 0.0))
+	if typeof(data.get("neighbor_friendship")) != TYPE_DICTIONARY:
+		data["neighbor_friendship"] = {}
+	if typeof(data.get("neighbor_visits")) != TYPE_DICTIONARY:
+		data["neighbor_visits"] = {}
 	# Wilde Sammelstellen sind eine optionale Ergänzung. Altstände starten ohne
 	# Nachwuchszeiten; die Fundstellen selbst ergeben sich aus der Zellposition.
 	if not data.has("forage"):

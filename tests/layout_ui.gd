@@ -230,6 +230,67 @@ func check_excursion(locale: String) -> void:
 	await frames(2)
 
 
+## Post für die Layoutprüfung: mehrere Briefe, eine Bitte mit Ware im Vorrat und
+## ein Nachbar mit zwei Briefen, damit der Besuch offen ist.
+func prepare_letters() -> void:
+	if not gs.letters.is_empty():
+		return
+	for i in range(6):
+		gs.next_letter_at = 0.0
+		gs._refresh_letters()
+	var sender := str(gs.letters[0]["neighbor"])
+	var guard := 0
+	while gs.letters_from(sender) < gs.VISIT_LETTERS_REQUIRED and guard < 12:
+		gs.next_letter_at = 0.0
+		gs._refresh_letters()
+		guard += 1
+	for letter in gs.letters:
+		var request: Dictionary = gs.letter_request(letter)
+		for item_id in request.get("items", {}):
+			gs.add_item(str(item_id), int(request["items"][item_id]))
+	gs.read_letters()
+
+
+## Briefkasten und Besuch: Karten mit Bitte, sechs Nachbarzeilen und die Szene
+## mit ihren Sätzen müssen in jeder Sprache sauber brechen.
+func check_letters(locale: String) -> void:
+	var view: Vector2 = ui._layer.size
+	prepare_letters()
+	if gs.letters.is_empty():
+		check(false, "[%s] Post für die Layoutprüfung vorhanden" % locale)
+		return
+	ui.open_sheet("letters")
+	await frames(5)
+	check(ui._sheet.visible, "[%s] Briefkasten öffnet sich" % locale)
+	check(has_text(ui.content, I18n.t("Nachbarschaft")), "[%s] der Briefkasten zeigt die Nachbarschaft" % locale)
+	var deliver_prefix := str(I18n.t("Liefern  +%d")).get_slice(" ", 0)
+	check(find_button_prefix(ui.content, deliver_prefix) != null, "[%s] eine Bitte lässt sich liefern" % locale)
+	check(ui._sheet.size.y <= view.y * 0.83,
+		"[%s] Briefkasten bleibt im Bild (%.0f von %.0f px)" % [locale, ui._sheet.size.y, view.y])
+	check_text(locale, "Briefkasten")
+	check_overflow(locale, "Briefkasten")
+	var sender := str(gs.letters[0]["neighbor"])
+	ui.open_sheet("visit", {"neighbor": sender})
+	await frames(5)
+	check(ui._sheet.visible, "[%s] der Besuch öffnet sich" % locale)
+	check(has_text(ui.content, gs.neighbor_visit_intro(sender)), "[%s] der Besuch erzählt sein Intro" % locale)
+	check(ui._sheet.size.y <= view.y * 0.83,
+		"[%s] der Besuch bleibt im Bild (%.0f von %.0f px)" % [locale, ui._sheet.size.y, view.y])
+	check_text(locale, "Besuch")
+	check_overflow(locale, "Besuch")
+	# Mit gefundenen Stellen wachsen die Sätze unter dem Bild – auch das muss passen.
+	gs.neighbor_visits[sender] = [0, 1]
+	ui.open_sheet("visit", {"neighbor": sender})
+	await frames(5)
+	check(has_text(ui.content, String(gs.neighbor_spot_texts(sender)[0])), "[%s] der Besuch zeigt den gefundenen Satz" % locale)
+	check(ui._sheet.size.y <= view.y * 0.83,
+		"[%s] der volle Besuch bleibt im Bild (%.0f von %.0f px)" % [locale, ui._sheet.size.y, view.y])
+	check_text(locale, "Besuch mit Funden")
+	check_overflow(locale, "Besuch mit Funden")
+	ui.close_sheet()
+	await frames(2)
+
+
 func check_toolbar(locale: String) -> void:
 	ui.close_sheet()
 	await frames(3)
@@ -411,6 +472,7 @@ func run() -> void:
 			await check_excursion(locale)
 		if cafe_uid > 0:
 			await check_cafe(locale)
+		await check_letters(locale)
 		await check_toolbar(locale)
 		gs.orders.clear()
 	# Die Lesbarkeitsstufen einmal in der längsten und der kürzesten Sprache:

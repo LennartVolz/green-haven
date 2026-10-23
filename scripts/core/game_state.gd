@@ -17,6 +17,7 @@ signal orders_changed
 signal cafe_changed
 signal animals_changed
 signal excursion_changed
+signal letters_changed
 signal quests_changed
 signal toast(text: String, kind: String)
 signal game_event(event_name: String, data: Dictionary)
@@ -65,6 +66,18 @@ const EXCURSION_DAY_START_HOUR := 8.0
 const EXCURSION_DAY_END_HOUR := 17.0
 ## Ein Herz je Tier für einen begleiteten Ausflug.
 const EXCURSION_HEARTS := 1
+## Nachbarschaftsbriefe: unregelmäßig, aber nie in Massen. Nichts läuft ab.
+const LETTER_INTERVAL := 4.0 * 60.0
+const MAX_LETTERS := 18
+## Freundschaft entsteht durch Lesen, Liefern und Besuche – rein erzählerisch.
+const LETTER_READ_POINTS := 1
+const LETTER_DELIVERY_POINTS := 3
+const VISIT_POINTS := 1
+const NEIGHBOR_LEVELS := [1, 3, 6]
+## Ab dem zweiten Brief eines Nachbarn darf man seinen Hof besuchen.
+const VISIT_LETTERS_REQUIRED := 2
+## Ab dieser Stufe schenkt ein Nachbar sein Namensschild für den Hof.
+const NEIGHBOR_SIGN_LEVEL := 2
 const ORDER_COOLDOWN := 25.0
 const PET_COOLDOWN := 12.0
 const ACTIVITY_COOLDOWN := 180.0
@@ -109,6 +122,12 @@ var excursion_day := 0
 var excursion_count_today := 0
 var excursion_next_at := 0.0
 var excursion_last_destination := ""
+## Briefe: {id, neighbor, index, at, read, delivered}. Nichts davon läuft ab.
+var letters: Array = []
+var next_letter_at := 0.0
+## Punkte je Nachbar und die bereits gefundenen Stellen seines Hofes.
+var neighbor_friendship: Dictionary = {}
+var neighbor_visits: Dictionary = {}
 var clock_seconds := CLOCK_START_SECONDS   ## Spieluhr, nur zur Laufzeit
 var neighborhood_event_stage := 0
 var neighborhood_event_order: Dictionary = {}
@@ -472,6 +491,7 @@ func _process(delta: float) -> void:
 	_refresh_acc = 0.0
 	_sync_season()
 	_fill_orders()
+	_refresh_letters()
 	_refresh_rescue_case()
 
 
@@ -505,6 +525,11 @@ func reset_state() -> void:
 	excursion_count_today = 0
 	excursion_next_at = 0.0
 	excursion_last_destination = ""
+	letters = []
+	# Der erste Brief kommt nach kurzer Zeit; danach bestimmt der Takt die Post.
+	next_letter_at = now() + 45.0
+	neighbor_friendship = {}
+	neighbor_visits = {}
 	clock_seconds = CLOCK_START_SECONDS
 	neighborhood_event_stage = 0
 	neighborhood_event_order = {}
@@ -2234,6 +2259,236 @@ func join_excursion() -> bool:
 	return true
 
 
+# ------------------------------------------------------------ Nachbarschaft
+
+func neighbor_name(neighbor_id: String) -> String:
+	return String(GameData.NEIGHBORS.get(neighbor_id, {}).get("name", ""))
+
+
+func unread_letters() -> int:
+	var n := 0
+	for letter in letters:
+		if not bool(letter.get("read", false)):
+			n += 1
+	return n
+
+
+func letters_from(neighbor_id: String) -> int:
+	var n := 0
+	for letter in letters:
+		if str(letter.get("neighbor", "")) == neighbor_id:
+			n += 1
+	return n
+
+
+func find_letter(letter_id: String) -> Dictionary:
+	for letter in letters:
+		if str(letter.get("id", "")) == letter_id:
+			return letter
+	return {}
+
+
+## Die Briefvorlage aus dem Katalog – Text und optionale Lieferung.
+func letter_definition(letter: Dictionary) -> Dictionary:
+	var neighbor: Dictionary = GameData.NEIGHBORS.get(str(letter.get("neighbor", "")), {})
+	var texts: Array = neighbor.get("letters", [])
+	var index := int(letter.get("index", -1))
+	if index < 0 or index >= texts.size():
+		return {}
+	return texts[index]
+
+
+## Briefe werden beim Öffnen des Briefkastens gelesen – das zählt als Zuwendung.
+## Liefert die Zahl der neu gelesenen Briefe.
+func read_letters() -> int:
+	var newly_read := 0
+	for letter in letters:
+		if bool(letter.get("read", false)):
+			continue
+		letter["read"] = true
+		newly_read += 1
+		add_neighbor_friendship(str(letter.get("neighbor", "")), LETTER_READ_POINTS)
+	if newly_read > 0:
+		letters_changed.emit()
+		quests_changed.emit()
+	return newly_read
+
+
+func letter_request(letter: Dictionary) -> Dictionary:
+	return letter_definition(letter).get("request", {})
+
+
+## Kann die kleine Lieferung des Briefes jetzt beantwortet werden?
+func can_deliver_letter(letter_id: String) -> bool:
+	var letter := find_letter(letter_id)
+	if letter.is_empty() or bool(letter.get("delivered", false)):
+		return false
+	var request := letter_request(letter)
+	if request.is_empty() or typeof(request.get("items", {})) != TYPE_DICTIONARY:
+		return false
+	for item_id in request["items"]:
+		if item_count(str(item_id)) < int(request["items"][item_id]):
+			return false
+	return true
+
+
+## Die Bitte eines Briefes erfüllen: Ware abgeben, Dank annehmen. Kein Verfall.
+func deliver_letter(letter_id: String) -> bool:
+	var letter := find_letter(letter_id)
+	if letter.is_empty():
+		last_error = I18n.t("Diesen Brief gibt es nicht mehr")
+		return false
+	if bool(letter.get("delivered", false)):
+		last_error = I18n.t("Diesen Brief hast du schon beantwortet")
+		return false
+	var request := letter_request(letter)
+	if request.is_empty():
+		last_error = I18n.t("Dieser Brief bittet um nichts")
+		return false
+	var items: Dictionary = request.get("items", {})
+	for item_id in items:
+		if item_count(str(item_id)) < int(items[item_id]):
+			last_error = I18n.t("Dir fehlt: %s") % GameData.item_name(str(item_id))
+			return false
+	for item_id in items:
+		remove_item(str(item_id), int(items[item_id]))
+	letter["delivered"] = true
+	letter["read"] = true
+	add_coins(int(request.get("coins", 0)))
+	add_xp(int(request.get("xp", 0)))
+	add_neighbor_friendship(str(letter["neighbor"]), LETTER_DELIVERY_POINTS)
+	bump("letters_delivered")
+	letters_changed.emit()
+	quests_changed.emit()
+	sound.emit("coin")
+	event("letter_delivered", {"neighbor": str(letter["neighbor"])})
+	return true
+
+
+# ---------------------------------------------------------- Nachbarschaft
+
+func neighbor_points(neighbor_id: String) -> int:
+	return maxi(0, int(neighbor_friendship.get(neighbor_id, 0)))
+
+
+## Freundschaftsstufe 0 bis 3; rein erzählerisch, nichts wird schlechter.
+func neighbor_level(neighbor_id: String) -> int:
+	var points := neighbor_points(neighbor_id)
+	var level := 0
+	for threshold in NEIGHBOR_LEVELS:
+		if points >= int(threshold):
+			level += 1
+	return level
+
+
+func neighbor_sign_deco(neighbor_id: String) -> String:
+	return "sign_%s" % neighbor_id
+
+
+func neighbor_sign_unlocked(neighbor_id: String) -> bool:
+	return unlocked_decos.has(neighbor_sign_deco(neighbor_id))
+
+
+func add_neighbor_friendship(neighbor_id: String, points: int) -> void:
+	if not GameData.NEIGHBORS.has(neighbor_id) or points <= 0:
+		return
+	var before := neighbor_level(neighbor_id)
+	neighbor_friendship[neighbor_id] = neighbor_points(neighbor_id) + points
+	var after := neighbor_level(neighbor_id)
+	if after <= before:
+		return
+	if after >= NEIGHBOR_SIGN_LEVEL and not neighbor_sign_unlocked(neighbor_id):
+		var deco := neighbor_sign_deco(neighbor_id)
+		if GameData.DECOS.has(deco):
+			unlocked_decos.append(deco)
+			toast.emit(I18n.t("%s schenkt dir ein Namensschild für deinen Hof") % neighbor_name(neighbor_id), "good")
+			add_diary_entry("DIARY_NEIGHBOR_SIGN", [neighbor_name(neighbor_id)])
+			quests_changed.emit()
+	event("neighbor_friendship", {"neighbor": neighbor_id, "level": after})
+
+
+func visit_unlocked(neighbor_id: String) -> bool:
+	return GameData.NEIGHBORS.has(neighbor_id) and letters_from(neighbor_id) >= VISIT_LETTERS_REQUIRED
+
+
+func neighbor_spots(neighbor_id: String) -> Array:
+	var found: Variant = neighbor_visits.get(neighbor_id, [])
+	return found if typeof(found) == TYPE_ARRAY else []
+
+
+func neighbor_visit_intro(neighbor_id: String) -> String:
+	return String(GameData.NEIGHBORS.get(neighbor_id, {}).get("visit", {}).get("intro", ""))
+
+
+func neighbor_spot_texts(neighbor_id: String) -> Array:
+	return GameData.NEIGHBORS.get(neighbor_id, {}).get("visit", {}).get("spots", [])
+
+
+## Eine Stelle im Hof antippen: ein Satz, ein Freundschaftspunkt, einmalig.
+func visit_neighbor_spot(neighbor_id: String, index: int) -> bool:
+	if not visit_unlocked(neighbor_id):
+		last_error = I18n.t("Dafür brauchst du erst zwei Briefe von %s") % neighbor_name(neighbor_id)
+		return false
+	var spots := neighbor_spot_texts(neighbor_id)
+	if index < 0 or index >= spots.size():
+		return false
+	var found := neighbor_spots(neighbor_id)
+	if found.has(index):
+		return false
+	found.append(index)
+	neighbor_visits[neighbor_id] = found
+	add_neighbor_friendship(neighbor_id, VISIT_POINTS)
+	bump("neighbor_visits")
+	if found.size() == 1:
+		add_diary_entry("DIARY_NEIGHBOR_VISIT", [neighbor_name(neighbor_id), neighbor_visit_intro(neighbor_id)])
+	letters_changed.emit()
+	quests_changed.emit()
+	sound.emit("tap")
+	event("neighbor_visited", {"neighbor": neighbor_id, "spot": index})
+	return true
+
+
+## Ein neuer Brief entsteht nur im laufenden Spiel; nach einer Pause wird nichts
+## nachgeholt. Wer zuletzt am wenigsten Post hatte, ist als Nächstes dran.
+func _refresh_letters() -> void:
+	if letters.size() >= MAX_LETTERS or now() < next_letter_at:
+		return
+	var neighbor_id := _next_letter_owner()
+	if neighbor_id == "":
+		return
+	var index := _next_letter_index(neighbor_id)
+	if index < 0:
+		return
+	letters.append({"id": "%s:%d" % [neighbor_id, index], "neighbor": neighbor_id,
+		"index": index, "at": now(), "read": false, "delivered": false})
+	next_letter_at = now() + LETTER_INTERVAL * rng.randf_range(0.8, 1.3)
+	letters_changed.emit()
+	toast.emit(I18n.t("Ein Brief von %s ist angekommen") % neighbor_name(neighbor_id), "info")
+
+
+func _next_letter_index(neighbor_id: String) -> int:
+	var neighbor: Dictionary = GameData.NEIGHBORS.get(neighbor_id, {})
+	var count: int = (neighbor.get("letters", []) as Array).size()
+	for index in range(count):
+		var candidate := "%s:%d" % [neighbor_id, index]
+		if find_letter(candidate).is_empty():
+			return index
+	return -1
+
+
+func _next_letter_owner() -> String:
+	var best := ""
+	var fewest := 999
+	for neighbor_id in GameData.NEIGHBORS:
+		if _next_letter_index(str(neighbor_id)) < 0:
+			continue
+		var count := letters_from(str(neighbor_id))
+		if count < fewest:
+			fewest = count
+			best = str(neighbor_id)
+	return best
+
+
 # ----------------------------------------------------------------- Quests
 
 func quest_progress(q: Dictionary) -> int:
@@ -2376,6 +2631,10 @@ func serialize() -> Dictionary:
 		"excursion_count_today": excursion_count_today,
 		"excursion_next_at": excursion_next_at,
 		"excursion_last_destination": excursion_last_destination,
+		"letters": letters.duplicate(true),
+		"next_letter_at": next_letter_at,
+		"neighbor_friendship": neighbor_friendship.duplicate(),
+		"neighbor_visits": neighbor_visits.duplicate(true),
 		"neighborhood_event_stage": neighborhood_event_stage,
 		"neighborhood_event_order": neighborhood_event_order.duplicate(true),
 		"neighborhood_event_completed_cycle": neighborhood_event_completed_cycle,
@@ -2571,6 +2830,46 @@ func deserialize(d: Dictionary) -> bool:
 				"started_at": float(saved_excursion.get("started_at", now())),
 				"ends_at": float(saved_excursion["ends_at"]),
 				"joined": bool(saved_excursion.get("joined", false))}
+	letters = []
+	var seen_letters := {}
+	for e in _save_array(d, "letters"):
+		if not _has_keys(e, ["neighbor", "index"]):
+			continue
+		var letter_neighbor := str(e["neighbor"])
+		if not GameData.NEIGHBORS.has(letter_neighbor):
+			continue
+		var letter_index := int(e["index"])
+		var definitions: Array = GameData.NEIGHBORS[letter_neighbor]["letters"]
+		if letter_index < 0 or letter_index >= definitions.size():
+			continue
+		var letter_key := "%s:%d" % [letter_neighbor, letter_index]
+		if seen_letters.has(letter_key):
+			continue
+		seen_letters[letter_key] = true
+		letters.append({"id": letter_key, "neighbor": letter_neighbor, "index": letter_index,
+			"at": float(e.get("at", now())), "read": bool(e.get("read", false)),
+			"delivered": bool(e.get("delivered", false))})
+		if letters.size() >= MAX_LETTERS:
+			break
+	next_letter_at = float(d.get("next_letter_at", 0.0))
+	neighbor_friendship = {}
+	var saved_friendship := _save_dict(d, "neighbor_friendship")
+	for key in saved_friendship:
+		if GameData.NEIGHBORS.has(str(key)):
+			neighbor_friendship[str(key)] = maxi(0, int(saved_friendship[key]))
+	neighbor_visits = {}
+	var saved_visits := _save_dict(d, "neighbor_visits")
+	for key in saved_visits:
+		var visit_id := str(key)
+		if not GameData.NEIGHBORS.has(visit_id):
+			continue
+		var visit_spots: Array = []
+		var spot_count: int = (GameData.NEIGHBORS[visit_id]["visit"]["spots"] as Array).size()
+		for spot in _save_array(saved_visits, key):
+			var spot_index := int(spot)
+			if spot_index >= 0 and spot_index < spot_count and not visit_spots.has(spot_index):
+				visit_spots.append(spot_index)
+		neighbor_visits[visit_id] = visit_spots
 	var saved_rescue := _save_dict(d, "rescue_case")
 	if GameData.ANIMALS.has(str(saved_rescue.get("species", ""))):
 		var rescue_species: String = str(saved_rescue["species"])

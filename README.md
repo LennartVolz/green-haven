@@ -32,12 +32,14 @@ geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfa
 - Tag-Nacht-Zyklus mit Uhrzeitanzeige: ein Spieltag dauert 8 Minuten echter Zeit, mit Dämmerung und Farbstimmung
 - Tageszähler und Tagesrückblick: „Tag N“ steht im HUD. Beim Tageswechsel und nach einer längeren Pause zeigt ein kurzer Rückblick Ernten, erfüllte Aufträge, Tiermomente und hergestellte Produkte. Alte Spielstände starten ohne rückwirkende Tageshistorie und werden automatisch migriert (Save-Version 10)
 - Kosmetisches Tier-Ambiente: Bei Regen gehen Tiere in den Gehege-Unterstand; nachts schlafen sie dort mit geschlossenen Augen, ruhiger Atmung und kleinen „Z“. Individuelle Schlafzeiten lassen nachts mindestens ein Tier wach; Streicheln weckt kurz auf. Nach Regen erscheint im Nebel für etwa 15 Sekunden ein ein-/ausblendender Regenbogen. Keine Auswirkung auf Werte oder Spielstände.
+- Nachbarschaft: sechs Nachbarn mit eigenem Ton schreiben kurze Briefe (eine Bitte, ein Dank, eine Beobachtung). Eine Bitte lässt sich mit Ware erfüllen, nichts läuft ab. Ab dem zweiten Brief darfst du einen Hof besuchen: eine gemalte Szene mit zwei antippbaren Stellen, die je einen Satz erzählen. Freundschaftsstufen sind rein erzählerisch; ab Stufe 2 schenkt jeder Nachbar ein Namensschild für den eigenen Hof
 - Prozedurale Umgebung in Chunks: Wiese und Wald rings um die Farm werden in 8×8-Zellen-Chunks erzeugt und nur im sichtbaren Kamerabereich gezeichnet. Beim Schwenken und Zoomen entsteht so kein leerer grüner Rand, und die Umgebung bleibt auch bei ausgebauter Farm performant
 - Stufenkurve mit langem Atem: frühe Stufen bleiben schnell erreichbar, spätere Ziele wachsen quadratisch. Erfolge sind eine willkommene Beschleunigung, tragen aber nicht mehr allein bis zur Maximalstufe
 - Touch-Steuerung: Tippen sät, legt Felder an und erntet; ein Finger zieht die Karte über die ganze Farm, auch über reifen Feldern und mit aktivem Werkzeug. Dazu Pinch-Zoom mit Trägheit und Platzieren per Ziehen
 - Lokales, versioniertes Speichersystem (geprüftes Laden, rotierendes Backup, Spielstände neuerer Versionen werden nie überschrieben); Wachstum, Produktion und wilde Fundstellen laufen offline weiter. Ältere Spielstände erhalten leere Sammelzeiten ohne Versionssprung
 - Spielstände als JSON exportieren und importieren (Import wird vor dem Ersetzen geprüft; bisheriger Stand wird als Backup gesichert)
 - Soundeffekte (zur Laufzeit erzeugt), Vibrations-Feedback und optionale Hintergrundmusik; Ton und Musik haben getrennte, selbst gezeichnete Lautstärkeregler (0–100 %, sichtbare Schiene mit großem Griff), Vibration lässt sich abschalten
+- Lesbarkeit: drei Schriftgrößen (Klein, Normal, Groß), größere Schaltflächen und ein kontrastreiches Farbschema in den Einstellungen. Die Wahl gilt in jedem Menü, wirkt sofort und wird mit dem Spielstand gespeichert; ältere Stände starten mit normaler Schrift
 - Eigener Start statt Godot-Logo: Das Engine-Startbild zeigt Hügel, Hofhaus und Sprössling im Spielstil. Danach übernimmt ein handgezeichneter Ladebildschirm mit echtem Fortschritt (Spielstand lesen, Hof aufbauen, Beete vorbereiten), der weich ins Spiel überblendet. Ein Tipp verkürzt die Wartezeit, sobald der Hof bereitsteht; ohne Spielstand grüßt er mit „Ein neuer Hof entsteht“
 
 ## Schnellstart
@@ -47,6 +49,9 @@ godot --headless --path . -s res://tests/run_tests.gd        # Logiktests
 godot --headless --path . -s res://tests/achievements_ui.gd  # UI-Tests (Menüs, Tagebuch, Erfolge)
 godot --headless --path . -s res://tests/save_transfer_ui.gd # UI-Test Spielstand-Export/Import
 godot --headless --path . -s res://tests/production_overview_ui.gd # UI-Test Produktions-Dashboard
+godot --headless --path . -s res://tests/cafe_ui.gd          # UI-Test Gartencafé mit Gästen
+godot --headless --path . -s res://tests/excursion_ui.gd     # UI-Test Tierausflüge und Tagesablauf
+godot --headless --path . -s res://tests/letters_ui.gd       # UI-Test Briefe, Besuch und Namensschild
 godot --headless --path . -s res://tests/boot_ui.gd          # UI-Test Ladebildschirm und Start
 godot --path .                                               # Spiel auf dem Desktop starten
 ```
@@ -64,8 +69,9 @@ scripts/core/    GameData (Balancing), GameState (Logik), SaveSystem, Sfx, Backg
 scripts/world/   Welt, Kamera/Touch, Gelände, Felder, Sammelstellen, Objekte, Tiere, Painter
 scripts/ui/      UiRoot (HUD, Aktionen), UiKit, Icons, BootScreen, sheets/ (Menüs)
 scenes/          boot, main, world, ui_root, entity, animal
-tests/           run_tests.gd, achievements_ui.gd, save_transfer_ui.gd, boot_ui.gd,
-                 screenshots.gd, suites/ (inkl. Tier-Wetter-Ambiente), fixtures/ (Test-Spielstände)
+tests/           run_tests.gd, achievements_ui.gd, save_transfer_ui.gd, cafe_ui.gd,
+                 excursion_ui.gd, letters_ui.gd, boot_ui.gd, screenshots.gd,
+                 suites/ (inkl. Tier-Wetter-Ambiente), fixtures/ (Test-Spielstände)
 tools/           make_boot_splash.gd (PNG aus der SVG-Quelle erzeugen)
-docs/            BUILD.md
+docs/            BUILD.md, ROADMAP.md (geplante Pakete)
 ```

@@ -99,7 +99,10 @@ static func _object_card(ui, c: VBoxContainer, id: String) -> void:
 		_:
 			info = "Dekoration"
 			if d.has("unlock"):
-				info = "Belohnung aus Zielen · kostenlos" if not reward_locked else "Erst nach einem Ziel verfügbar"
+				if str(d["unlock"]).begins_with("neighbor:"):
+					info = "Geschenk der Nachbarschaft · kostenlos" if not reward_locked else "Erst ab Freundschaftsstufe 2"
+				else:
+					info = "Belohnung aus Zielen · kostenlos" if not reward_locked else "Erst nach einem Ziel verfügbar"
 	v.add_child(UiKit.label(info, 24, UiKit.earth_dark()))
 	if cost <= 0:
 		v.add_child(UiKit.icon_text("leaf", "kostenlos", 26, UiKit.sage_dark()))

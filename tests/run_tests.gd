@@ -59,6 +59,7 @@ func _initialize() -> void:
 	test_cafe()
 	test_cafe_guests()
 	test_excursions()
+	test_letters()
 	test_neighborhood_event()
 	test_story_during_event()
 	test_achievements()
@@ -246,6 +247,8 @@ func test_season_goals() -> void:
 	unlock_keys["season:year"] = true
 	for entry in gd.HOFBUCH:
 		unlock_keys["hofbuch:" + str(entry["id"])] = true
+	for neighbor_id in gd.NEIGHBORS:
+		unlock_keys["neighbor:" + str(neighbor_id)] = true
 	for deco_id in gd.DECOS:
 		var deco: Dictionary = gd.DECOS[deco_id]
 		if not deco.has("unlock"):
@@ -992,6 +995,144 @@ func test_excursions() -> void:
 	check(gs.deserialize(broken), "ein Stand mit unbekanntem Ziel lädt")
 	check(gs.excursion.is_empty(), "unbekannte Ziele werden beim Laden verworfen")
 	check(gs.SAVE_VERSION == 11, "Tierausflüge brauchen keine neue Spielstand-Version")
+
+
+func test_letters() -> void:
+	begin("Nachbarschaftsbriefe")
+	check(gd.NEIGHBORS.size() == 6, "sechs Nachbarn schreiben Briefe")
+	for neighbor_id in gd.NEIGHBORS:
+		var neighbor: Dictionary = gd.NEIGHBORS[neighbor_id]
+		check(not String(neighbor["name"]).is_empty() and not String(neighbor["note"]).is_empty(), "Nachbar %s hat Namen und Ton" % neighbor_id)
+		var neighbor_letters: Array = neighbor["letters"]
+		check(neighbor_letters.size() >= 2, "%s schreibt mindestens zwei Briefe" % neighbor_id)
+		var visit: Dictionary = neighbor["visit"]
+		check(not String(visit.get("intro", "")).is_empty(), "%s hat eine Besuchsszene" % neighbor_id)
+		var visit_spots: Array = visit.get("spots", [])
+		check(visit_spots.size() >= 2 and visit_spots.size() <= 3, "%s zeigt zwei bis drei Stellen" % neighbor_id)
+		for letter_def in neighbor_letters:
+			check(not String(letter_def.get("text", "")).is_empty(), "Brief von %s hat Text" % neighbor_id)
+			var request: Dictionary = letter_def.get("request", {})
+			if request.is_empty():
+				continue
+			check(int(request.get("coins", 0)) > 0 and int(request.get("xp", 0)) > 0, "Bitte von %s bringt Münzen und XP" % neighbor_id)
+			for item_id in request.get("items", {}):
+				check(gd.items.has(str(item_id)), "Bitte von %s nennt eine echte Ware" % neighbor_id)
+				check(int(gd.items[str(item_id)]["level"]) <= 4, "Bitte von %s bleibt früh erfüllbar" % neighbor_id)
+	check(gs.letters.is_empty(), "der Briefkasten startet leer")
+	check(gs.unread_letters() == 0, "am Anfang ist nichts ungelesen")
+	check(not gs.visit_unlocked("lena"), "ohne Briefe gibt es keinen Besuch")
+	check(not gs.deliver_letter("lena:0"), "ohne Brief gibt es nichts zu liefern")
+	# Der erste Brief kommt von selbst und ist ungelesen.
+	gs.next_letter_at = 0.0
+	gs._refresh_letters()
+	check(gs.letters.size() == 1, "der erste Brief kommt an")
+	var first: Dictionary = gs.letters[0]
+	check(not bool(first["read"]) and gs.unread_letters() == 1, "ein neuer Brief ist ungelesen")
+	check(gd.NEIGHBORS.has(str(first["neighbor"])), "der Absender ist ein Nachbar")
+	check(not gs.letter_definition(first).is_empty(), "der Brief hat eine Vorlage")
+	# Lesen zählt einmal als Zuwendung.
+	check(gs.read_letters() == 1, "der Brief lässt sich lesen")
+	check(bool(first["read"]) and gs.unread_letters() == 0, "danach ist er gelesen")
+	check(gs.neighbor_points(str(first["neighbor"])) == gs.LETTER_READ_POINTS, "Lesen zählt Freundschaft")
+	check(gs.read_letters() == 0, "nochmaliges Lesen zählt nicht erneut")
+	# Die Post verteilt sich: jeder der sechs Nachbarn kommt einmal dran.
+	for i in range(5):
+		gs.next_letter_at = 0.0
+		gs._refresh_letters()
+	check(gs.letters.size() == 6, "nach sechs Briefen hat jeder Nachbar geschrieben")
+	var senders := {}
+	for letter in gs.letters:
+		senders[str(letter["neighbor"])] = true
+	check(senders.size() == 6, "kein Nachbar schreibt zweimal, bevor alle dran waren")
+	# Eine Bitte: erst prüfen, dann liefern.
+	var request_letter := {}
+	var request_guard := 0
+	while request_letter.is_empty() and request_guard < 10:
+		for letter in gs.letters:
+			if not gs.letter_request(letter).is_empty() and not bool(letter["delivered"]):
+				request_letter = letter
+				break
+		if request_letter.is_empty():
+			gs.next_letter_at = 0.0
+			gs._refresh_letters()
+		request_guard += 1
+	check(not request_letter.is_empty(), "es gibt einen Brief mit Bitte")
+	var request: Dictionary = gs.letter_request(request_letter)
+	var request_id := str(request_letter["id"])
+	var requester := str(request_letter["neighbor"])
+	var coins_before: int = gs.coins
+	var delivery_points_before: int = gs.neighbor_points(requester)
+	check(not gs.can_deliver_letter(request_id), "ohne Ware lässt sich nicht liefern")
+	check(not gs.deliver_letter(request_id), "die Lieferung ohne Ware wird abgelehnt")
+	for item_id in request["items"]:
+		gs.add_item(str(item_id), int(request["items"][item_id]))
+	check(gs.can_deliver_letter(request_id), "mit Ware ist die Lieferung möglich")
+	check(gs.deliver_letter(request_id), "die Bitte lässt sich erfüllen")
+	check(bool(request_letter["delivered"]) and gs.coins == coins_before + int(request["coins"]), "die Lieferung bringt Münzen")
+	check(gs.neighbor_points(requester) == delivery_points_before + gs.LETTER_DELIVERY_POINTS, "die Lieferung zählt Freundschaft")
+	for item_id in request["items"]:
+		check(gs.item_count(str(item_id)) == 0, "die gelieferte Ware ist abgegeben")
+	check(not gs.deliver_letter(request_id), "eine Bitte zählt nur einmal")
+	# Besuche: ab dem zweiten Brief, jede Stelle einmal.
+	var visitor := str(first["neighbor"])
+	var guard := 0
+	while gs.letters_from(visitor) < gs.VISIT_LETTERS_REQUIRED and guard < 20:
+		gs.next_letter_at = 0.0
+		gs._refresh_letters()
+		guard += 1
+	check(gs.letters_from(visitor) >= gs.VISIT_LETTERS_REQUIRED, "der Nachbar schreibt ein zweites Mal")
+	check(gs.visit_unlocked(visitor), "ab dem zweiten Brief ist der Besuch frei")
+	var visit_spots: Array = gs.neighbor_spot_texts(visitor)
+	check(not String(gs.neighbor_visit_intro(visitor)).is_empty() and visit_spots.size() >= 2, "der Hof hat eine Szene mit Stellen")
+	check(not gs.visit_neighbor_spot(visitor, 99), "unbekannte Stellen werden abgelehnt")
+	var visit_points_before: int = gs.neighbor_points(visitor)
+	check(gs.visit_neighbor_spot(visitor, 0), "die erste Stelle lässt sich entdecken")
+	check(gs.neighbor_points(visitor) == visit_points_before + gs.VISIT_POINTS, "der Besuch zählt Freundschaft")
+	check(gs.neighbor_spots(visitor) == [0], "die gefundene Stelle bleibt gemerkt")
+	check(not gs.visit_neighbor_spot(visitor, 0), "dieselbe Stelle zählt nur einmal")
+	check(str(gs.diary[gs.diary.size() - 1]["key"]) == "DIARY_NEIGHBOR_VISIT", "der erste Besuch steht im Tagebuch")
+	# Stufe 2 schenkt das Namensschild.
+	var sign_id: String = gs.neighbor_sign_deco(visitor)
+	check(gd.DECOS.has(sign_id) and int(gd.DECOS[sign_id]["cost"]) == 0, "jeder Nachbar hat ein kostenloses Schild")
+	var sign_guard := 0
+	while gs.neighbor_level(visitor) < gs.NEIGHBOR_SIGN_LEVEL and sign_guard < 20:
+		gs.add_neighbor_friendship(visitor, 1)
+		sign_guard += 1
+	check(gs.neighbor_level(visitor) >= gs.NEIGHBOR_SIGN_LEVEL, "die Freundschaft erreicht Stufe 2")
+	check(gs.neighbor_sign_unlocked(visitor), "Stufe 2 schaltet das Namensschild frei")
+	check(gs.deco_unlocked(sign_id), "das Schild lässt sich platzieren")
+	# Speichern und Laden: Post, Punkte und Stellen bleiben.
+	var points_after: int = gs.neighbor_points(visitor)
+	var letters_after: int = gs.letters.size()
+	var unread_before: int = gs.unread_letters()
+	var saved: Dictionary = gs.serialize()
+	check(saved.has("letters") and (saved["letters"] as Array).size() == letters_after, "die Briefe stehen im Spielstand")
+	check(gs.deserialize(saved), "Spielstand mit Post lädt")
+	check(gs.letters.size() == letters_after and gs.unread_letters() == unread_before, "gelesene Briefe bleiben gelesen")
+	check(gs.neighbor_points(visitor) == points_after, "die Freundschaft überlebt das Laden")
+	check(gs.neighbor_spots(visitor) == [0], "die gefundene Stelle überlebt das Laden")
+	check(gs.neighbor_sign_unlocked(visitor), "das Schild bleibt freigeschaltet")
+	check(gs.letters_from(visitor) >= 2 and gs.visit_unlocked(visitor), "der Besuch bleibt frei")
+	# Alte Stände und kaputte Einträge: kein Fehler, nur keine Post.
+	var legacy: Dictionary = gs.serialize()
+	legacy.erase("letters")
+	legacy.erase("neighbor_friendship")
+	legacy.erase("neighbor_visits")
+	legacy.erase("next_letter_at")
+	check(gs.deserialize(legacy), "ein Stand ohne Post lädt")
+	check(gs.letters.is_empty() and gs.neighbor_friendship.is_empty() and gs.neighbor_visits.is_empty(), "alte Stände starten mit leerem Briefkasten")
+	var broken: Dictionary = gs.serialize()
+	broken["letters"] = [{"neighbor": "moon", "index": 0}, {"neighbor": "lena", "index": 99}, {"neighbor": "lena", "index": 0}, {"neighbor": "lena", "index": 0}]
+	check(gs.deserialize(broken), "ein Stand mit kaputter Post lädt")
+	check(gs.letters.size() == 1 and str(gs.letters[0]["id"]) == "lena:0", "unbekannte und doppelte Briefe werden verworfen")
+	# Nichts läuft ab, und irgendwann ist der Briefkasten voll.
+	gs.time_offset += gd.REAL_DAY_SECONDS * 3.0
+	check(gs.letters.size() == 1 and not gs.find_letter("lena:0").is_empty(), "Briefe verfallen nicht")
+	for i in range(gs.MAX_LETTERS + 4):
+		gs.next_letter_at = 0.0
+		gs._refresh_letters()
+	check(gs.letters.size() == gs.MAX_LETTERS, "mehr als %d Briefe gibt es nicht" % gs.MAX_LETTERS)
+	check(gs.SAVE_VERSION == 11, "Briefe brauchen keine neue Spielstand-Version")
 
 
 func test_neighborhood_event() -> void:

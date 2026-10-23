@@ -40,6 +40,15 @@ static func poly(ci: CanvasItem, pts: Array, color: Color) -> void:
 	ci.draw_colored_polygon(PackedVector2Array(pts), color)
 
 
+## Ein Holzpfahl mit cremefarbenem Schild und dem Namen des Nachbarn.
+static func neighbor_sign(ci: CanvasItem, label: String) -> void:
+	shadow(ci, Vector2(0, -22), 44, 10)
+	ci.draw_line(Vector2(0, -24), Vector2(0, -92), col("#8E6240"), 9.0, true)
+	rrect(ci, Rect2(-62, -152, 124, 64), col("#8E6240"), 10)
+	rrect(ci, Rect2(-55, -146, 110, 52), col("#FFF6E0"), 8)
+	ci.draw_string(ThemeDB.fallback_font, Vector2(-52, -112), label, HORIZONTAL_ALIGNMENT_CENTER, 104, 24, col("#54351D"))
+
+
 static func shadow(ci: CanvasItem, c: Vector2, rx: float, ry: float) -> void:
 	ellipse(ci, c, rx, ry, Color(0, 0, 0, 0.17))
 
@@ -835,6 +844,10 @@ static func flower_dot(ci: CanvasItem, p: Vector2, s: float, c: Color) -> void:
 
 ## Ursprung = Mitte der Unterkante der Grundfläche.
 static func draw_deco(ci: CanvasItem, type: String, t: float) -> void:
+	# Namensschilder der Nachbarn: ein kleines Holzschild mit dem Vornamen.
+	if type.begins_with("sign_"):
+		neighbor_sign(ci, String(GameData.DECOS.get(type, {}).get("label", "")))
+		return
 	match type:
 		"bush":
 			bush(ci, Vector2(0, -26), 1.0, true)

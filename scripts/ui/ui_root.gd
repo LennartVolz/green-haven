@@ -18,6 +18,8 @@ const AchievementsSheet := preload("res://scripts/ui/sheets/achievements_sheet.g
 const HofbuchSheet := preload("res://scripts/ui/sheets/hofbuch_sheet.gd")
 const LexiconSheet := preload("res://scripts/ui/sheets/lexicon_sheet.gd")
 const ExcursionSheet := preload("res://scripts/ui/sheets/excursion_sheet.gd")
+const LettersSheet := preload("res://scripts/ui/sheets/letters_sheet.gd")
+const VisitSheet := preload("res://scripts/ui/sheets/visit_sheet.gd")
 
 ## Die ersten Schritte (bis TUTORIAL_INFO_FROM) warten auf eine Handlung des
 ## Spielers, die späteren sind reine Hinweise und werden mit „Weiter“ gelesen.
@@ -52,6 +54,10 @@ var _sheet_head: HBoxContainer
 var _scroll: ScrollContainer
 var _title: Label
 var _subtitle: Label
+## Kleiner Knopf rechts in der Kopfzeile, etwa für die Post im Auftragsbuch.
+## Er sitzt außerhalb des Scrollbereichs und kostet deshalb keine Inhaltshöhe.
+var _header_action: Button
+var _header_action_cb: Callable
 var _toolbar: PanelContainer
 var _nav: PanelContainer
 var _side: VBoxContainer
@@ -108,6 +114,7 @@ func _ready() -> void:
 	GameState.cafe_changed.connect(_on_state_changed)
 	GameState.animals_changed.connect(_on_state_changed)
 	GameState.excursion_changed.connect(_on_state_changed)
+	GameState.letters_changed.connect(_on_state_changed)
 	GameState.quests_changed.connect(_on_state_changed)
 	GameState.coins_changed.connect(_on_state_changed)
 	get_viewport().size_changed.connect(_apply_safe_area)
@@ -316,6 +323,12 @@ func _build_bottom() -> void:
 	_subtitle.visible = false
 	titles.add_child(_subtitle)
 	head.add_child(titles)
+	_header_action = UiKit.button("", "warm", 24)
+	_header_action.visible = false
+	_header_action.custom_minimum_size = Vector2(170, 64)
+	_header_action.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(_header_action)
+	_header_action.pressed.connect(_on_header_action)
 	var close := UiKit.icon_button("close", "danger", 72)
 	close.pressed.connect(close_sheet)
 	head.add_child(close)
@@ -472,6 +485,19 @@ func set_subtitle(text: String) -> void:
 	_subtitle.visible = not _subtitle.text.is_empty()
 
 
+## Ein kleiner Knopf in der Kopfzeile – dort, wo sonst nichts steht. Leerer
+## Text blendet ihn aus, damit jedes Sheet ihn bei Bedarf selbst setzt.
+func set_header_action(text: String, callback: Callable) -> void:
+	_header_action_cb = callback
+	_header_action.text = I18n.t(text)
+	_header_action.visible = not _header_action.text.is_empty()
+
+
+func _on_header_action() -> void:
+	if _header_action_cb.is_valid():
+		_header_action_cb.call()
+
+
 func set_state(key: String, value: Variant) -> void:
 	state[key] = value
 	refresh_sheet()
@@ -485,6 +511,7 @@ func open_sheet(sheet_name: String, args: Dictionary = {}) -> void:
 	if sheet_name == "shop" and state.get("shop_tab", "") == "":
 		state["shop_tab"] = "crops"
 	set_subtitle("")
+	set_header_action("", Callable())
 	_sheet.visible = true
 	# Das Sheet nimmt der Werkzeugleiste den Platz. Bliebe sie sichtbar, würde sie
 	# zwischen Sheet und Navigation auf einen schmalen Streifen gequetscht.
@@ -589,6 +616,10 @@ func _rebuild() -> void:
 			AnimalSheet.build(self, _sheet_args)
 		"excursion":
 			ExcursionSheet.build(self, _sheet_args)
+		"letters":
+			LettersSheet.build(self, _sheet_args)
+		"visit":
+			VisitSheet.build(self, _sheet_args)
 		"crops":
 			CropsSheet.build(self, _sheet_args)
 		_:
@@ -915,6 +946,31 @@ func act_start_delivery_story(story_id: String) -> void:
 
 func act_open_diary() -> void:
 	open_sheet("diary", {})
+
+
+## Der Briefkasten liest beim Öffnen alles Ungelesene – Lesen ist schon Zuwendung.
+func act_open_letters() -> void:
+	GameState.read_letters()
+	open_sheet("letters", {})
+
+
+func act_deliver_letter(letter_id: String) -> void:
+	if _check(GameState.deliver_letter(letter_id)):
+		show_toast("Danke für die Lieferung!", "good")
+
+
+func act_visit_neighbor(neighbor_id: String) -> void:
+	if not GameState.visit_unlocked(neighbor_id):
+		_fail()
+		return
+	open_sheet("visit", {"neighbor": neighbor_id})
+
+
+func act_visit_spot(neighbor_id: String, index: int) -> void:
+	if GameState.visit_neighbor_spot(neighbor_id, index):
+		open_sheet("visit", {"neighbor": neighbor_id})
+	else:
+		_fail()
 
 
 func act_skip_order(order_id: int) -> void:

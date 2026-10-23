@@ -419,6 +419,14 @@ func migrate(data: Dictionary) -> Dictionary:
 				})
 		data["diary"] = migrated_diary
 		data["version"] = 11
+	# Tierausflüge sind ein flüchtiges Ereignis: Alte Stände starten ohne laufenden
+	# Ausflug, deshalb bleibt die Save-Version unverändert.
+	if not data.has("excursion"):
+		data["excursion"] = {}
+	data["excursion_day"] = int(data.get("excursion_day", 0))
+	data["excursion_count_today"] = clampi(int(data.get("excursion_count_today", 0)), 0, GameState.EXCURSION_MAX_PER_DAY)
+	data["excursion_next_at"] = float(data.get("excursion_next_at", 0.0))
+	data["excursion_last_destination"] = str(data.get("excursion_last_destination", ""))
 	# Wilde Sammelstellen sind eine optionale Ergänzung. Altstände starten ohne
 	# Nachwuchszeiten; die Fundstellen selbst ergeben sich aus der Zellposition.
 	if not data.has("forage"):

@@ -108,9 +108,17 @@ func test_animal_ambience() -> void:
 	_check(float(animal_to_wake.get("sleep_wake_timer")) > 0.0, "Aufwachen ist ein kurzer visueller Zustand")
 	_check(_game_state.stats == stats_before and _game_state.coins == coins_before and _game_state.inventory == inventory_before and int(_game_state.get_animal(uid_to_wake).hearts) == hearts_before, "kosmetisches Wecken ändert keine Werte oder Belohnungen")
 	_game_state.time_offset = 120.0 - Time.get_unix_time_from_system()
+	# Tagesablauf: mittags Schatten, abends Unterstand, morgens wieder frei.
 	for animal in animal_nodes:
 		animal.set_ambient("Sonnig", false, 12.0 * 3600.0)
-		_check(not bool(animal.get("sleeping")) and not bool(animal.get("sheltering")), "am Tag bei Sonne kehrt normales Umherlaufen zurück")
+		_check(str(animal.get("_ambient_state")) == "Schatten", "mittags suchen die Tiere den Schatten")
+		_check((animal.get("bounds") as Rect2).has_point(animal.get("shade_target")), "Schattenplatz liegt innerhalb des Geheges")
+	for animal in animal_nodes:
+		animal.set_ambient("Sonnig", false, 17.0 * 3600.0)
+		_check(str(animal.get("_ambient_state")) == "Unterstand", "abends gehen die Tiere in den Unterstand")
+	for animal in animal_nodes:
+		animal.set_ambient("Sonnig", false, 9.0 * 3600.0)
+		_check(not bool(animal.get("sleeping")) and not bool(animal.get("sheltering")), "am Morgen bei Sonne kehrt normales Umherlaufen zurück")
 	var save_after: Dictionary = _game_state.serialize()
 	_check(int(save_after["version"]) == 11 and save_before["stats"] == save_after["stats"], "Ambient-Zustände ändern weder Save-Version noch Statistiken")
 	_check(before_night["coins"] == save_after["coins"] and before_night["inventory"] == save_after["inventory"], "kosmetisches Verhalten beeinflusst keine Wirtschaftsdaten")

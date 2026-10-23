@@ -14,6 +14,9 @@ const CHECKED_SHEETS := ["orders", "quests", "achievements", "hofbuch", "lexicon
 var gs: Node
 var ui: Node
 var cafe_uid := 0
+var paddock_uid := 0
+var rabbit_uid := 0
+var chicken_uid := 0
 var failures := 0
 
 
@@ -159,9 +162,10 @@ func prepare_cafe() -> void:
 	# Prüfungen weiterhin den frühen Spielstand messen.
 	gs.level = 14
 	gs.clock_seconds = 10.4 * 3600.0
+	# Frisch aufsetzen: Ein wartender und ein essender Gast, unabhängig davon,
+	# was ein vorheriger Durchlauf im Café hinterlassen hat.
+	gs.cafe_guests.clear()
 	for i in range(2):
-		if gs.cafe_guests.size() >= 2:
-			break
 		gs.cafe_next_guest_at = 0.0
 		gs._tick_cafe(0.5)
 	gs.cafe_next_guest_at = gs.now() + 9999.0
@@ -169,7 +173,6 @@ func prepare_cafe() -> void:
 		var dish := str(gs.cafe_guests[1]["dish"])
 		gs.add_item(dish, 1)
 		gs.serve_cafe_guest(int(gs.cafe_guests[1]["table"]))
-		gs.cafe_guests[1]["ate_at"] = gs.now() + 9999.0
 
 
 func check_cafe(locale: String) -> void:
@@ -189,6 +192,42 @@ func check_cafe(locale: String) -> void:
 	ui.close_sheet()
 	gs.level = 1
 	await frames(3)
+
+
+## Ausflugskarte im Refugium und die Szene selbst – beides muss in jeder
+## Sprache ohne Quetschung und ohne Überlauf funktionieren.
+func ensure_excursion() -> void:
+	if not gs.excursion.is_empty() and gs.excursion_seconds_left() > 30.0:
+		return
+	gs.excursion = {}
+	gs.clock_seconds = 9.0 * 3600.0
+	gs.excursion_count_today = 0
+	gs.excursion_next_at = 0.0
+	gs._tick_excursions(0.5)
+
+
+func check_excursion(locale: String) -> void:
+	var view: Vector2 = ui._layer.size
+	ensure_excursion()
+	if gs.excursion.is_empty():
+		check(false, "[%s] Ausflug für die Layoutprüfung vorhanden" % locale)
+		return
+	ui.open_sheet("refuge")
+	await frames(5)
+	check(find_button(ui.content, I18n.t("Begleiten")) != null, "[%s] die Ausflugskarte bietet das Begleiten an" % locale)
+	check(ui._sheet.size.y <= view.y * 0.83,
+		"[%s] Refugium mit Ausflugskarte bleibt im Bild (%.0f von %.0f px)" % [locale, ui._sheet.size.y, view.y])
+	check_text(locale, "Refugium mit Ausflug")
+	check_overflow(locale, "Refugium mit Ausflug")
+	ui.open_sheet("excursion", {"destination": str(gs.excursion.get("destination", ""))})
+	await frames(5)
+	check(ui._sheet.visible, "[%s] die Ausflugsszene öffnet sich" % locale)
+	check(ui._sheet.size.y <= view.y * 0.83,
+		"[%s] die Ausflugsszene bleibt im Bild (%.0f von %.0f px)" % [locale, ui._sheet.size.y, view.y])
+	check_text(locale, "Ausflugsszene")
+	check_overflow(locale, "Ausflugsszene")
+	ui.close_sheet()
+	await frames(2)
 
 
 func check_toolbar(locale: String) -> void:
@@ -349,7 +388,16 @@ func run() -> void:
 				cafe_uid = gs.place_object("cafe", Vector2i(x, y))
 	if cafe_uid > 0:
 		gs.upgrade_building(cafe_uid)
-	# Das Café bleibt stehen, die Stufe kehrt für die übrigen Prüfungen zurück.
+	# Ein Gehege mit zwei Tieren für die Ausflugskarte (Stufe 8 für die Arten).
+	gs.level = 8
+	for y in range(gs.land.position.y, gs.land.end.y):
+		for x in range(gs.land.position.x, gs.land.end.x):
+			if paddock_uid == 0 and gs.can_place("paddock", Vector2i(x, y)):
+				paddock_uid = gs.place_object("paddock", Vector2i(x, y))
+	if paddock_uid > 0:
+		rabbit_uid = gs.adopt_animal("rabbit")
+		chicken_uid = gs.adopt_animal("chicken")
+	# Café und Gehege bleiben stehen, die Stufe kehrt für die übrigen Prüfungen zurück.
 	gs.level = 1
 	for locale in ["de"] + TRANSLATED:
 		I18n.apply(locale)
@@ -359,6 +407,8 @@ func run() -> void:
 		await check_text(locale, "Startbildschirm")
 		await check_orders(locale)
 		await check_sheets(locale)
+		if paddock_uid > 0 and rabbit_uid > 0 and chicken_uid > 0:
+			await check_excursion(locale)
 		if cafe_uid > 0:
 			await check_cafe(locale)
 		await check_toolbar(locale)

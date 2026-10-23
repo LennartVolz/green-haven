@@ -2,6 +2,29 @@ extends RefCounted
 ## Ein einzelnes gerettetes Tier: Geschichte, Bedürfnisse, Streicheln, Füttern.
 
 
+## Der Tagesablauf als eine Zeile – dieselbe Einteilung, nach der das Tier im
+## Gehege läuft: morgens frei, mittags Schatten, abends Unterstand, nachts Schlaf.
+static func routine_text(a: Dictionary) -> String:
+	match GameState.animal_routine(a):
+		"excursion":
+			var dest := GameState.excursion_destination()
+			return I18n.t("Unterwegs %s · noch %s") % [String(dest.get("place", "")), GameData.format_time(GameState.excursion_seconds_left())]
+		"morning":
+			return I18n.t("Tagesablauf: gerade im Gehege unterwegs")
+		"noon":
+			return I18n.t("Tagesablauf: gerade im Schatten")
+		"evening":
+			return I18n.t("Tagesablauf: gerade im Unterstand")
+	return I18n.t("Tagesablauf: gerade am Schlafen")
+
+
+static func _show_routine(label: Label, uid: int) -> void:
+	var cur := GameState.get_animal(uid)
+	if cur.is_empty():
+		return
+	label.text = routine_text(cur)
+
+
 static func build(ui, args: Dictionary) -> void:
 	var uid := int(args.get("uid", -1))
 	var a := GameState.get_animal(uid)
@@ -20,6 +43,10 @@ static func build(ui, args: Dictionary) -> void:
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_child(UiKit.label(String(d["name"]), 30, UiKit.earth_dark()))
 	v.add_child(UiKit.icon_text("heart", I18n.t("%d Herzen · Freundschaft %d/4") % [int(a.hearts), GameState.friendship_level(a)], 32))
+	var routine := UiKit.label("", 23, UiKit.sage_dark())
+	v.add_child(routine)
+	_show_routine(routine, uid)
+	ui.ticker.append(func() -> void: _show_routine(routine, uid))
 	var stories: Array = d["stories"]
 	var story: String = stories[clampi(int(a.story), 0, stories.size() - 1)]
 	v.add_child(UiKit.label("Seine Geschichte", 24, UiKit.earth_dark()))
@@ -79,7 +106,7 @@ static func build(ui, args: Dictionary) -> void:
 		if cur.is_empty():
 			return
 		var left := GameState.activity_cooldown_left(cur)
-		play.disabled = left > 0.0
+		play.disabled = left > 0.0 or GameState.animal_on_excursion(uid)
 		play.text = String(activity["name"]) if left <= 0.0 else I18n.t("%s · in %s") % [activity["name"], GameData.format_time(left)])
 
 	c.add_child(UiKit.label("Accessoires", 28, UiKit.earth_dark()))
@@ -97,7 +124,7 @@ static func build(ui, args: Dictionary) -> void:
 		if cur.is_empty():
 			return
 		var left := GameState.pet_cooldown_left(cur)
-		pet.disabled = left > 0.0
+		pet.disabled = left > 0.0 or GameState.animal_on_excursion(uid)
 		pet.text = I18n.t("Streicheln") if left <= 0.0 else I18n.t("Gleich wieder (%ds)") % int(ceil(left))
 		for cosmetic_control in c.get_children():
 			if not cosmetic_control is Button or not cosmetic_control.has_meta("cosmetic_id"):
@@ -111,7 +138,7 @@ static func build(ui, args: Dictionary) -> void:
 				cosmetic_control.disabled = not unlocked_now
 				cosmetic_control.text = I18n.t("%s · %s") % [cosmetic["name"], I18n.t("Angelegt") if equipped_now else (I18n.t("Anlegen") if unlocked_now else I18n.t("ab %d Herzen") % int(cosmetic["hearts"]))]
 				break
-		feed.disabled = GameState.animal_stat(cur, "hunger") >= 95.0 or GameState.item_count(food) < 1
+		feed.disabled = GameState.animal_stat(cur, "hunger") >= 95.0 or GameState.item_count(food) < 1 or GameState.animal_on_excursion(uid)
 		feed.text = I18n.t("Füttern  (%s ×%d)") % [GameData.item_name(food), GameState.item_count(food)])
 	c.add_child(UiKit.wrap_label("Kein Zeitdruck: Tiere werden langsam hungrig und freuen sich über Besuch. Nichts geht verloren, wenn du länger fort bist.", 24, UiKit.earth_dark()))
 

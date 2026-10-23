@@ -96,6 +96,7 @@ func _ready() -> void:
 	GameState.world_changed.connect(_sync)
 	GameState.world_changed.connect(_on_land_changed)
 	GameState.animals_changed.connect(_sync)
+	GameState.excursion_changed.connect(_sync)
 	GameState.fx.connect(_on_fx)
 	GameState.game_event.connect(_on_event)
 	_sync()
@@ -151,6 +152,8 @@ func _sync() -> void:
 			_animal_nodes[uid] = n
 		n.setup(a, pad)
 		n.set_ambient(current_weather, _ambient_night, day_time_seconds)
+		# Wer gerade unterwegs ist, steht nicht im Gehege.
+		n.visible = not GameState.animal_on_excursion(uid)
 	for uid in _animal_nodes.keys():
 		if not seen_a.has(uid):
 			_animal_nodes[uid].queue_free()
@@ -471,7 +474,7 @@ func _error() -> void:
 func _animal_at(w: Vector2) -> Node2D:
 	var best: Node2D = null
 	for n in _animal_nodes.values():
-		if n.hit(w) and (best == null or n.position.y > best.position.y):
+		if n.visible and n.hit(w) and (best == null or n.position.y > best.position.y):
 			best = n
 	return best
 

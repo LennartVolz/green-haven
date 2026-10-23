@@ -1,5 +1,8 @@
 extends RefCounted
 ## Chronik des Refugiums mit Rettungen, gemeinsamen Momenten und Geschichten.
+## Einträge mit einem Ausflugsfoto zeigen das Bild über dem Text.
+
+const ExcursionSheet := preload("res://scripts/ui/sheets/excursion_sheet.gd")
 
 
 static func build(ui, _args: Dictionary) -> void:
@@ -13,6 +16,16 @@ static func build(ui, _args: Dictionary) -> void:
 	entries.reverse()
 	for entry in entries:
 		var card := UiKit.card(12)
+		var stack := UiKit.vbox(8)
+		var photo: Variant = entry.get("photo", {})
+		if typeof(photo) == TYPE_DICTIONARY and not (photo as Dictionary).is_empty():
+			var photo_info: Dictionary = photo
+			var destination: Dictionary = GameData.EXCURSIONS.get(str(photo_info.get("destination", "")), {})
+			var species: Array = []
+			var species_value: Variant = photo_info.get("species", [])
+			if typeof(species_value) == TYPE_ARRAY:
+				species = species_value
+			stack.add_child(ExcursionSheet.photo_frame(species, String(destination.get("name", ""))))
 		var row := UiKit.hbox(10)
 		row.add_child(UiKit.icon("paw" if int(entry.get("animal_uid", -1)) >= 0 else "scroll", 36))
 		var text := UiKit.wrap_label(GameState.diary_text(entry), 24, UiKit.earth_dark())
@@ -22,5 +35,6 @@ static func build(ui, _args: Dictionary) -> void:
 		var date := UiKit.label("%02d.%02d.%04d" % [int(stamp.day), int(stamp.month), int(stamp.year)], 18, UiKit.sage_dark())
 		date.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(date)
-		card.add_child(row)
+		stack.add_child(row)
+		card.add_child(stack)
 		c.add_child(card)

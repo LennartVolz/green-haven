@@ -16,6 +16,7 @@ signal forage_changed
 signal orders_changed
 signal cafe_changed
 signal animals_changed
+signal excursion_changed
 signal quests_changed
 signal toast(text: String, kind: String)
 signal game_event(event_name: String, data: Dictionary)
@@ -53,6 +54,17 @@ const CAFE_EAT_SECONDS := 14.0
 const CAFE_GUEST_TIP := 0.25
 ## Anteil der Gäste, die das Tagesgericht bestellen.
 const CAFE_SPECIAL_GUEST_CHANCE := 0.3
+## Tierausflüge: Zwei Tiere gehen gemeinsam los, höchstens zweimal am Tag.
+## Sie laufen in echter Zeit und nur im laufenden Spiel; eine Pause holt keinen
+## Ausflug nach. Wer nicht mitgeht, verliert nichts.
+const EXCURSION_DURATION := 150.0
+const EXCURSION_PAUSE := 60.0
+const EXCURSION_MAX_PER_DAY := 2
+## Ausflüge beginnen nur am Tag – nachts schlafen die Tiere.
+const EXCURSION_DAY_START_HOUR := 8.0
+const EXCURSION_DAY_END_HOUR := 17.0
+## Ein Herz je Tier für einen begleiteten Ausflug.
+const EXCURSION_HEARTS := 1
 const ORDER_COOLDOWN := 25.0
 const PET_COOLDOWN := 12.0
 const ACTIVITY_COOLDOWN := 180.0
@@ -90,6 +102,13 @@ var cafe_next_guest_at := 0.0
 var cafe_day := 0             ## Spieltag der Tageszahlen unten
 var cafe_day_served := 0
 var cafe_day_coins := 0
+## Laufender Ausflug: {destination, animals: [uid, uid], started_at, ends_at, joined}.
+## Nur die laufende ID steht im Spielstand; alte Stände starten ohne Ausflug.
+var excursion: Dictionary = {}
+var excursion_day := 0
+var excursion_count_today := 0
+var excursion_next_at := 0.0
+var excursion_last_destination := ""
 var clock_seconds := CLOCK_START_SECONDS   ## Spieluhr, nur zur Laufzeit
 var neighborhood_event_stage := 0
 var neighborhood_event_order: Dictionary = {}
@@ -445,6 +464,7 @@ func _process(delta: float) -> void:
 	# Uhr und Café laufen in Echtzeit; alles andere genügt im Sekundentakt.
 	_advance_clock(delta)
 	_tick_cafe(delta)
+	_tick_excursions(delta)
 	# Aufträge und Rettungsfälle ändern sich nur im Sekundentakt; pro Frame wäre das Verschwendung.
 	_refresh_acc += delta
 	if _refresh_acc < REFRESH_INTERVAL_SECONDS:
@@ -480,6 +500,11 @@ func reset_state() -> void:
 	cafe_day = 0
 	cafe_day_served = 0
 	cafe_day_coins = 0
+	excursion = {}
+	excursion_day = 0
+	excursion_count_today = 0
+	excursion_next_at = 0.0
+	excursion_last_destination = ""
 	clock_seconds = CLOCK_START_SECONDS
 	neighborhood_event_stage = 0
 	neighborhood_event_order = {}
@@ -614,8 +639,13 @@ func lexicon_progress(kind: String) -> Dictionary:
 	return {"seen": seen, "total": ids.size()}
 
 
-func add_diary_entry(key: String, args: Array = [], animal_uid: int = -1) -> void:
-	diary.append({"time": now(), "key": key, "args": args.duplicate(true), "animal_uid": animal_uid})
+## `photo` ist optional: ein Ausflugsfoto fürs Tagebuch (Ziel und die beiden
+## Tierarten). Ältere Einträge haben keins und bleiben unverändert.
+func add_diary_entry(key: String, args: Array = [], animal_uid: int = -1, photo: Dictionary = {}) -> void:
+	var entry := {"time": now(), "key": key, "args": args.duplicate(true), "animal_uid": animal_uid}
+	if not photo.is_empty():
+		entry["photo"] = photo.duplicate(true)
+	diary.append(entry)
 	while diary.size() > 100:
 		diary.pop_front()
 
@@ -644,16 +674,25 @@ func friendship_level(a: Dictionary) -> int:
 
 
 func record_animal_moment(a: Dictionary, moment: String, hearts_gained: int) -> void:
-	var old_level := friendship_level(a)
-	a.hearts = int(a.get("hearts", 0)) + hearts_gained
 	# Der Moment wird als Parameter gespeichert, also gleich in der aktuellen Sprache.
 	add_diary_entry("DIARY_ANIMAL_MOMENT", [a.name, I18n.t(moment)], int(a.uid))
+	_gain_animal_hearts(a, hearts_gained)
+
+
+## Herzen dazugewinnen – egal ob durch Streicheln oder einen gemeinsamen
+## Ausflug. Eine neue Freundschaftsstufe schreibt ihren Moment ins Tagebuch.
+func _gain_animal_hearts(a: Dictionary, hearts_gained: int) -> void:
+	var old_level := friendship_level(a)
+	a.hearts = int(a.get("hearts", 0)) + hearts_gained
 	var new_level := friendship_level(a)
-	if new_level > old_level:
-		var species: String = str(a.species)
-		var story: String = GameData.FRIENDSHIP_STORIES[species][new_level - 1]
-		add_diary_entry("DIARY_ANIMAL_TRUST", [a.name, story], int(a.uid))
-		event("friendship_milestone", {"uid": int(a.uid), "level": new_level})
+	if new_level <= old_level:
+		return
+	var species: String = str(a.species)
+	if not GameData.FRIENDSHIP_STORIES.has(species):
+		return
+	var story: String = GameData.FRIENDSHIP_STORIES[species][new_level - 1]
+	add_diary_entry("DIARY_ANIMAL_TRUST", [a.name, story], int(a.uid))
+	event("friendship_milestone", {"uid": int(a.uid), "level": new_level})
 
 
 func event(event_name: String, data: Dictionary = {}) -> void:
@@ -1943,6 +1982,9 @@ func animal_activity(uid: int) -> bool:
 	var a := get_animal(uid)
 	if a.is_empty() or activity_cooldown_left(a) > 0.0:
 		return false
+	if animal_on_excursion(uid):
+		last_error = I18n.t("%s ist gerade unterwegs") % a.name
+		return false
 	_settle(a)
 	a.happy = minf(100.0, float(a.happy) + 12.0)
 	a.activity_at = now() + ACTIVITY_COOLDOWN
@@ -1987,6 +2029,9 @@ func feed_animal(uid: int) -> bool:
 	var a := get_animal(uid)
 	if a.is_empty():
 		return false
+	if animal_on_excursion(uid):
+		last_error = I18n.t("%s ist gerade unterwegs") % a.name
+		return false
 	var food: String = GameData.ANIMALS[a.species]["food"]
 	if animal_stat(a, "hunger") >= 95.0:
 		last_error = I18n.t("%s ist schon satt") % a.name
@@ -2014,6 +2059,9 @@ func pet_animal(uid: int) -> bool:
 	var a := get_animal(uid)
 	if a.is_empty() or pet_cooldown_left(a) > 0.0:
 		return false
+	if animal_on_excursion(uid):
+		last_error = I18n.t("%s ist gerade unterwegs") % a.name
+		return false
 	_settle(a)
 	a.happy = minf(100.0, float(a.happy) + 18.0)
 	a.pet_at = now() + PET_COOLDOWN
@@ -2033,6 +2081,157 @@ func cosmetics_of(a: Dictionary) -> Array:
 		if int(a.hearts) >= int(c["hearts"]):
 			out.append(c["id"])
 	return out
+
+
+# ------------------------------------------------------------- Tierausflüge
+
+func excursion_active() -> bool:
+	return not excursion.is_empty() and float(excursion.get("ends_at", 0.0)) > now()
+
+
+func excursion_seconds_left() -> float:
+	if excursion.is_empty():
+		return 0.0
+	return maxf(0.0, float(excursion.get("ends_at", 0.0)) - now())
+
+
+func excursion_destination() -> Dictionary:
+	return GameData.EXCURSIONS.get(str(excursion.get("destination", "")), {})
+
+
+## Die Tiere, die gerade unterwegs sind – nur die, die es noch gibt.
+func excursion_participants() -> Array:
+	var out: Array = []
+	for uid in excursion.get("animals", []):
+		var a := get_animal(int(uid))
+		if not a.is_empty():
+			out.append(a)
+	return out
+
+
+func animal_on_excursion(uid: int) -> bool:
+	if not excursion_active():
+		return false
+	return (excursion.get("animals", []) as Array).has(uid)
+
+
+## Tagesablauf eines Tieres: dieselbe Einteilung, nach der es auch im Gehege
+## läuft. "excursion" hat Vorrang, solange es unterwegs ist.
+func animal_routine(a: Dictionary) -> String:
+	if animal_on_excursion(int(a.get("uid", -1))):
+		return "excursion"
+	var hour := clock_hour()
+	if hour >= 20.0 or hour < 6.0:
+		return "night"
+	if hour < 10.0:
+		return "morning"
+	if hour < 16.0:
+		return "noon"
+	return "evening"
+
+
+## Ein Spieltag beginnt mit höchstens zwei Ausflügen; der erste startet kurz
+## nach dem Aufwachen der Tiere. Nach einer Pause wird nichts nachgeholt.
+func _sync_excursion_day() -> void:
+	var day := day_number()
+	if excursion_day == day:
+		return
+	excursion_day = day
+	excursion_count_today = 0
+	excursion_next_at = now() + rng.randf_range(45.0, 90.0)
+
+
+## Ein Takt der Ausflüge: zurückkommen, und am Tag den nächsten beginnen.
+## Wird vom Sekundentakt aufgerufen; Tests rufen ihn direkt auf.
+func _tick_excursions(_delta: float) -> void:
+	if not loaded:
+		return
+	_sync_excursion_day()
+	if not excursion.is_empty():
+		if now() >= float(excursion.get("ends_at", 0.0)):
+			_finish_excursion()
+		return
+	if animals.size() < 2 or excursion_count_today >= EXCURSION_MAX_PER_DAY:
+		return
+	if clock_hour() < EXCURSION_DAY_START_HOUR or clock_hour() >= EXCURSION_DAY_END_HOUR:
+		return
+	if now() < excursion_next_at:
+		return
+	_start_excursion()
+
+
+func _start_excursion() -> bool:
+	var candidates: Array = []
+	for a in animals:
+		candidates.append(int(a.uid))
+	if candidates.size() < 2 or GameData.EXCURSIONS.is_empty():
+		return false
+	var choices: Array = []
+	for id in GameData.EXCURSIONS:
+		if str(id) != excursion_last_destination:
+			choices.append(str(id))
+	if choices.is_empty():
+		for id in GameData.EXCURSIONS:
+			choices.append(str(id))
+	var destination: String = choices[rng.randi_range(0, choices.size() - 1)]
+	excursion_last_destination = destination
+	var first: int = candidates[rng.randi_range(0, candidates.size() - 1)]
+	candidates.erase(first)
+	var second: int = candidates[rng.randi_range(0, candidates.size() - 1)]
+	excursion = {"destination": destination, "animals": [first, second],
+		"started_at": now(), "ends_at": now() + EXCURSION_DURATION, "joined": false}
+	excursion_count_today += 1
+	excursion_next_at = now() + EXCURSION_DURATION + EXCURSION_PAUSE
+	var a := get_animal(first)
+	var b := get_animal(second)
+	var dest: Dictionary = GameData.EXCURSIONS[destination]
+	toast.emit(I18n.t("%s und %s brechen %s auf") % [String(a.name), String(b.name), String(dest["place"])], "info")
+	excursion_changed.emit()
+	event("excursion_started", {"destination": destination})
+	return true
+
+
+func _finish_excursion() -> void:
+	var names: Array = []
+	for a in excursion_participants():
+		names.append(String(a.name))
+	excursion = {}
+	animals_changed.emit()
+	excursion_changed.emit()
+	if names.size() == 2:
+		toast.emit(I18n.t("%s und %s sind vom Ausflug zurück") % [names[0], names[1]], "info")
+
+
+## Mitgehen: die kleine Szene ansehen, ein Foto fürs Tagebuch und je ein Herz.
+## Nur einmal pro Ausflug, und nur solange er dauert.
+func join_excursion() -> bool:
+	if not excursion_active():
+		last_error = I18n.t("Gerade ist niemand unterwegs")
+		return false
+	if bool(excursion.get("joined", false)):
+		last_error = I18n.t("Diese Erinnerung habt ihr schon")
+		return false
+	var participants := excursion_participants()
+	if participants.size() < 2:
+		last_error = I18n.t("Die beiden sind schon wieder da")
+		return false
+	var destination := str(excursion.get("destination", ""))
+	var dest: Dictionary = GameData.EXCURSIONS.get(destination, {})
+	if dest.is_empty():
+		return false
+	var first: Dictionary = participants[0]
+	var second: Dictionary = participants[1]
+	_gain_animal_hearts(first, EXCURSION_HEARTS)
+	_gain_animal_hearts(second, EXCURSION_HEARTS)
+	excursion["joined"] = true
+	add_diary_entry("DIARY_EXCURSION", [String(first.name), String(second.name), String(dest["place"])], -1,
+		{"destination": destination, "species": [String(first.species), String(second.species)]})
+	bump("excursions")
+	animals_changed.emit()
+	excursion_changed.emit()
+	sound.emit("pet")
+	event("excursion_joined", {"destination": destination})
+	return true
 
 
 # ----------------------------------------------------------------- Quests
@@ -2172,6 +2371,11 @@ func serialize() -> Dictionary:
 		"delivery_story_stage": delivery_story_stage,
 		"daily_cafe_special_id": daily_cafe_special_id,
 		"daily_cafe_special_at": daily_cafe_special_at,
+		"excursion": excursion.duplicate(true),
+		"excursion_day": excursion_day,
+		"excursion_count_today": excursion_count_today,
+		"excursion_next_at": excursion_next_at,
+		"excursion_last_destination": excursion_last_destination,
 		"neighborhood_event_stage": neighborhood_event_stage,
 		"neighborhood_event_order": neighborhood_event_order.duplicate(true),
 		"neighborhood_event_completed_cycle": neighborhood_event_completed_cycle,
@@ -2350,6 +2554,23 @@ func deserialize(d: Dictionary) -> bool:
 			var pad := free_paddock()
 			if not pad.is_empty():
 				a.paddock = int(pad.uid)
+	var saved_excursion := _save_dict(d, "excursion")
+	excursion_day = int(d.get("excursion_day", 0))
+	excursion_count_today = clampi(int(d.get("excursion_count_today", 0)), 0, EXCURSION_MAX_PER_DAY)
+	excursion_next_at = float(d.get("excursion_next_at", 0.0))
+	excursion_last_destination = str(d.get("excursion_last_destination", ""))
+	if GameData.EXCURSIONS.has(str(saved_excursion.get("destination", ""))) \
+			and float(saved_excursion.get("ends_at", 0.0)) > now():
+		var travelers: Array = []
+		for uid in _save_array(saved_excursion, "animals"):
+			var traveler := int(uid)
+			if not travelers.has(traveler) and not get_animal(traveler).is_empty():
+				travelers.append(traveler)
+		if travelers.size() == 2:
+			excursion = {"destination": str(saved_excursion["destination"]), "animals": travelers,
+				"started_at": float(saved_excursion.get("started_at", now())),
+				"ends_at": float(saved_excursion["ends_at"]),
+				"joined": bool(saved_excursion.get("joined", false))}
 	var saved_rescue := _save_dict(d, "rescue_case")
 	if GameData.ANIMALS.has(str(saved_rescue.get("species", ""))):
 		var rescue_species: String = str(saved_rescue["species"])

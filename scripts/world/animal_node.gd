@@ -13,6 +13,7 @@ var sheltering := false
 var sleeping := false
 var shelter_slot := 0
 var ambient_target := Vector2.ZERO
+var shade_target := Vector2.ZERO
 var sleep_wake_timer := 0.0
 var _ambient_state := "Normal"
 var _ambient_weather := "Sonnig"
@@ -76,6 +77,11 @@ func _update_ambient_target() -> void:
 	var slot_x := bounds.position.x + bounds.size.x * (0.22 + 0.28 * float(shelter_slot))
 	var slot_y := bounds.position.y + maxf(18.0, bounds.size.y * 0.13)
 	ambient_target = Vector2(clampf(slot_x, bounds.position.x, bounds.end.x), clampf(slot_y, bounds.position.y, bounds.end.y))
+	# Mittags suchen die Tiere den Schatten: eine eigene Ecke, damit sie sich
+	# nicht mit dem Unterstand überschneiden.
+	var shade_x := bounds.position.x + bounds.size.x * (0.16 + 0.2 * float(shelter_slot))
+	var shade_y := bounds.position.y + bounds.size.y * 0.8
+	shade_target = Vector2(clampf(shade_x, bounds.position.x, bounds.end.x), clampf(shade_y, bounds.position.y, bounds.end.y))
 
 
 func _scheduled_to_sleep() -> bool:
@@ -88,19 +94,47 @@ func _scheduled_to_sleep() -> bool:
 	return fposmod(night_elapsed + float(shelter_slot) * 30.0, 90.0) < 60.0
 
 
+## Tagesablauf eines Tieres: morgens im Gehege, mittags im Schatten, abends im
+## Unterstand, nachts im Schlaf. Regen schickt alle unter das Dach.
+func _routine_phase() -> String:
+	var hours := fposmod(_ambient_day_seconds, 24.0 * 3600.0) / 3600.0
+	if hours >= 20.0 or hours < 6.0:
+		return "Nacht"
+	if hours < 10.0:
+		return "Morgen"
+	if hours < 16.0:
+		return "Mittag"
+	return "Abend"
+
+
+func _rest_target() -> Vector2:
+	return shade_target if _ambient_state == "Schatten" else ambient_target
+
+
+func _rest_state() -> String:
+	if _scheduled_to_sleep() and sleep_wake_timer <= 0.0:
+		return "Schlafen"
+	if _ambient_weather == "Regen":
+		return "Unterstand"
+	var phase := _routine_phase()
+	if phase == "Nacht" or phase == "Abend":
+		return "Unterstand"
+	if phase == "Mittag":
+		return "Schatten"
+	return "Normal"
+
+
 func _apply_ambient_state() -> void:
-	var should_sleep := _scheduled_to_sleep() and sleep_wake_timer <= 0.0
 	var was_sleeping := sleeping
-	var should_shelter := _ambient_night or _ambient_weather == "Regen"
-	var next_state := "Schlafen" if should_sleep else "Unterstand" if should_shelter else "Normal"
+	var next_state := _rest_state()
 	if next_state == _ambient_state:
 		return
 	_ambient_state = next_state
 	sleeping = next_state == "Schlafen"
 	sheltering = next_state != "Normal"
 	if sheltering:
-		walking = position.distance_to(ambient_target) > 0.5
-		_target = ambient_target
+		walking = position.distance_to(_rest_target()) > 0.5
+		_target = _rest_target()
 		_wait = 0.0 if walking else 99999.0
 	else:
 		walking = false
@@ -164,7 +198,7 @@ func _process(delta: float) -> void:
 		var day_time: Variant = world_node.get("day_time_seconds")
 		if typeof(day_time) == TYPE_FLOAT or typeof(day_time) == TYPE_INT:
 			_ambient_day_seconds = float(day_time)
-	var expected_state := "Schlafen" if _scheduled_to_sleep() and sleep_wake_timer <= 0.0 else "Unterstand" if _ambient_night or _ambient_weather == "Regen" else "Normal"
+	var expected_state := _rest_state()
 	if expected_state != _ambient_state:
 		_apply_ambient_state()
 	if _heart_t >= 0.0:
@@ -178,13 +212,13 @@ func _process(delta: float) -> void:
 	if sleeping:
 		walking = false
 		peck = 0.0
-	elif sheltering and position.distance_to(ambient_target) > 0.5:
-		_target = ambient_target
+	elif sheltering and position.distance_to(_rest_target()) > 0.5:
+		_target = _rest_target()
 		walking = true
 		var shelter_delta := _target - position
 		var shelter_step := _speed() * delta
 		if shelter_delta.length() <= shelter_step:
-			position = ambient_target
+			position = _rest_target()
 			walking = false
 		else:
 			position += shelter_delta.normalized() * shelter_step

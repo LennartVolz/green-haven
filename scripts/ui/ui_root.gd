@@ -17,6 +17,7 @@ const DiarySheet := preload("res://scripts/ui/sheets/diary_sheet.gd")
 const AchievementsSheet := preload("res://scripts/ui/sheets/achievements_sheet.gd")
 const HofbuchSheet := preload("res://scripts/ui/sheets/hofbuch_sheet.gd")
 const LexiconSheet := preload("res://scripts/ui/sheets/lexicon_sheet.gd")
+const ExcursionSheet := preload("res://scripts/ui/sheets/excursion_sheet.gd")
 
 ## Die ersten Schritte (bis TUTORIAL_INFO_FROM) warten auf eine Handlung des
 ## Spielers, die späteren sind reine Hinweise und werden mit „Weiter“ gelesen.
@@ -106,6 +107,7 @@ func _ready() -> void:
 	GameState.orders_changed.connect(_on_state_changed)
 	GameState.cafe_changed.connect(_on_state_changed)
 	GameState.animals_changed.connect(_on_state_changed)
+	GameState.excursion_changed.connect(_on_state_changed)
 	GameState.quests_changed.connect(_on_state_changed)
 	GameState.coins_changed.connect(_on_state_changed)
 	get_viewport().size_changed.connect(_apply_safe_area)
@@ -585,6 +587,8 @@ func _rebuild() -> void:
 			DiarySheet.build(self, _sheet_args)
 		"animal":
 			AnimalSheet.build(self, _sheet_args)
+		"excursion":
+			ExcursionSheet.build(self, _sheet_args)
 		"crops":
 			CropsSheet.build(self, _sheet_args)
 		_:
@@ -1006,6 +1010,14 @@ func act_feed(uid: int) -> void:
 
 func act_pet(uid: int) -> void:
 	_check(GameState.pet_animal(uid))
+
+
+## Einen Ausflug begleiten: Herz für beide Tiere, Foto ins Tagebuch, Szene zeigen.
+func act_join_excursion() -> void:
+	if not _check(GameState.join_excursion()):
+		return
+	show_toast("Ein Foto fürs Refugiums-Tagebuch!", "good")
+	open_sheet("excursion", {"destination": str(GameState.excursion.get("destination", ""))})
 
 
 func act_set_volume(key: String, value: float) -> void:

@@ -7,7 +7,7 @@ extends SceneTree
 
 const SHEETS := [
 	"shop", "orders", "production_overview", "production", "inventory",
-	"refuge", "quests", "achievements", "hofbuch", "lexicon", "settings", "diary",
+	"refuge", "quests", "achievements", "hofbuch", "lexicon", "settings", "diary", "excursion",
 ]
 
 
@@ -22,7 +22,7 @@ func collect_data() -> void:
 		return
 	for table in ["SEASONS", "SEASON_GOALS", "HOFBUCH", "CROPS", "FORAGE", "EXTRA_ITEMS",
 			"BUILDINGS", "RECIPES", "DECOS", "ANIMALS", "COSMETICS", "QUESTS",
-			"ACHIEVEMENTS", "ANIMAL_TRAITS", "ANIMAL_ACTIVITIES", "FRIENDSHIP_STORIES",
+			"ACHIEVEMENTS", "ANIMAL_TRAITS", "ANIMAL_ACTIVITIES", "FRIENDSHIP_STORIES", "EXCURSIONS",
 			"DELIVERY_STORIES", "NEIGHBORHOOD_EVENT_STAGES", "NEIGHBORHOOD_EVENT_STORIES",
 			"CAFE_VISITOR_STORIES"]:
 		walk(gd.get(table))

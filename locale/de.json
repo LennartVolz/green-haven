@@ -1,14 +1,15 @@
 {
-  "DIARY_SEASON_GOALS": "%s · Saisonziele: %s",
-  "DIARY_YEAR_WREATH": "Jahreskranz · %s",
-  "DIARY_HOFBUCH_ENTRY": "Hofbuch · %s: %s",
   "DIARY_ANIMAL_MOMENT": "%s: %s",
   "DIARY_ANIMAL_TRUST": "%s vertraut dir jetzt mehr und %s",
-  "DIARY_STORY_START": "Begonnen: %s. %s",
   "DIARY_CAFE_SHARED": "%s erzählte im Gartencafé: %s",
-  "DIARY_EVENT_STORY": "Gartentag · %s: %s",
   "DIARY_EVENT_FINALE": "Der Gartentag endet mit einem langen Café-Nachmittag. Gemeinsam habt ihr drei Geschichten geteilt!",
-  "DIARY_STORY_STAGE": "%s · Abschnitt %d abgeschlossen: %s",
+  "DIARY_EVENT_STORY": "Gartentag · %s: %s",
+  "DIARY_EXCURSION": "%s und %s waren zusammen unterwegs – %s.",
+  "DIARY_HOFBUCH_ENTRY": "Hofbuch · %s: %s",
+  "DIARY_RESCUE_HOME": "%s hat im Refugium ein sicheres Zuhause gefunden.",
+  "DIARY_SEASON_GOALS": "%s · Saisonziele: %s",
   "DIARY_STORY_DONE": "%s ist abgeschlossen. Die Nachbarschaft bedankt sich für deine Hilfe!",
-  "DIARY_RESCUE_HOME": "%s hat im Refugium ein sicheres Zuhause gefunden."
+  "DIARY_STORY_STAGE": "%s · Abschnitt %d abgeschlossen: %s",
+  "DIARY_STORY_START": "Begonnen: %s. %s",
+  "DIARY_YEAR_WREATH": "Jahreskranz · %s"
 }

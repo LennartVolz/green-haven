@@ -2,6 +2,43 @@ extends RefCounted
 ## Tierrefugium: gerettete Tiere ansehen und neue aufnehmen.
 
 
+## Ein laufender Ausflug steht ganz oben: Wer mitgehen möchte, tippt einmal.
+## Wer nicht mitkommt, verliert nichts – die beiden kommen von selbst zurück.
+static func _build_excursion(ui, c: VBoxContainer) -> void:
+	if GameState.excursion.is_empty():
+		return
+	var dest := GameState.excursion_destination()
+	if dest.is_empty():
+		return
+	var participants := GameState.excursion_participants()
+	if participants.size() < 2:
+		return
+	var card := UiKit.card(14)
+	var v := UiKit.vbox(8)
+	var row := UiKit.hbox(10)
+	row.add_child(UiKit.icon("paw", 44))
+	var title := UiKit.label(I18n.t("Ausflug %s") % String(dest["place"]), 30, UiKit.sage_dark())
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(title)
+	v.add_child(row)
+	v.add_child(UiKit.wrap_label(I18n.t("%s und %s sind zusammen unterwegs.") % [String(participants[0].name), String(participants[1].name)], 24, UiKit.earth_dark()))
+	if bool(GameState.excursion.get("joined", false)):
+		v.add_child(UiKit.wrap_label(I18n.t("Ihr wart dabei – das Foto liegt im Refugiums-Tagebuch."), 23, UiKit.sage_dark()))
+		var diary := UiKit.button("Im Tagebuch ansehen", "warm", 26)
+		diary.pressed.connect(ui.act_open_diary)
+		v.add_child(diary)
+	else:
+		var remaining := UiKit.label("", 22, UiKit.earth_dark())
+		v.add_child(remaining)
+		ui.ticker.append(func() -> void:
+			remaining.text = I18n.t("Noch %s draußen") % GameData.format_time(GameState.excursion_seconds_left()))
+		var join := UiKit.button("Begleiten", "primary", 30)
+		join.pressed.connect(ui.act_join_excursion)
+		v.add_child(join)
+	card.add_child(v)
+	c.add_child(card)
+
+
 static func build(ui, _args: Dictionary) -> void:
 	ui.set_title("Tierrefugium")
 	var c: VBoxContainer = ui.content
@@ -34,6 +71,7 @@ static func build(ui, _args: Dictionary) -> void:
 	var diary_button := UiKit.button(I18n.t("Refugiums-Tagebuch · %d Erinnerungen") % GameState.diary.size(), "warm", 27)
 	diary_button.pressed.connect(ui.act_open_diary)
 	c.add_child(diary_button)
+	_build_excursion(ui, c)
 	if not GameState.rescue_case.is_empty():
 		var rescue: Dictionary = GameState.rescue_case
 		var species: String = rescue["species"]

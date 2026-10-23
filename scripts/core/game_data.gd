@@ -421,6 +421,26 @@ const FRIENDSHIP_STORIES_SRC := {
 	"cow": ["nimmt Leckerbissen vorsichtig aus deiner Hand.", "genießt die vertraute Kraulrunde.", "ruht gelassen neben dir im Gras.", "begrüßt dich mit einem sanften Stupser."],
 }
 
+## Ausflugsziele: Zwei Tiere gehen gemeinsam los. Jedes Ziel erzählt in zwei
+## Sätzen, was dort passiert – genug für eine kleine Erinnerung, nichts, was
+## verpasst werden kann.
+## `place` ist die fertige Ortsangabe ("zum Bach", "zur Wiese"): So bleibt der
+## Satz in jeder Sprache grammatisch, ohne dass die Oberfläche Fälle kennt.
+const EXCURSIONS_SRC := {
+	"forest_edge": {"name": "Waldrand", "place": "zum Waldrand", "text": [
+		"Am Waldrand bleiben sie im Farn stehen und schnuppern an einem Pilz, der nach Regen riecht.",
+		"Dann setzen sie sich nebeneinander in den Schatten und schauen eine Weile einfach ins Geäst.",
+	]},
+	"meadow": {"name": "Wiese", "place": "zur Wiese", "text": [
+		"Auf der Wiese laufen sie eine Schleife durch das hohe Gras, bis die Halme nur noch wippen.",
+		"Auf dem Rückweg bleibt eines stehen, wartet, und gemeinsam gehen sie weiter.",
+	]},
+	"stream": {"name": "Bach", "place": "zum Bach", "text": [
+		"Am Bach hält eines den Kopf schief und beobachtet das Wasser, das über die Steine läuft.",
+		"Das andere steht dicht daneben – keines von beiden will als Erstes gehen.",
+	]},
+}
+
 ## Eine Geschichte startet erst auf der Stufe, auf der alle ihre Lieferungen herstellbar sind
 ## (cafe_opening braucht die Café-Rezepte bis Stufe 14).
 const DELIVERY_STORIES_SRC := {
@@ -505,6 +525,7 @@ var ACHIEVEMENTS := []
 var ANIMAL_TRAITS := {}
 var ANIMAL_ACTIVITIES := {}
 var FRIENDSHIP_STORIES := {}
+var EXCURSIONS := {}
 var DELIVERY_STORIES := {}
 var NEIGHBORHOOD_EVENT_STAGES := []
 var NEIGHBORHOOD_EVENT_STORIES := []
@@ -687,6 +708,7 @@ func _apply_tables(translate: bool) -> void:
 	ANIMAL_TRAITS = _localize(ANIMAL_TRAITS_SRC)
 	ANIMAL_ACTIVITIES = _localize(ANIMAL_ACTIVITIES_SRC)
 	FRIENDSHIP_STORIES = _localize(FRIENDSHIP_STORIES_SRC)
+	EXCURSIONS = _localize(EXCURSIONS_SRC)
 	DELIVERY_STORIES = _localize(DELIVERY_STORIES_SRC)
 	NEIGHBORHOOD_EVENT_STAGES = _localize(NEIGHBORHOOD_EVENT_STAGES_SRC)
 	NEIGHBORHOOD_EVENT_STORIES = _localize(NEIGHBORHOOD_EVENT_STORIES_SRC)
@@ -744,7 +766,7 @@ func _build_items() -> void:
 
 ## Alle deutschen Quelltexte der Datentabellen – Grundlage für den CI-Test, der
 ## prüft, ob jede Sprache vollständig ist.
-const TEXT_KEYS := ["name", "description", "text", "story", "stories", "note", "title", "intro", "feature"]
+const TEXT_KEYS := ["name", "description", "text", "story", "stories", "note", "title", "intro", "feature", "place"]
 
 
 func source_texts() -> Array:
@@ -767,6 +789,7 @@ func source_texts() -> Array:
 	_collect_texts(ANIMAL_TRAITS_SRC, out, false)
 	_collect_texts(ANIMAL_ACTIVITIES_SRC, out, false)
 	_collect_texts(FRIENDSHIP_STORIES_SRC, out, true)
+	_collect_texts(EXCURSIONS_SRC, out, false)
 	_collect_texts(DELIVERY_STORIES_SRC, out, false)
 	_collect_texts(NEIGHBORHOOD_EVENT_STAGES_SRC, out, false)
 	_collect_texts(NEIGHBORHOOD_EVENT_STORIES_SRC, out, true)

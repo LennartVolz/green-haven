@@ -58,6 +58,7 @@ func _initialize() -> void:
 	test_delivery_stories()
 	test_cafe()
 	test_cafe_guests()
+	test_excursions()
 	test_neighborhood_event()
 	test_story_during_event()
 	test_achievements()
@@ -888,6 +889,109 @@ func test_cafe_guests() -> void:
 	gs._tick_cafe(0.5)
 	check(gs.cafe_guests.size() == 1, "nach dem Laden kommt ein Gast statt eines nachgeholten Tages")
 	check(gs.SAVE_VERSION == 11, "Café-Gäste brauchen keine neue Spielstand-Version")
+
+
+func test_excursions() -> void:
+	begin("Tierausflüge")
+	level_to(8)
+	gs.coins = 5000
+	var paddock := 0
+	for y in range(gs.land.position.y, gs.land.end.y):
+		for x in range(gs.land.position.x, gs.land.end.x):
+			if paddock == 0 and gs.can_place("paddock", Vector2i(x, y)):
+				paddock = gs.place_object("paddock", Vector2i(x, y))
+	check(paddock > 0, "Testgehege für die Ausflüge gebaut")
+	check(gs.excursion.is_empty(), "am Anfang ist niemand unterwegs")
+	check(gd.EXCURSIONS.size() >= 2, "es gibt mehrere Ausflugsziele")
+	var rabbit: int = gs.adopt_animal("rabbit")
+	check(rabbit > 0, "erstes Tier im Refugium")
+	gs.clock_seconds = 9.0 * 3600.0
+	gs.excursion_next_at = 0.0
+	gs._tick_excursions(0.5)
+	check(gs.excursion.is_empty(), "ein einzelnes Tier bricht nicht auf")
+	var chicken: int = gs.adopt_animal("chicken")
+	check(chicken > 0, "zweites Tier im Refugium")
+	gs.excursion_next_at = 0.0
+	gs._tick_excursions(0.5)
+	check(gs.excursion_active(), "bei zwei Tieren beginnt am Vormittag ein Ausflug")
+	check(gs.excursion_count_today == 1, "der Ausflug zählt für den Tag")
+	var travelers: Array = gs.excursion.get("animals", [])
+	check(travelers.size() == 2 and travelers[0] != travelers[1], "genau zwei verschiedene Tiere gehen gemeinsam")
+	check(gs.animal_on_excursion(rabbit) and gs.animal_on_excursion(chicken), "beide Tiere sind unterwegs")
+	var destination := str(gs.excursion.get("destination", ""))
+	check(gd.EXCURSIONS.has(destination), "das Ziel stammt aus dem Katalog")
+	var destination_def: Dictionary = gd.EXCURSIONS[destination]
+	check(not String(destination_def.get("name", "")).is_empty() and not (destination_def.get("text", []) as Array).is_empty(), "Ziel hat Namen und Szene")
+	# Unterwegs lässt sich niemand pflegen – die beiden sind ja gar nicht da.
+	var stats_before: Dictionary = gs.stats.duplicate(true)
+	check(not gs.pet_animal(rabbit), "unterwegs lässt sich ein Tier nicht streicheln")
+	check(not gs.feed_animal(rabbit), "unterwegs lässt sich ein Tier nicht füttern")
+	check(not gs.animal_activity(rabbit), "unterwegs spielt niemand")
+	check(gs.stats == stats_before, "abgelehnte Pflege ändert keine Zähler")
+	# Mitgehen: je ein Herz, ein Foto und ein Tagebucheintrag.
+	var first_hearts := int(gs.get_animal(rabbit).hearts)
+	var second_hearts := int(gs.get_animal(chicken).hearts)
+	var diary_before: int = gs.diary.size()
+	check(gs.join_excursion(), "der Ausflug lässt sich begleiten")
+	check(int(gs.get_animal(rabbit).hearts) == first_hearts + 1 and int(gs.get_animal(chicken).hearts) == second_hearts + 1, "beide Tiere gewinnen ein Herz")
+	check(gs.diary.size() >= diary_before + 1, "die Szene landet im Tagebuch")
+	var entry: Dictionary = gs.diary[gs.diary.size() - 1]
+	check(str(entry.get("key", "")) == "DIARY_EXCURSION", "der Eintrag ist der Ausflug")
+	check(entry.has("photo") and str(entry["photo"].get("destination", "")) == destination, "das Foto gehört zum Ziel")
+	check((entry["photo"].get("species", []) as Array).size() == 2, "das Foto zeigt beide Tierarten")
+	check(not gs.diary_text(entry).is_empty(), "der Eintrag hat einen Text")
+	check(int(gs.stats.get("excursions", 0)) == 1, "der Ausflug zählt in der Statistik")
+	check(not gs.join_excursion(), "derselbe Ausflug lässt sich nur einmal begleiten")
+	check(not gs.excursion.is_empty(), "danach sind die beiden noch unterwegs")
+	# Rückkehr: kein Verlust, danach ist alles wie vorher.
+	gs.time_offset += 200.0
+	gs._tick_excursions(0.5)
+	check(gs.excursion.is_empty(), "nach der Zeit sind die beiden zurück")
+	check(not gs.animal_on_excursion(rabbit), "das Tier steht wieder im Gehege")
+	check(int(gs.get_animal(rabbit).hearts) == first_hearts + 1, "Verpassen und Heimkehr kosten keine Herzen")
+	check(gs.pet_animal(rabbit), "danach lässt es sich wieder streicheln")
+	# Höchstens zwei Ausflüge am Tag.
+	gs.excursion_next_at = 0.0
+	gs._tick_excursions(0.5)
+	check(gs.excursion_active() and gs.excursion_count_today == 2, "ein zweiter Ausflug ist am selben Tag möglich")
+	gs.time_offset += 200.0
+	gs._tick_excursions(0.5)
+	gs.excursion_next_at = 0.0
+	gs._tick_excursions(0.5)
+	check(gs.excursion.is_empty(), "mehr als zwei Ausflüge gibt es nicht")
+	# Nachts geht niemand los.
+	gs.clock_seconds = 23.0 * 3600.0
+	gs.excursion_next_at = 0.0
+	gs._tick_excursions(0.5)
+	check(gs.excursion.is_empty(), "nachts bricht niemand auf")
+	# Neuer Tag: der Zähler beginnt neu, aber nichts wird nachgeholt.
+	gs.time_offset += gd.REAL_DAY_SECONDS
+	gs.clock_seconds = 9.0 * 3600.0
+	gs._tick_excursions(0.5)
+	check(gs.excursion_count_today == 0, "der neue Tag zählt wieder bei null")
+	check(gs.excursion.is_empty(), "nach einem Tageswechsel startet kein Ausflug sofort")
+	# Speichern: nur der laufende Ausflug, keine Verluste.
+	gs.excursion_next_at = 0.0
+	gs._tick_excursions(0.5)
+	check(gs.excursion_active(), "für den Spielstand läuft wieder ein Ausflug")
+	var saved: Dictionary = gs.serialize()
+	check(saved.has("excursion") and str(saved["excursion"].get("destination", "")) == str(gs.excursion["destination"]), "der laufende Ausflug steht im Spielstand")
+	check(gs.deserialize(saved), "Spielstand mit Ausflug lädt")
+	check(gs.excursion_active() and (gs.excursion.get("animals", []) as Array).size() == 2, "der laufende Ausflug überlebt das Laden")
+	# Alte Stände und kaputte Ziele: kein Ausflug, aber kein Fehler.
+	var legacy: Dictionary = gs.serialize()
+	legacy.erase("excursion")
+	legacy.erase("excursion_day")
+	legacy.erase("excursion_count_today")
+	legacy.erase("excursion_next_at")
+	legacy.erase("excursion_last_destination")
+	check(gs.deserialize(legacy), "ein Stand ohne Ausflugsdaten lädt")
+	check(gs.excursion.is_empty(), "alte Stände starten ohne laufenden Ausflug")
+	var broken: Dictionary = gs.serialize()
+	broken["excursion"] = {"destination": "moon", "animals": [rabbit, chicken], "started_at": gs.now(), "ends_at": gs.now() + 500.0, "joined": false}
+	check(gs.deserialize(broken), "ein Stand mit unbekanntem Ziel lädt")
+	check(gs.excursion.is_empty(), "unbekannte Ziele werden beim Laden verworfen")
+	check(gs.SAVE_VERSION == 11, "Tierausflüge brauchen keine neue Spielstand-Version")
 
 
 func test_neighborhood_event() -> void:

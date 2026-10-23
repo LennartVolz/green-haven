@@ -291,6 +291,45 @@ func check_letters(locale: String) -> void:
 	await frames(2)
 
 
+## Der Hof-Bereich: vier Reiter unter dem Titel, die beim Scrollen stehen
+## bleiben, und vier Bereiche, die keinen Text quetschen.
+func check_hof(locale: String) -> void:
+	var view: Vector2 = ui._layer.size
+	ui.open_sheet("hof", {"tab": "hofbuch"})
+	await frames(6)
+	check(ui._sheet.visible, "[%s] Hof-Bereich öffnet sich" % locale)
+	check(ui._sheet_tabs.visible and ui._sheet_tabs.get_child_count() == 4, "[%s] vier Hof-Reiter stehen unter dem Titel" % locale)
+	for label in ["Hofbuch", "Hoflexikon", "Briefe", "Tagebuch"]:
+		check(has_text(ui._sheet_tabs, I18n.t(label)), "[%s] der Reiter %s ist da" % [locale, label])
+	ui._scroll.scroll_vertical = 400
+	await frames(3)
+	check(ui._sheet_tabs.is_visible_in_tree() and ui._sheet_tabs.get_global_rect().end.y <= ui._scroll.get_global_rect().position.y + 2.0,
+		"[%s] die Reiter bleiben über dem Scrollbereich stehen" % locale)
+	ui._scroll.scroll_vertical = 0
+	for tab in ["hofbuch", "lexicon", "letters", "diary"]:
+		ui.act_hof_tab(tab)
+		await frames(5)
+		check(String(ui.state.get("hof_tab", "")) == tab and ui._sheet.visible, "[%s] der Hof-Reiter %s öffnet sich" % [locale, tab])
+		check(not String(ui._title.text).is_empty(), "[%s] der Reiter %s hat einen Titel" % [locale, tab])
+		check_text(locale, "Hof · " + tab)
+		check_overflow(locale, "Hof · " + tab)
+	check(ui._sheet.size.y <= view.y * 0.83,
+		"[%s] der Hof bleibt im Bild (%.0f von %.0f px)" % [locale, ui._sheet.size.y, view.y])
+	ui.close_sheet()
+	await frames(2)
+
+
+## Acht Navigationspunkte müssen in ihre Schaltflächen passen – „Produktion"
+## und „Refugium" sind die längsten Wörter.
+func check_nav(locale: String) -> void:
+	check(ui._nav_buttons.size() == 8, "[%s] die Navigation hat acht Punkte (%d)" % [locale, ui._nav_buttons.size()])
+	for id in ui._nav_buttons:
+		var button: Button = ui._nav_buttons[id]
+		var label: Label = button.get_child(0).get_child(1)
+		check(label.get_minimum_size().x <= button.size.x + 1.0,
+			"[%s] %s passt in seine Schaltfläche (%s von %s)" % [locale, id, label.get_minimum_size().x, button.size.x])
+
+
 ## Fotoblatt: große Aufnahme, Beschriftung und der Streifen der letzten Fotos
 ## müssen in jeder Sprache im Bild bleiben.
 func check_photo(locale: String) -> void:
@@ -508,9 +547,11 @@ func run() -> void:
 		await frames(5)
 		await check_tutorial(locale)
 		await check_text(locale, "Startbildschirm")
+		await check_nav(locale)
 		await check_orders(locale)
 		await check_sheets(locale)
 		await check_hofranks(locale)
+		await check_hof(locale)
 		await check_photo(locale)
 		if paddock_uid > 0 and rabbit_uid > 0 and chicken_uid > 0:
 			await check_excursion(locale)

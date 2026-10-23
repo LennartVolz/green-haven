@@ -59,6 +59,15 @@ func next_letter(count: int = 1) -> void:
 		gs._refresh_letters()
 
 
+## Ob ein bestimmter Eintrag in der Chronik steht – er muss nicht der letzte sein,
+## weil Freundschaftspunkte beim Lesen und beim Besuch zusammenkommen.
+func _has_diary_key(key: String) -> bool:
+	for entry in gs.diary:
+		if str(entry.get("key", "")) == key:
+			return true
+	return false
+
+
 func run() -> void:
 	var save_system: Node = root.get_node("SaveSystem")
 	save_system.path_override = "user://letters_ui.json"
@@ -73,16 +82,25 @@ func run() -> void:
 	gs.level = 1
 	gs.coins = 500
 
-	# Der leere Briefkasten sitzt als Knopf in der Kopfzeile des Auftragsbuchs.
+	# Der Briefkasten ist ein Reiter im Hof-Bereich, nicht mehr im Auftragsbuch.
 	ui.act_open("orders", {})
 	await frames(6)
-	check(ui._header_action.visible, "das Auftragsbuch zeigt den Briefknopf")
-	check(String(ui._header_action.text) == I18n.t("Briefe"), "ohne Post nennt der Knopf nur die Briefe")
-	var open: Button = ui._header_action
-	check(open != null, "der Briefkasten lässt sich öffnen")
-	open.pressed.emit()
-	await frames(6)
-	check(ui._sheet_name == "letters", "der Briefbereich öffnet sich")
+	check(not ui._sheet_tabs.visible, "das Auftragsbuch zeigt keine Reiter")
+	ui.close_sheet()
+	await frames(2)
+	check(ui._nav_buttons.has("hof"), "die Navigation hat einen Hof-Bereich")
+	var hof_button: Button = ui._nav_buttons["hof"]
+	check(int(ui._badge_values.get("hof", -1)) == gs.unread_letters() + gs.claimable_hofbuch(), "der Hof-Badge zählt Post und offene Einträge")
+	hof_button.pressed.emit()
+	await frames(8)
+	check(ui._sheet_name == "hof", "der Hof-Bereich öffnet sich")
+	check(String(ui.state.get("hof_tab", "")) == "hofbuch", "der Hof beginnt beim Hofbuch")
+	var letters_tab := find_button(ui._sheet_tabs, I18n.t("Briefe"))
+	if check(letters_tab != null, "der Brief-Reiter steht unter dem Titel"):
+		letters_tab.pressed.emit()
+		await frames(8)
+	check(ui._sheet_name == "hof" and String(ui.state.get("hof_tab", "")) == "letters", "der Brief-Reiter öffnet den Briefkasten")
+	check(String(ui._title.text) == I18n.t("Briefkasten"), "der Briefkasten nennt sich beim Namen")
 	check(contains_label(ui.content, I18n.t("Noch ist der Briefkasten leer. Die Nachbarschaft meldet sich bald – ganz ohne Eile.")), "der leere Briefkasten hat einen Text")
 	check(gs.letters.is_empty(), "ohne Post gibt es keine Briefe")
 	ui.close_sheet()
@@ -97,14 +115,14 @@ func run() -> void:
 	var first: Dictionary = gs.letters[0]
 	var sender := str(first["neighbor"])
 	var sender_name: String = gs.neighbor_name(sender)
-	ui.act_open("orders", {})
-	await frames(5)
-	check(String(ui._header_action.text) == I18n.t("Briefe · %d") % 1, "der Briefknopf zählt die ungelesene Post")
-	var read_button: Button = ui._header_action
-	read_button.pressed.emit()
-	await frames(6)
-	check(ui._sheet_name == "letters", "der Briefbereich öffnet sich mit Post")
+	ui._update_badges()
+	check(int(ui._badge_values.get("hof", 0)) == 1 + gs.claimable_hofbuch(), "der Hof-Badge zählt die ungelesene Post")
+	# Der alte Weg bleibt gültig: "letters" führt in den Hof auf den Brief-Reiter.
+	ui.act_open("letters", {})
+	await frames(8)
+	check(ui._sheet_name == "hof" and String(ui.state.get("hof_tab", "")) == "letters", "Briefe öffnen über ihren Reiter")
 	check(gs.unread_letters() == 0, "das Öffnen liest die Post")
+	check(int(ui._badge_values.get("hof", 0)) == gs.claimable_hofbuch(), "der Badge erlischt nach dem Lesen")
 	check(contains_label(ui.content, sender_name), "der Brief nennt den Absender")
 	var definition: Dictionary = gs.letter_definition(first)
 	check(contains_label(ui.content, String(definition.get("text", ""))), "der Brief zeigt seinen Text")
@@ -139,14 +157,16 @@ func run() -> void:
 		await frames(8)
 	check(gs.neighbor_spots(sender) == [0], "die erste Stelle ist gefunden")
 	check(contains_label(ui.content, String(gs.neighbor_spot_texts(sender)[0])), "der gefundene Satz steht in der Szene")
-	check(gs.neighbor_points(sender) == gs.LETTER_READ_POINTS + gs.VISIT_POINTS, "der Besuch zählt Freundschaft")
+	# Beim Öffnen des Briefkastens gilt jede neue Post als gelesen; der Besuch
+	# zählt zusätzlich. Deshalb zählen alle Briefe des Absenders mit.
+	check(gs.neighbor_points(sender) == gs.letters_from(sender) * gs.LETTER_READ_POINTS + gs.VISIT_POINTS, "der Besuch zählt Freundschaft")
 	check(int(gs.stats.get("neighbor_visits", 0)) == 1, "der Besuch wurde gezählt")
 	check(str(gs.diary[gs.diary.size() - 1]["key"]) == "DIARY_NEIGHBOR_VISIT", "der Besuch steht im Tagebuch")
 	var back := find_button(ui.content, "Zurück zum Briefkasten")
 	if check(back != null, "der Besuch führt zurück zum Briefkasten"):
 		back.pressed.emit()
 		await frames(6)
-	check(ui._sheet_name == "letters", "zurück im Briefbereich")
+	check(ui._sheet_name == "hof" and String(ui.state.get("hof_tab", "")) == "letters", "zurück im Briefbereich")
 	check(not contains_label(ui.content, String(gs.neighbor_spot_texts(sender)[1])), "die zweite Stelle bleibt offen")
 	ui.close_sheet()
 	await frames(2)
@@ -199,7 +219,7 @@ func run() -> void:
 		gs.add_neighbor_friendship(sender, 1)
 		level_guard += 1
 	check(gs.neighbor_sign_unlocked(sender), "Stufe 2 schaltet das Namensschild frei")
-	check(str(gs.diary[gs.diary.size() - 1]["key"]) == "DIARY_NEIGHBOR_SIGN", "das Geschenk steht im Tagebuch")
+	check(_has_diary_key("DIARY_NEIGHBOR_SIGN"), "das Geschenk steht im Tagebuch")
 	ui.act_open_shop_tab("decos")
 	await frames(6)
 	check(contains_label(ui.content, String(gd.DECOS[sign_id]["name"])), "der Shop zeigt das geschenkte Schild")

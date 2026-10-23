@@ -7,19 +7,9 @@ extends RefCounted
 static func build(ui, _args: Dictionary) -> void:
 	ui.set_title("Auftragsbuch")
 	ui.set_subtitle("Kleine Geschichten aus der Nachbarschaft")
-	_build_mailbox(ui)
 	var c: VBoxContainer = ui.content
 	_build_orders(ui, c)
 	_build_extras(ui, c)
-
-
-## Der Briefkasten sitzt als kleiner Knopf in der Kopfzeile: dort ist Platz, und
-## die vier Aufträge darunter bleiben ohne Scrollen sichtbar. Die Zahl nennt nur
-## ungelesene Briefe, damit nichts doppelt gelesen werden muss.
-static func _build_mailbox(ui) -> void:
-	var unread := GameState.unread_letters()
-	var label := I18n.t("Briefe") if unread == 0 else I18n.t("Briefe · %d") % unread
-	ui.set_header_action(label, ui.act_open_letters)
 
 
 ## Eine kompakte Karte je Auftrag: Name und Belohnung in der Kopfzeile, die Ware

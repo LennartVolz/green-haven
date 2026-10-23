@@ -24,6 +24,7 @@ const SVG := {
 	"leaf": '<path d="M10 54C8 28 24 10 54 10 56 38 40 56 10 54z" fill="#8DB580" stroke="#6F9A63" stroke-width="3" stroke-linejoin="round"/><path d="M12 52C26 38 36 28 48 16" stroke="#FFF6E0" stroke-width="3" fill="none" stroke-linecap="round"/>',
 	"move": '<path d="M32 6l9 11H35v12h12v-6l11 9-11 9v-6H35v12h6l-9 11-9-11h6V35H17v6L6 32l11-9v6h12V17h-6z" fill="#FFF6E0"/>',
 	"coins_sell": '<circle cx="24" cy="38" r="17" fill="#F4C95D" stroke="#C99A2E" stroke-width="3"/><circle cx="40" cy="26" r="17" fill="#F4C95D" stroke="#C99A2E" stroke-width="3"/>',
+	"book": '<path d="M32 12C22 7 10 8 6 10v42c6-2 16-2 26 3 10-5 20-5 26-3V10c-4-2-16-3-26 2z" fill="#FFF6E0" stroke="#8E6240" stroke-width="4" stroke-linejoin="round"/><path d="M32 12v43" stroke="#8E6240" stroke-width="3"/><path d="M13 20c5-1 10-1 14 1M13 30c5-1 10-1 14 1M13 40c5-1 10-1 14 1M51 20c-5-1-10-1-14 1M51 30c-5-1-10-1-14 1M51 40c-5-1-10-1-14 1" stroke="#8DB580" stroke-width="3" stroke-linecap="round"/>',
 	"camera": '<path d="M20 16l4-7h16l4 7z" fill="#8E6240" stroke="#8E6240" stroke-width="3" stroke-linejoin="round"/><rect x="4" y="16" width="56" height="38" rx="9" fill="#C28E5B" stroke="#8E6240" stroke-width="4"/><circle cx="30" cy="36" r="12" fill="#FFF6E0" stroke="#8E6240" stroke-width="3"/><circle cx="30" cy="36" r="6" fill="#8DB580"/><circle cx="49" cy="26" r="3" fill="#FFF6E0"/>',
 }
 

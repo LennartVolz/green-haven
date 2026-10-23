@@ -255,7 +255,7 @@ func run() -> void:
 	if check(diary_button != null, "Refugium bietet Tagebuch an"):
 		diary_button.pressed.emit()
 		await frames()
-		check(ui._sheet_name == "diary" and ui._title.text == "Refugiums-Tagebuch", "Tagebuch öffnet über den Refuge-Button")
+		check(ui._sheet_name == "hof" and String(ui.state.get("hof_tab", "")) == "diary" and ui._title.text == "Refugiums-Tagebuch", "Tagebuch öffnet über den Refuge-Button im Hof")
 		check(ui.content.get_child_count() > 1, "Eintrag ist im Tagebuch sichtbar")
 		print("diary UI checked")
 
@@ -398,18 +398,27 @@ func run() -> void:
 		check(gs.claimed_quests.has("season:%d:spring_strawberries" % gs.season_epoch()), "Saisonziel wird über die UI abgeholt")
 	ui._update_badges()
 	check(int(ui._badge_values.get("quests", 0)) == 0, "Badge verschwindet nach dem Abholen")
-	# Hofbuch öffnet über die Erfolge.
+	# Die Erfolge sind wieder eine reine Liste; der Hof ist ein eigener Bereich.
 	ui.act_open("achievements", {})
 	await frames()
 	check(ui._sheet_name == "achievements" and ui._title.text == "Erfolge", "Erfolge öffnen über die Navigation")
-	check(ui.content.get_child_count() == root.get_node("GameData").ACHIEVEMENTS.size() + 2, "alle Erfolge und der Hofbuch-Knopf werden angezeigt")
+	check(ui.content.get_child_count() == root.get_node("GameData").ACHIEVEMENTS.size() + 1, "alle Erfolge stehen ohne Zusatz-Knöpfe in der Liste")
 	check(contains_label(ui.content, "Geschichten am Kaffeetisch"), "Café-Meilenstein erscheint in der echten Erfolge-UI")
+	# Der Hof: ein Navigationspunkt, vier Reiter – alles einen Tipp weit weg.
+	check(ui._nav_buttons.has("hof"), "die Navigation hat einen Hof-Bereich")
+	ui.state["hof_tab"] = "hofbuch"
+	ui._nav_buttons["hof"].pressed.emit()
+	await frames()
+	check(ui._sheet_name == "hof" and ui._title.text == "Hofbuch", "der Hof öffnet auf dem Hofbuch")
+	check(ui._sheet_tabs.visible and ui._sheet_tabs.get_child_count() == 4, "vier Reiter stehen unter dem Titel")
+	for tab_label in ["Hofbuch", "Hoflexikon", "Briefe", "Tagebuch"]:
+		check(find_button(ui._sheet_tabs, tab_label) != null, "der Reiter %s ist erreichbar" % tab_label)
 	# Hoflexikon: Entdecktes mit Namen, Unbekanntes verdeckt.
-	var lexicon_button := find_button(ui.content, "Hoflexikon öffnen")
-	if check(lexicon_button != null, "Erfolge bieten das Hoflexikon an"):
-		lexicon_button.pressed.emit()
+	var lexicon_tab := find_button(ui._sheet_tabs, "Hoflexikon")
+	if check(lexicon_tab != null, "der Lexikon-Reiter ist antippbar"):
+		lexicon_tab.pressed.emit()
 		await frames()
-		check(ui._sheet_name == "lexicon" and ui._title.text == "Hoflexikon", "Hoflexikon öffnet über die Erfolge")
+		check(ui._sheet_name == "hof" and ui._title.text == "Hoflexikon", "der Lexikon-Reiter öffnet das Hoflexikon")
 		check(contains_label(ui.content, "Feldfrüchte") and contains_label(ui.content, "Rezepte"), "Lexikon zeigt Pflanzen und Rezepte")
 		check(contains_label(ui.content, "Wilde Funde") and contains_label(ui.content, "Tierarten"), "Lexikon zeigt Fundstücke und Tierarten")
 		check(contains_label(ui.content, "Erdbeere"), "eine geerntete Sorte steht mit Namen im Lexikon")
@@ -422,13 +431,11 @@ func run() -> void:
 			total_seen += int(progress["seen"])
 			total_all += int(progress["total"])
 		check(contains_label(ui.content, "Zusammen %d von %d entdeckt" % [total_seen, total_all]), "Lexikon nennt die Gesamtzahl")
-		ui.act_open("achievements", {})
+	var book_tab := find_button(ui._sheet_tabs, "Hofbuch")
+	if check(book_tab != null, "der Hofbuch-Reiter ist antippbar"):
+		book_tab.pressed.emit()
 		await frames()
-	var book_button := find_button(ui.content, "Hofbuch öffnen")
-	if check(book_button != null, "Erfolge bieten das Hofbuch an"):
-		book_button.pressed.emit()
-		await frames()
-		check(ui._sheet_name == "hofbuch" and ui._title.text == "Hofbuch", "Hofbuch öffnet über die Erfolge")
+		check(ui._sheet_name == "hof" and ui._title.text == "Hofbuch", "der Hofbuch-Reiter öffnet das Hofbuch")
 		check(contains_label(ui.content, "Ein Jahr im Garten"), "Hofbuch zeigt die Jahres-Auszeichnung")
 		check(contains_label(ui.content, "Jahresbaum"), "Hofbuch nennt die Belohnungsdeko")
 		var book_data: Node = root.get_node("GameData")

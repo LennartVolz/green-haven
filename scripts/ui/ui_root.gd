@@ -13,14 +13,20 @@ const ProductionSheet := preload("res://scripts/ui/sheets/production_sheet.gd")
 const ProductionOverviewSheet := preload("res://scripts/ui/sheets/production_overview_sheet.gd")
 const RefugeSheet := preload("res://scripts/ui/sheets/refuge_sheet.gd")
 const AnimalSheet := preload("res://scripts/ui/sheets/animal_sheet.gd")
-const DiarySheet := preload("res://scripts/ui/sheets/diary_sheet.gd")
 const AchievementsSheet := preload("res://scripts/ui/sheets/achievements_sheet.gd")
-const HofbuchSheet := preload("res://scripts/ui/sheets/hofbuch_sheet.gd")
-const LexiconSheet := preload("res://scripts/ui/sheets/lexicon_sheet.gd")
 const ExcursionSheet := preload("res://scripts/ui/sheets/excursion_sheet.gd")
-const LettersSheet := preload("res://scripts/ui/sheets/letters_sheet.gd")
 const VisitSheet := preload("res://scripts/ui/sheets/visit_sheet.gd")
+const HofSheet := preload("res://scripts/ui/sheets/hof_sheet.gd")
 const PhotoSheet := preload("res://scripts/ui/sheets/photo_sheet.gd")
+
+## Alte Wege zu Hofbuch, Lexikon, Briefen und Tagebuch führen in den Hof-Bereich
+## und öffnen dort den passenden Reiter. So bleiben Verweise aus dem Spiel gültig.
+const HOF_ROUTES := {
+	"hofbuch": "hofbuch",
+	"lexicon": "lexicon",
+	"letters": "letters",
+	"diary": "diary",
+}
 
 ## Die ersten Schritte (bis TUTORIAL_INFO_FROM) warten auf eine Handlung des
 ## Spielers, die späteren sind reine Hinweise und werden mit „Weiter“ gelesen.
@@ -55,10 +61,9 @@ var _sheet_head: HBoxContainer
 var _scroll: ScrollContainer
 var _title: Label
 var _subtitle: Label
-## Kleiner Knopf rechts in der Kopfzeile, etwa für die Post im Auftragsbuch.
-## Er sitzt außerhalb des Scrollbereichs und kostet deshalb keine Inhaltshöhe.
-var _header_action: Button
-var _header_action_cb: Callable
+## Reiter unter dem Sheet-Titel, etwa für Hofbuch, Lexikon, Briefe und Tagebuch.
+## Sie sitzen außerhalb des Scrollbereichs und bleiben deshalb stehen.
+var _sheet_tabs: HBoxContainer
 var _toolbar: PanelContainer
 var _nav: PanelContainer
 var _side: VBoxContainer
@@ -333,17 +338,14 @@ func _build_bottom() -> void:
 	_subtitle.visible = false
 	titles.add_child(_subtitle)
 	head.add_child(titles)
-	_header_action = UiKit.button("", "warm", 24)
-	_header_action.visible = false
-	_header_action.custom_minimum_size = Vector2(170, 64)
-	_header_action.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	head.add_child(_header_action)
-	_header_action.pressed.connect(_on_header_action)
 	var close := UiKit.icon_button("close", "danger", 72)
 	close.pressed.connect(close_sheet)
 	head.add_child(close)
 	_close_button = close
 	sv.add_child(head)
+	_sheet_tabs = UiKit.hbox(8)
+	_sheet_tabs.visible = false
+	sv.add_child(_sheet_tabs)
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
@@ -373,6 +375,7 @@ func _build_bottom() -> void:
 		["refuge", "paw", "Refugium"],
 		["quests", "flag", "Ziele"],
 		["achievements", "star", "Erfolge"],
+		["hof", "book", "Hof"],
 	]
 	for d in defs:
 		var b := UiKit.nav_button(d[1], d[2], 120, 130)
@@ -441,6 +444,8 @@ func _apply_layout() -> void:
 				# meldet dann eine Zeile je Zeichen. Der Deckel hält das Sheet
 				# ruhig; nach dem nächsten Frame stimmt der Wert ohnehin.
 				wanted += minf(_sheet_head.get_combined_minimum_size().y, 320.0)
+			if _sheet_tabs != null and _sheet_tabs.visible:
+				wanted += _sheet_tabs.get_combined_minimum_size().y + SHEET_SEP
 			if content != null:
 				wanted += content.get_combined_minimum_size().y
 			wanted = clampf(wanted, minf(sheet_height, size.y * 0.34), sheet_height)
@@ -495,17 +500,41 @@ func set_subtitle(text: String) -> void:
 	_subtitle.visible = not _subtitle.text.is_empty()
 
 
-## Ein kleiner Knopf in der Kopfzeile – dort, wo sonst nichts steht. Leerer
-## Text blendet ihn aus, damit jedes Sheet ihn bei Bedarf selbst setzt.
-func set_header_action(text: String, callback: Callable) -> void:
-	_header_action_cb = callback
-	_header_action.text = I18n.t(text)
-	_header_action.visible = not _header_action.text.is_empty()
+## Reiter unter dem Titel. `tabs` ist eine Liste aus [kennung, text]; `current`
+## ist der aktive Reiter. Eine leere Liste blendet die Leiste aus.
+func set_tabs(tabs: Array, current: String) -> void:
+	if _sheet_tabs == null:
+		return
+	for child in _sheet_tabs.get_children():
+		_sheet_tabs.remove_child(child)
+		child.queue_free()
+	_sheet_tabs.visible = not tabs.is_empty()
+	for entry in tabs:
+		var id := str(entry[0])
+		var button := UiKit.button(str(entry[1]), "warm" if id == current else "light", 27)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.custom_minimum_size.y = UiKit.target_px(84.0)
+		button.pressed.connect(act_hof_tab.bind(id))
+		_sheet_tabs.add_child(button)
 
 
-func _on_header_action() -> void:
-	if _header_action_cb.is_valid():
-		_header_action_cb.call()
+## Welcher Hof-Reiter gilt, wenn ein Sheet geöffnet wird: der gewünschte, sonst
+## der zuletzt offene, sonst das Hofbuch.
+func _hof_tab_of(args: Dictionary) -> String:
+	return str(args.get("tab", state.get("hof_tab", "hofbuch")))
+
+
+## Wechselt den Reiter im Hof-Bereich und springt dabei nach oben: Ein neuer
+## Bereich beginnt an seinem Anfang, nicht mitten in der alten Liste.
+func act_hof_tab(tab: String) -> void:
+	GameState.sound.emit("tap")
+	state["hof_tab"] = tab
+	_sheet_args["tab"] = tab
+	if tab == "letters":
+		GameState.read_letters()
+	refresh_sheet()
+	_pending_scroll_position = 0
+	_scroll.scroll_vertical = 0
 
 
 func set_state(key: String, value: Variant) -> void:
@@ -514,14 +543,21 @@ func set_state(key: String, value: Variant) -> void:
 
 
 func open_sheet(sheet_name: String, args: Dictionary = {}) -> void:
+	if HOF_ROUTES.has(sheet_name):
+		var routed := args.duplicate(true)
+		routed["tab"] = HOF_ROUTES[sheet_name]
+		sheet_name = "hof"
+		args = routed
 	_sheet_name = sheet_name
 	_sheet_args = args.duplicate(true)
+	if sheet_name == "hof" and _hof_tab_of(args) == "letters":
+		GameState.read_letters()
 	if sheet_name == "shop" and _sheet_args.has("tab"):
 		state["shop_tab"] = _sheet_args["tab"]
 	if sheet_name == "shop" and state.get("shop_tab", "") == "":
 		state["shop_tab"] = "crops"
 	set_subtitle("")
-	set_header_action("", Callable())
+	set_tabs([], "")
 	_sheet.visible = true
 	# Das Sheet nimmt der Werkzeugleiste den Platz. Bliebe sie sichtbar, würde sie
 	# zwischen Sheet und Navigation auf einen schmalen Streifen gequetscht.
@@ -537,6 +573,7 @@ func open_sheet(sheet_name: String, args: Dictionary = {}) -> void:
 func close_sheet() -> void:
 	_sheet_name = ""
 	_sheet.visible = false
+	set_tabs([], "")
 	_toolbar.visible = world.tool_mode != ""
 	ticker.clear()
 	_apply_layout()
@@ -608,10 +645,8 @@ func _rebuild() -> void:
 			QuestsSheet.build(self, _sheet_args)
 		"achievements":
 			AchievementsSheet.build(self, _sheet_args)
-		"hofbuch":
-			HofbuchSheet.build(self, _sheet_args)
-		"lexicon":
-			LexiconSheet.build(self, _sheet_args)
+		"hof":
+			HofSheet.build(self, _sheet_args)
 		"settings":
 			SettingsSheet.build(self, _sheet_args)
 		"production":
@@ -620,14 +655,10 @@ func _rebuild() -> void:
 			ProductionOverviewSheet.build(self, _sheet_args)
 		"refuge":
 			RefugeSheet.build(self, _sheet_args)
-		"diary":
-			DiarySheet.build(self, _sheet_args)
 		"animal":
 			AnimalSheet.build(self, _sheet_args)
 		"excursion":
 			ExcursionSheet.build(self, _sheet_args)
-		"letters":
-			LettersSheet.build(self, _sheet_args)
 		"visit":
 			VisitSheet.build(self, _sheet_args)
 		"photo":
@@ -720,8 +751,9 @@ func _update_badges() -> void:
 	var counts := {
 		"orders": GameState.fulfillable_orders(),
 		"quests": GameState.claimable_quests() + GameState.claimable_season_goals(),
-		"achievements": GameState.claimable_achievements() + GameState.claimable_hofbuch(),
+		"achievements": GameState.claimable_achievements(),
 		"production_overview": GameState.total_ready_products(),
+		"hof": GameState.unread_letters() + GameState.claimable_hofbuch(),
 	}
 	for key in counts:
 		if not _nav_buttons.has(key):
@@ -996,13 +1028,13 @@ func act_photo() -> void:
 
 
 func act_open_diary() -> void:
-	open_sheet("diary", {})
+	open_sheet("hof", {"tab": "diary"})
 
 
-## Der Briefkasten liest beim Öffnen alles Ungelesene – Lesen ist schon Zuwendung.
+## Der Briefkasten lebt im Hof-Bereich; das Lesen selbst passiert beim Aufbau
+## des Brief-Reiters – Lesen ist schon Zuwendung.
 func act_open_letters() -> void:
-	GameState.read_letters()
-	open_sheet("letters", {})
+	open_sheet("hof", {"tab": "letters"})
 
 
 func act_open_photos() -> void:

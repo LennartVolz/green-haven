@@ -6,17 +6,8 @@ static func build(ui, _args: Dictionary) -> void:
 	ui.set_title("Erfolge")
 	var c: VBoxContainer = ui.content
 	c.add_child(UiKit.wrap_label("Kleine und große Meilensteine auf deiner Farm. Belohnungen kannst du jederzeit abholen.", 24, UiKit.earth_dark()))
-	var buttons := UiKit.hbox(10)
-	var book := UiKit.button("Hofbuch öffnen", "light", 26)
-	book.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	book.pressed.connect(ui.open_sheet.bind("hofbuch", {}))
-	buttons.add_child(book)
-	# Das Lexikon wohnt hier statt in der Navigation: dort bleiben es sieben Einträge.
-	var lexicon := UiKit.button("Hoflexikon öffnen", "light", 26)
-	lexicon.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lexicon.pressed.connect(ui.open_sheet.bind("lexicon", {}))
-	buttons.add_child(lexicon)
-	c.add_child(buttons)
+	# Hofbuch und Lexikon haben ihren eigenen Bereich in der Navigation; hier
+	# bleibt die Liste wieder eine reine Erfolgsliste.
 	var achievements: Array = GameData.ACHIEVEMENTS.duplicate()
 	achievements.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return _rank(a) < _rank(b))

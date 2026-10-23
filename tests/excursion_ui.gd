@@ -114,7 +114,7 @@ func run() -> void:
 	if check(diary != null, "die Szene führt ins Tagebuch"):
 		diary.pressed.emit()
 		await frames(6)
-	check(ui._sheet_name == "diary", "das Tagebuch öffnet sich")
+	check(ui._sheet_name == "hof" and String(ui.state.get("hof_tab", "")) == "diary", "das Tagebuch öffnet sich im Hof")
 	check(contains_label(ui.content, "Foto ·"), "das Foto steht im Tagebuch")
 	check(count_previews(ui.content) >= 2, "das Tagebuch zeigt die Tiere im Foto")
 	check(contains_label(ui.content, names[0]), "der Eintrag nennt das erste Tier")

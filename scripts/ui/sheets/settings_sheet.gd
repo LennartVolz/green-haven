@@ -94,6 +94,11 @@ static func build(ui, _args: Dictionary) -> void:
 		c.add_child(UiKit.wrap_label("JSON-Spielstände lassen sich auf diesem Gerät auswählen und als Datei weitergeben.", 22, UiKit.earth_dark()))
 
 	c.add_child(UiKit.label("Weiteres", 30, UiKit.earth_dark()))
+	# Die Fotos liegen außerhalb des Spielstands; hier lässt sich die Sammlung
+	# auch später noch ansehen, ohne ein neues Bild aufzunehmen.
+	var photos := UiKit.button("Fotos ansehen", "light", 30)
+	photos.pressed.connect(ui.act_open_photos)
+	c.add_child(photos)
 	var cam := UiKit.button("Kamera zur Farm zentrieren", "light", 30)
 	cam.pressed.connect(ui.act_recenter)
 	c.add_child(cam)

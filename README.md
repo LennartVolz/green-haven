@@ -34,6 +34,7 @@ geretteten Tieren ein Zuhause. Die Tiere produzieren nichts – sie werden einfa
 - Kosmetisches Tier-Ambiente: Bei Regen gehen Tiere in den Gehege-Unterstand; nachts schlafen sie dort mit geschlossenen Augen, ruhiger Atmung und kleinen „Z“. Individuelle Schlafzeiten lassen nachts mindestens ein Tier wach; Streicheln weckt kurz auf. Nach Regen erscheint im Nebel für etwa 15 Sekunden ein ein-/ausblendender Regenbogen. Keine Auswirkung auf Werte oder Spielstände.
 - Nachbarschaft: sechs Nachbarn mit eigenem Ton schreiben kurze Briefe (eine Bitte, ein Dank, eine Beobachtung). Eine Bitte lässt sich mit Ware erfüllen, nichts läuft ab. Ab dem zweiten Brief darfst du einen Hof besuchen: eine gemalte Szene mit zwei antippbaren Stellen, die je einen Satz erzählen. Freundschaftsstufen sind rein erzählerisch; ab Stufe 2 schenkt jeder Nachbar ein Namensschild für den eigenen Hof
 - Hofränge: sechs Ränge nach den Auszeichnungen („Aufgehender Hof“ bis „Weiter Hof“), die je zwei bis vier Systeme gleichzeitig verlangen – Lexikon, Sorten, Jahreszeiten, Saisonziele, Rezepte, Café, Briefe, Besuche, Freundschaften, Hofbuch und Erfolge. Ein Rang gibt keine Münzen und keine XP, sondern ein sichtbares Zeichen am Hof und einen Absatz; einmal erreicht, bleibt er. Anzeige oben im Hofbuch
+- Fotoknopf in der Kopfzeile: nimmt den Hof ohne Menüs auf und legt das Bild als PNG in `user://photos` ab (die letzten zwölf bleiben, ältere werden weggeräumt). Ein Fotoblatt zeigt die Aufnahme groß mit Datum und die letzten Bilder als Streifen; auf dem Rechner lässt sich der Ordner öffnen. Fotos sind Dateien, kein Fortschritt – der Spielstand wächst nicht mit, die Save-Version bleibt gleich
 - Prozedurale Umgebung in Chunks: Wiese und Wald rings um die Farm werden in 8×8-Zellen-Chunks erzeugt und nur im sichtbaren Kamerabereich gezeichnet. Beim Schwenken und Zoomen entsteht so kein leerer grüner Rand, und die Umgebung bleibt auch bei ausgebauter Farm performant
 - Stufenkurve mit langem Atem: frühe Stufen bleiben schnell erreichbar, spätere Ziele wachsen quadratisch. Erfolge sind eine willkommene Beschleunigung, tragen aber nicht mehr allein bis zur Maximalstufe
 - Touch-Steuerung: Tippen sät, legt Felder an und erntet; ein Finger zieht die Karte über die ganze Farm, auch über reifen Feldern und mit aktivem Werkzeug. Dazu Pinch-Zoom mit Trägheit und Platzieren per Ziehen
@@ -53,6 +54,7 @@ godot --headless --path . -s res://tests/production_overview_ui.gd # UI-Test Pro
 godot --headless --path . -s res://tests/cafe_ui.gd          # UI-Test Gartencafé mit Gästen
 godot --headless --path . -s res://tests/excursion_ui.gd     # UI-Test Tierausflüge und Tagesablauf
 godot --headless --path . -s res://tests/letters_ui.gd       # UI-Test Briefe, Besuch und Namensschild
+godot --headless --path . -s res://tests/photo_ui.gd         # UI-Test Foto-Knopf und Fotoblatt
 godot --headless --path . -s res://tests/boot_ui.gd          # UI-Test Ladebildschirm und Start
 godot --path .                                               # Spiel auf dem Desktop starten
 ```
@@ -71,7 +73,7 @@ scripts/world/   Welt, Kamera/Touch, Gelände, Felder, Sammelstellen, Objekte, T
 scripts/ui/      UiRoot (HUD, Aktionen), UiKit, Icons, BootScreen, sheets/ (Menüs)
 scenes/          boot, main, world, ui_root, entity, animal
 tests/           run_tests.gd, achievements_ui.gd, save_transfer_ui.gd, cafe_ui.gd,
-                 excursion_ui.gd, letters_ui.gd, boot_ui.gd, screenshots.gd,
+                 excursion_ui.gd, letters_ui.gd, photo_ui.gd, boot_ui.gd, screenshots.gd,
                  suites/ (inkl. Tier-Wetter-Ambiente), fixtures/ (Test-Spielstände)
 tools/           make_boot_splash.gd (PNG aus der SVG-Quelle erzeugen)
 docs/            BUILD.md, ROADMAP.md (geplante Pakete)

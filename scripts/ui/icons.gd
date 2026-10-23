@@ -24,6 +24,7 @@ const SVG := {
 	"leaf": '<path d="M10 54C8 28 24 10 54 10 56 38 40 56 10 54z" fill="#8DB580" stroke="#6F9A63" stroke-width="3" stroke-linejoin="round"/><path d="M12 52C26 38 36 28 48 16" stroke="#FFF6E0" stroke-width="3" fill="none" stroke-linecap="round"/>',
 	"move": '<path d="M32 6l9 11H35v12h12v-6l11 9-11 9v-6H35v12h6l-9 11-9-11h6V35H17v6L6 32l11-9v6h12V17h-6z" fill="#FFF6E0"/>',
 	"coins_sell": '<circle cx="24" cy="38" r="17" fill="#F4C95D" stroke="#C99A2E" stroke-width="3"/><circle cx="40" cy="26" r="17" fill="#F4C95D" stroke="#C99A2E" stroke-width="3"/>',
+	"camera": '<path d="M20 16l4-7h16l4 7z" fill="#8E6240" stroke="#8E6240" stroke-width="3" stroke-linejoin="round"/><rect x="4" y="16" width="56" height="38" rx="9" fill="#C28E5B" stroke="#8E6240" stroke-width="4"/><circle cx="30" cy="36" r="12" fill="#FFF6E0" stroke="#8E6240" stroke-width="3"/><circle cx="30" cy="36" r="6" fill="#8DB580"/><circle cx="49" cy="26" r="3" fill="#FFF6E0"/>',
 }
 
 static var _cache: Dictionary = {}

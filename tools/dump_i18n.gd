@@ -8,7 +8,7 @@ extends SceneTree
 const SHEETS := [
 	"shop", "orders", "production_overview", "production", "inventory",
 	"refuge", "quests", "achievements", "hofbuch", "lexicon", "settings", "diary", "excursion",
-	"letters",
+	"letters", "photo",
 ]
 
 

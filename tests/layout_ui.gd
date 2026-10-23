@@ -291,6 +291,22 @@ func check_letters(locale: String) -> void:
 	await frames(2)
 
 
+## Fotoblatt: große Aufnahme, Beschriftung und der Streifen der letzten Fotos
+## müssen in jeder Sprache im Bild bleiben.
+func check_photo(locale: String) -> void:
+	var view: Vector2 = ui._layer.size
+	ui.open_sheet("photo")
+	await frames(6)
+	check(ui._sheet.visible, "[%s] Fotoblatt öffnet sich" % locale)
+	check(has_text(ui.content, I18n.t("Zuletzt aufgenommen")), "[%s] das Fotoblatt zeigt die letzten Aufnahmen" % locale)
+	check(ui._sheet.size.y <= view.y * 0.83,
+		"[%s] Fotoblatt bleibt im Bild (%.0f von %.0f px)" % [locale, ui._sheet.size.y, view.y])
+	check_text(locale, "Fotos")
+	check_overflow(locale, "Fotos")
+	ui.close_sheet()
+	await frames(2)
+
+
 ## Hofbuch mit allen sechs Hofrängen: erreichte Ränge tragen zusätzlich ihren
 ## Absatz, und das ist der längste Fall für Höhe und Umbruch.
 func check_hofranks(locale: String) -> void:
@@ -477,6 +493,13 @@ func run() -> void:
 	if paddock_uid > 0:
 		rabbit_uid = gs.adopt_animal("rabbit")
 		chicken_uid = gs.adopt_animal("chicken")
+	# Zwei Fotos für das Fotoblatt – der Streifen braucht mehr als eine Aufnahme.
+	Photos.path_override = "user://layout_ui_photos"
+	clear_photos()
+	var shot := Image.create_empty(160, 90, false, Image.FORMAT_RGBA8)
+	shot.fill(Color(0.55, 0.7, 0.4))
+	Photos.save(shot)
+	Photos.save(shot)
 	# Café und Gehege bleiben stehen, die Stufe kehrt für die übrigen Prüfungen zurück.
 	gs.level = 1
 	for locale in ["de"] + TRANSLATED:
@@ -488,6 +511,7 @@ func run() -> void:
 		await check_orders(locale)
 		await check_sheets(locale)
 		await check_hofranks(locale)
+		await check_photo(locale)
 		if paddock_uid > 0 and rabbit_uid > 0 and chicken_uid > 0:
 			await check_excursion(locale)
 		if cafe_uid > 0:
@@ -505,9 +529,20 @@ func run() -> void:
 	ui.relocalize()
 	await frames(5)
 	await check_readability("fr")
+	clear_photos()
+	Photos.path_override = ""
 	if failures > 0:
 		printerr("layout_ui: %d Fehler" % failures)
 		quit(1)
 		return
 	print("layout_ui checked")
 	quit(0)
+
+
+## Der Fotoordner des Layouttests – nie der echte.
+func clear_photos() -> void:
+	var dir := DirAccess.open(Photos.directory())
+	if dir == null:
+		return
+	for name in dir.get_files():
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(Photos.directory().path_join(str(name))))

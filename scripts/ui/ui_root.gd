@@ -20,6 +20,7 @@ const LexiconSheet := preload("res://scripts/ui/sheets/lexicon_sheet.gd")
 const ExcursionSheet := preload("res://scripts/ui/sheets/excursion_sheet.gd")
 const LettersSheet := preload("res://scripts/ui/sheets/letters_sheet.gd")
 const VisitSheet := preload("res://scripts/ui/sheets/visit_sheet.gd")
+const PhotoSheet := preload("res://scripts/ui/sheets/photo_sheet.gd")
 
 ## Die ersten Schritte (bis TUTORIAL_INFO_FROM) warten auf eine Handlung des
 ## Spielers, die späteren sind reine Hinweise und werden mit „Weiter“ gelesen.
@@ -93,6 +94,10 @@ var _land_button: Button
 var _edit_button: Button
 var _close_button: Button
 var _layout_wide := true
+## Das Foto des Hofes kommt aus dem Bildschirm. Die Naht erlaubt es Tests,
+## stattdessen ein fertiges Bild zu liefern – dort gibt es keinen Renderer.
+var photo_source: Callable = Callable()
+var _photo_busy := false
 
 
 func _ready() -> void:
@@ -215,6 +220,11 @@ func _build_top() -> void:
 	ch.add_child(_coins_label)
 	cp.add_child(ch)
 	h.add_child(cp)
+	var camera := UiKit.icon_button("camera", "light", 84)
+	camera.name = "CameraButton"
+	camera.tooltip_text = I18n.t("Foto vom Hof aufnehmen")
+	camera.pressed.connect(act_photo)
+	h.add_child(camera)
 	var gear := UiKit.icon_button("gear", "light", 84)
 	gear.pressed.connect(act_open.bind("settings", {}))
 	h.add_child(gear)
@@ -620,6 +630,8 @@ func _rebuild() -> void:
 			LettersSheet.build(self, _sheet_args)
 		"visit":
 			VisitSheet.build(self, _sheet_args)
+		"photo":
+			PhotoSheet.build(self, _sheet_args)
 		"crops":
 			CropsSheet.build(self, _sheet_args)
 		_:
@@ -944,6 +956,45 @@ func act_start_delivery_story(story_id: String) -> void:
 		show_toast("Eine neue Nachbarschaftsgeschichte beginnt!", "good")
 
 
+## Foto vom Hof: Menüs und Hinweise verschwinden für einen Frame, dann wird der
+## Bildschirm aufgenommen. Ohne Menüs, weil ein Foto mit Knöpfen kein Foto ist.
+func act_photo() -> void:
+	if _photo_busy:
+		return
+	_photo_busy = true
+	GameState.sound.emit("tap")
+	close_sheet()
+	var hidden: Array = []
+	for control in [_top, _side, _tut_panel, _toast_panel, _nav, _toolbar]:
+		var c := control as Control
+		if c != null and c.visible:
+			hidden.append(c)
+			c.visible = false
+	var image: Image = null
+	if photo_source.is_valid():
+		image = photo_source.call()
+	else:
+		await RenderingServer.frame_post_draw
+		var viewport := get_viewport()
+		if viewport != null and viewport.get_texture() != null:
+			image = viewport.get_texture().get_image()
+	for control in hidden:
+		(control as Control).visible = true
+	if _toolbar != null and world != null:
+		_toolbar.visible = world.tool_mode != ""
+	_apply_layout()
+	_photo_busy = false
+	if image == null or image.is_empty():
+		show_toast("Foto konnte nicht aufgenommen werden.", "error")
+		return
+	var path := Photos.save(image)
+	if path == "":
+		show_toast("Foto konnte nicht gespeichert werden.", "error")
+		return
+	show_toast(I18n.t("Foto gespeichert · %s") % path.get_file(), "good")
+	open_sheet("photo", {"path": path})
+
+
 func act_open_diary() -> void:
 	open_sheet("diary", {})
 
@@ -952,6 +1003,11 @@ func act_open_diary() -> void:
 func act_open_letters() -> void:
 	GameState.read_letters()
 	open_sheet("letters", {})
+
+
+func act_open_photos() -> void:
+	GameState.sound.emit("tap")
+	open_sheet("photo", {})
 
 
 func act_deliver_letter(letter_id: String) -> void:

@@ -78,6 +78,7 @@ func _initialize() -> void:
 	test_save_hardening()
 	test_logic_regressions()
 	test_data_consistency()
+	test_photos()
 	test_unlock_pacing()
 	test_economy()
 	test_new_crops()
@@ -2383,3 +2384,67 @@ func test_data_consistency() -> void:
 				check(gd.items.has(item) and int(gd.items[item]["level"]) <= int(story["level"]), "Geschichte %s: %s ist ab der Startstufe herstellbar" % [sid, item])
 	var world := Rect2i(gd.WORLD_ORIGIN, Vector2i(gd.WORLD_COLS, gd.WORLD_ROWS))
 	check(world.encloses(gd.START_LAND.grow(gd.LAND_EXPANSIONS.size())), "voll ausgebaute Farm liegt innerhalb der Welt")
+
+
+## Fotos sind Dateien, kein Spielstand: Name, Ablage, Begrenzung und das
+## Verhalten bei einem kaputten Bild. Nichts davon zählt Fortschritt.
+func test_photos() -> void:
+	begin("Fotos vom Hof")
+	var photos_script: GDScript = load("res://scripts/core/photos.gd")
+	photos_script.path_override = "user://test_photos"
+	_clear_photos(photos_script)
+	# Der Name trägt Datum und Uhrzeit, damit der Ordner ohne Zusatzliste sortierbar bleibt.
+	var pattern := RegEx.create_from_string("^hof-\\d{4}-\\d{2}-\\d{2}-\\d{6}-\\d{2}\\.png$")
+	check(pattern.search(photos_script.file_name(Time.get_unix_time_from_system())) != null, "Fotonamen tragen Datum und Uhrzeit: %s" % photos_script.file_name(Time.get_unix_time_from_system()))
+	check(photos_script.stamp(1_700_000_000.0).length() == 17, "der Zeitstempel hat Datum und Uhrzeit (%s)" % photos_script.stamp(1_700_000_000.0))
+	check(photos_script.stamp(1_700_000_000.0) != photos_script.stamp(1_700_003_600.0), "zwei Zeitpunkte ergeben zwei Stempel")
+	check(photos_script.file_name(1_700_000_000.0).ends_with("-01.png"), "der Dateiname endet auf seine laufende Nummer (%s)" % photos_script.file_name(1_700_000_000.0))
+	check(photos_script.photos().is_empty(), "ohne Aufnahme ist der Fotoordner leer")
+	# Speichern und wieder laden: das PNG ist kein leeres Versprechen.
+	var image := Image.create_empty(48, 27, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.55, 0.7, 0.4))
+	var moment := 1_700_000_000.0
+	var first_path: String = photos_script.save(image, moment)
+	check(first_path != "", "ein Bild wird gespeichert")
+	check(FileAccess.file_exists(first_path), "die Datei liegt im Fotoordner")
+	check(first_path.ends_with(".png") and first_path.get_file().begins_with("hof-"), "das Foto ist ein PNG mit Hof-Namen (%s)" % first_path.get_file())
+	var reloaded := Image.new()
+	check(reloaded.load(first_path) == OK, "das Foto lässt sich wieder laden")
+	check(reloaded.get_size() == Vector2i(48, 27), "das geladene Foto hat die aufgenommene Größe (%s)" % reloaded.get_size())
+	check(photos_script.photos() == [first_path], "der Ordner listet genau dieses Foto")
+	# Zwei Aufnahmen in derselben Sekunde überschreiben sich nicht.
+	var second_path: String = photos_script.save(image, moment)
+	check(second_path != first_path and FileAccess.file_exists(second_path), "gleiche Sekunde ergibt einen zweiten Namen")
+	var listed: Array = photos_script.photos()
+	check(listed.size() == 2 and str(listed[0]) == str(second_path), "neueste Aufnahme steht vorn")
+	# Nichts speichern, wo nichts ist – und kein leeres Bild ablegen.
+	check(photos_script.save(null) == "", "ohne Bild wird nichts gespeichert")
+	check(photos_script.save(Image.new()) == "", "ein leeres Bild wird nicht gespeichert")
+	check(photos_script.photos().size() == 2, "die gescheiterten Versuche legen keine Datei an")
+	# Der Ordner bleibt begrenzt: nach KEEP Aufnahmen fällt die älteste weg.
+	for index in range(photos_script.KEEP + 3):
+		photos_script.save(image, moment + float(index + 1))
+	check(photos_script.photos().size() == photos_script.KEEP, "der Ordner behält genau %d Fotos (%d)" % [photos_script.KEEP, photos_script.photos().size()])
+	check(not FileAccess.file_exists(first_path), "die älteste Aufnahme wird weggeräumt")
+	# Ein großer Framebuffer wird auf eine sinnvolle Breite gebracht.
+	var big := Image.create_empty(2400, 1350, false, Image.FORMAT_RGBA8)
+	big.fill(Color(0.4, 0.6, 0.3))
+	var big_path: String = photos_script.save(big, moment + 500.0)
+	var big_saved := Image.new()
+	check(big_saved.load(big_path) == OK and big_saved.get_width() == photos_script.MAX_WIDTH,
+		"breite Aufnahmen werden auf %d px verkleinert (%s)" % [photos_script.MAX_WIDTH, big_saved.get_size()])
+	check(big_saved.get_height() == 1080, "das Seitenverhältnis bleibt beim Verkleinern erhalten (%d)" % big_saved.get_height())
+	check(Image.new().load(photos_script.photos()[0]) == OK, "das neueste Foto bleibt lesbar")
+	check(not gs.serialize().has("photos"), "Fotos stehen nicht im Spielstand")
+	check(gs.SAVE_VERSION == 11, "die Spielstand-Version bleibt unverändert")
+	_clear_photos(photos_script)
+	photos_script.path_override = ""
+
+
+func _clear_photos(photos_script: GDScript) -> void:
+	var dir := DirAccess.open(photos_script.directory())
+	if dir == null:
+		return
+	for name in dir.get_files():
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(photos_script.directory().path_join(str(name))))
+	DirAccess.remove_absolute(photos_script.directory())

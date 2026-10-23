@@ -88,6 +88,37 @@ const SEASON_YEAR_STORY_SRC := "Ein ganzes Jahr liegt hinter dem Hof: vier Jahre
 ## Typen: seasons (erlebte Jahreszeiten), season_goals (je einmal erfüllt),
 ## species_hearts (Tierarten mit Herzen), recipes, stories, crops,
 ## cafe_stories (geteilte Café-Geschichten), paddocks (belegte Gehegeplätze).
+## Sechs Hofränge für die Zeit nach den Auszeichnungen. Jeder Rang misst Breite
+## statt Zahlen: mehrere Systeme gleichzeitig, aus vorhandenen Zählern. Einmal
+## erreicht, bleibt ein Rang – er gibt keine Münzen, keine XP und keine Stärke,
+## sondern ein sichtbares Zeichen am Hof und einen kurzen Absatz.
+const HOFRANKS_SRC := [
+	{"id": "rising", "text": "Aufgehender Hof", "description": "Die ersten Beete tragen, im Café sitzt jemand, und aus der Nachbarschaft kommt Post.",
+		"needs": [{"type": "lexicon", "target": 14}, {"type": "cafe_guests", "target": 6}, {"type": "letters", "target": 2}],
+		"deco": "rank_banner",
+		"story": "Der Wimpel hängt am Pfosten neben dem Tor und dreht sich mit dem Wind. Er ist nicht groß, aber man sieht ihn von der Straße."},
+	{"id": "tended", "text": "Gepflegter Hof", "description": "Viele Sorten, alle vier Jahreszeiten und Tiere, die draußen unterwegs sind.",
+		"needs": [{"type": "crops", "target": 12}, {"type": "seasons", "target": 4}, {"type": "excursions", "target": 3}],
+		"deco": "rank_gate",
+		"story": "Das Tor schließt nicht mehr richtig, und niemand will es reparieren: Wer vorbeikommt, lässt es einfach offen stehen."},
+	{"id": "open", "text": "Offener Hof", "description": "Die Nachbarschaft kennt dich: Briefe, Besuche und gewachsene Freundschaften.",
+		"needs": [{"type": "letters", "target": 6}, {"type": "visits", "target": 4}, {"type": "friends", "target": 2}],
+		"deco": "rank_bench",
+		"story": "Die Bank unter dem Baum ist für die Pausen gedacht, in denen jemand erzählt. Meistens sitzt mehr als eine Person darauf."},
+	{"id": "good", "text": "Guter Hof", "description": "Café-Geschichten, Saisonziele und Rezepte, die längst zum Alltag gehören.",
+		"needs": [{"type": "cafe_stories", "target": 10}, {"type": "season_goals", "target": 6}, {"type": "recipes", "target": 25}],
+		"deco": "rank_bell",
+		"story": "Die Hofglocke läutet selten. Wenn sie läutet, steht jemand mit Kuchen oder einer guten Nachricht am Zaun."},
+	{"id": "old", "text": "Alter Hof", "description": "Auszeichnungen, Erfolge und Ausflüge, die niemand mehr zählt, weil sie selbstverständlich geworden sind.",
+		"needs": [{"type": "hofbuch", "target": 4}, {"type": "achievements", "target": 14}, {"type": "excursions", "target": 8}],
+		"deco": "rank_stone",
+		"story": "Der Meilenstein trägt keine Zahl, nur eine Kerbe für jedes Jahr, in dem hier etwas gewachsen ist."},
+	{"id": "wide", "text": "Weiter Hof", "description": "Alles hat einmal stattgefunden: alle Rezepte, alle Saisonziele, alle Café-Geschichten und jeder Nachbar.",
+		"needs": [{"type": "recipes", "target": 53}, {"type": "season_goals", "target": 12}, {"type": "cafe_stories", "target": 25}, {"type": "friends", "target": 6}],
+		"deco": "rank_plaque",
+		"story": "Die Hoftafel hängt am Haus und ist fast vollgeschrieben. Der letzte Satz lautet: „Es ist noch Platz.“"},
+]
+
 const HOFBUCH_SRC := [
 	{"id": "year_round", "text": "Ein Jahr im Garten", "description": "Erlebe alle vier Jahreszeiten.", "type": "seasons", "target": 4, "deco": "hofbuch_tree",
 		"story": "Der Jahresbaum trägt Spuren aller vier Jahreszeiten: helle Knospen, Sommerlaub, rote Blätter und kahle Zweige, die trotzdem stehen bleiben."},
@@ -263,6 +294,13 @@ const DECOS_SRC := {
 	"sign_jonas": {"name": "Jonas' Schild", "label": "Jonas", "cost": 0, "level": 1, "size": [1, 1], "unlock": "neighbor:jonas"},
 	"sign_mira": {"name": "Miras Schild", "label": "Mira", "cost": 0, "level": 1, "size": [1, 1], "unlock": "neighbor:mira"},
 	"sign_hanna": {"name": "Hannas Schild", "label": "Hanna", "cost": 0, "level": 1, "size": [1, 1], "unlock": "neighbor:hanna"},
+	# Hofränge: je ein sichtbares Zeichen am Hof, kostenlos und ohne Wirkung.
+	"rank_banner": {"name": "Hofwimpel", "cost": 0, "level": 1, "size": [1, 1], "unlock": "hofrang:rising"},
+	"rank_gate": {"name": "Hoftor", "cost": 0, "level": 1, "size": [2, 1], "unlock": "hofrang:tended"},
+	"rank_bench": {"name": "Bank unter dem Baum", "cost": 0, "level": 1, "size": [2, 1], "unlock": "hofrang:open"},
+	"rank_bell": {"name": "Hofglocke", "cost": 0, "level": 1, "size": [1, 1], "unlock": "hofrang:good"},
+	"rank_stone": {"name": "Meilenstein", "cost": 0, "level": 1, "size": [1, 1], "unlock": "hofrang:old"},
+	"rank_plaque": {"name": "Hoftafel", "cost": 0, "level": 1, "size": [1, 1], "unlock": "hofrang:wide"},
 }
 
 ## Gerettete Tiere. Sie produzieren nichts – sie werden gepflegt und geliebt.
@@ -623,6 +661,7 @@ var SEASON_GOALS := []
 var SEASON_GOAL_STORIES := {}
 var SEASON_YEAR_STORY := ""
 var HOFBUCH := []
+var HOFRANKS := []
 var CROPS := {}
 var FORAGE := {}
 var EXTRA_ITEMS := {}
@@ -807,6 +846,7 @@ func _apply_tables(translate: bool) -> void:
 	SEASON_GOAL_STORIES = _localize(SEASON_GOAL_STORIES_SRC)
 	SEASON_YEAR_STORY = I18n.t(SEASON_YEAR_STORY_SRC) if translate else SEASON_YEAR_STORY_SRC
 	HOFBUCH = _localize(HOFBUCH_SRC)
+	HOFRANKS = _localize(HOFRANKS_SRC)
 	CROPS = _localize(CROPS_SRC)
 	FORAGE = _localize(FORAGE_SRC)
 	EXTRA_ITEMS = _localize(EXTRA_ITEMS_SRC)
@@ -889,6 +929,7 @@ func source_texts() -> Array:
 	_collect_texts(SEASON_GOAL_STORIES_SRC, out, true)
 	_collect_texts([SEASON_YEAR_STORY_SRC], out, true)
 	_collect_texts(HOFBUCH_SRC, out, false)
+	_collect_texts(HOFRANKS_SRC, out, false)
 	_collect_texts(CROPS_SRC, out, false)
 	_collect_texts(FORAGE_SRC, out, false)
 	_collect_texts(EXTRA_ITEMS_SRC, out, false)

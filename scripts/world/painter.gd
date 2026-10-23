@@ -865,7 +865,7 @@ static func draw_deco(ci: CanvasItem, type: String, t: float) -> void:
 			ci.draw_line(Vector2(-46, -42), Vector2(46, -42), col("#B58A2E"), 4.0)
 		"tree", "hofbuch_tree":
 			tree(ci, Vector2(0, -22), 1.0, t)
-		"bench", "season_bench", "hofbuch_bench", "hofbuch_table":
+		"bench", "season_bench", "hofbuch_bench", "hofbuch_table", "rank_bench":
 			shadow(ci, Vector2(0, -22), 110, 14)
 			rrect(ci, Rect2(-108, -64, 216, 14), col("#B07A4A"), 5)
 			rrect(ci, Rect2(-108, -92, 216, 22), col("#C28E5B"), 6)
@@ -920,6 +920,47 @@ static func draw_deco(ci: CanvasItem, type: String, t: float) -> void:
 			rrect(ci, Rect2(-44, -122, 88, 26), col("#FFF6E0"), 7)
 			ci.draw_line(Vector2(-32, -112), Vector2(32, -112), col("#6F9A63"), 4.0, true)
 			ci.draw_line(Vector2(-32, -103), Vector2(16, -103), col("#B07A4A"), 4.0, true)
+		"rank_banner":
+			shadow(ci, Vector2(0, -18), 26, 8)
+			ci.draw_line(Vector2(0, -18), Vector2(0, -156), col("#8E6240"), 8.0, true)
+			ci.draw_circle(Vector2(0, -160), 7, col("#F6D870"))
+			var wave := sin(t * 1.7) * 9.0
+			poly(ci, [Vector2(4, -150), Vector2(70 + wave, -134), Vector2(4, -106)], col("#D9583B"))
+			poly(ci, [Vector2(4, -144), Vector2(34 + wave * 0.6, -134), Vector2(4, -114)], col("#F2A04A"))
+		"rank_gate":
+			shadow(ci, Vector2(0, -16), 126, 15)
+			rrect(ci, Rect2(-96, -150, 18, 136), col("#C28E5B"), 7)
+			rrect(ci, Rect2(78, -150, 18, 136), col("#C28E5B"), 7)
+			rrect(ci, Rect2(-108, -176, 216, 26), col("#B07A4A"), 10)
+			rrect(ci, Rect2(-60, -168, 120, 10), col("#FFF6E0"), 4)
+			ci.draw_circle(Vector2(-96, -182), 6, col("#F6D870"))
+			ci.draw_circle(Vector2(96, -182), 6, col("#F6D870"))
+		"rank_bell":
+			shadow(ci, Vector2(0, -18), 34, 9)
+			rrect(ci, Rect2(-6, -150, 12, 134), col("#8E6240"), 4)
+			rrect(ci, Rect2(-40, -152, 80, 12), col("#8E6240"), 5)
+			poly(ci, [Vector2(-26, -140), Vector2(26, -140), Vector2(34, -104), Vector2(-34, -104)], col("#E2BC52"))
+			rrect(ci, Rect2(-38, -108, 76, 10), col("#C79A36"), 5)
+			ci.draw_circle(Vector2(0, -94), 6, col("#B58A2E"))
+			ci.draw_line(Vector2(0, -94), Vector2(0, -66), col("#B58A2E"), 3.0, true)
+			if sin(t * 1.3) > 0.6:
+				ci.draw_arc(Vector2(48, -122), 14, -0.9, 0.9, 12, Color(1.0, 1.0, 1.0, 0.45), 3.0, true)
+		"rank_stone":
+			shadow(ci, Vector2(0, -16), 46, 11)
+			rrect(ci, Rect2(-38, -112, 76, 96), col("#A9A18C"), 26)
+			rrect(ci, Rect2(-30, -104, 60, 80), col("#BCB4A0"), 22)
+			ci.draw_line(Vector2(-16, -96), Vector2(-16, -36), col("#8E8674"), 3.0, true)
+			ci.draw_line(Vector2(16, -96), Vector2(16, -36), col("#8E8674"), 3.0, true)
+			ci.draw_circle(Vector2(0, -66), 7, col("#6F9A63"))
+		"rank_plaque":
+			shadow(ci, Vector2(0, -16), 52, 10)
+			rrect(ci, Rect2(-34, -104, 10, 90), col("#8E6240"), 4)
+			rrect(ci, Rect2(24, -104, 10, 90), col("#8E6240"), 4)
+			rrect(ci, Rect2(-54, -140, 108, 44), col("#C28E5B"), 9)
+			rrect(ci, Rect2(-46, -132, 92, 28), col("#FFF6E0"), 6)
+			ci.draw_line(Vector2(-36, -122), Vector2(30, -122), col("#B07A4A"), 3.0, true)
+			ci.draw_line(Vector2(-36, -113), Vector2(12, -113), col("#B07A4A"), 3.0, true)
+			flower_dot(ci, Vector2(36, -130), 0.7, col("#F28BB0"))
 		"pond":
 			ellipse(ci, Vector2(0, -60), 118, 56, col("#A9A18C"))
 			ellipse(ci, Vector2(0, -62), 108, 48, col("#6FB4D0"))

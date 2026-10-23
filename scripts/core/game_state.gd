@@ -162,6 +162,9 @@ var seasons_seen: Array = []
 ## Dauerhaft freigeschaltete Belohnungsdeko (Seasonziele und Hofbuch).
 var unlocked_decos: Array = []
 var hofbuch_claimed: Array = []
+## Höchster erreichter Hofrang (0 = noch keiner). Er wächst nur und bleibt
+## deshalb auch dann stehen, wenn ein Zähler später nicht mehr gemessen wird.
+var hofrang := 0
 
 var _occ: Dictionary = {}        ## Vector2i -> uid
 var _refresh_acc := 0.0
@@ -422,6 +425,88 @@ func claimable_hofbuch() -> int:
 	return n
 
 
+# ---------------------------------------------------------------- Hofränge
+
+## Breite statt Zahlen: Jede Bedingung eines Hofrangs misst ein anderes System
+## über die vorhandenen Zähler. Nichts davon gibt Münzen, XP oder Stärke.
+func hofrang_need_progress(need: Dictionary) -> int:
+	var kind := str(need.get("type", ""))
+	match kind:
+		"lexicon":
+			var seen := 0
+			for lexicon_kind in LEXICON_KINDS:
+				seen += int(lexicon_progress(str(lexicon_kind))["seen"])
+			return seen
+		"cafe_guests":
+			return int(stats.get("cafe_guests", 0))
+		"letters":
+			return letters.size()
+		"excursions":
+			return int(stats.get("excursions", 0))
+		"visits":
+			return int(stats.get("neighbor_visits", 0))
+		"friends":
+			var friends := 0
+			for neighbor_id in GameData.NEIGHBORS:
+				if neighbor_level(str(neighbor_id)) >= NEIGHBOR_SIGN_LEVEL:
+					friends += 1
+			return friends
+		"hofbuch":
+			return hofbuch_claimed.size()
+		"achievements":
+			return claimed_achievements.size()
+	# Jahreszeiten, Saisonziele, Ernten, Rezepte, Café-Geschichten und Gehegeplätze
+	# misst bereits das Hofbuch – dieselbe Rechnung, keine zweite Quelle.
+	return hofbuch_progress({"type": kind})
+
+
+func hofrang_need_met(need: Dictionary) -> bool:
+	return hofrang_need_progress(need) >= int(need.get("target", 0))
+
+
+## Ein Rang zählt nur, wenn alle seine Bedingungen erfüllt sind und der Rang
+## davor erreicht ist. So bleibt die Reihenfolge erzählt statt zufällig.
+func hofrang_ready(index: int) -> bool:
+	if index < 1 or index > GameData.HOFRANKS.size() or index > hofrang + 1:
+		return false
+	for need in GameData.HOFRANKS[index - 1].get("needs", []):
+		if not hofrang_need_met(need):
+			return false
+	return true
+
+
+func hofrang_rank(index: int) -> Dictionary:
+	if index < 1 or index > GameData.HOFRANKS.size():
+		return {}
+	return GameData.HOFRANKS[index - 1]
+
+
+func hofrang_reached(index: int) -> bool:
+	return index >= 1 and index <= hofrang
+
+
+## Prüft alle offenen Ränge und trägt erreichte ein: Deko frei, Tagebucheintrag,
+## ein Hinweis – und sonst nichts. Wird im Sekundentakt aufgerufen.
+func refresh_hofrang() -> void:
+	var reached := hofrang
+	for index in range(hofrang + 1, GameData.HOFRANKS.size() + 1):
+		if not hofrang_ready(index):
+			break
+		reached = index
+	if reached == hofrang:
+		return
+	hofrang = reached
+	var rank := hofrang_rank(hofrang)
+	var deco := str(rank.get("deco", ""))
+	if deco != "" and not unlocked_decos.has(deco):
+		unlocked_decos.append(deco)
+	add_diary_entry("DIARY_HOFRANK", [String(rank.get("text", "")), String(rank.get("story", ""))])
+	toast.emit(I18n.t("Neuer Hofrang: %s") % String(rank.get("text", "")), "good")
+	sound.emit("collect")
+	quests_changed.emit()
+	event("hofrang_reached", {"rank": hofrang, "id": str(rank.get("id", ""))})
+
+
 ## Trägt eine Auszeichnung ein: Deko frei, Geschichte ins Tagebuch, keine Münzen.
 func claim_hofbuch(id: String) -> bool:
 	for entry in GameData.HOFBUCH:
@@ -493,6 +578,7 @@ func _process(delta: float) -> void:
 	_fill_orders()
 	_refresh_letters()
 	_refresh_rescue_case()
+	refresh_hofrang()
 
 
 # ---------------------------------------------------------------- Zustand
@@ -551,6 +637,7 @@ func reset_state() -> void:
 	seasons_seen = []
 	unlocked_decos = []
 	hofbuch_claimed = []
+	hofrang = 0
 	_occ = {}
 
 
@@ -2647,6 +2734,7 @@ func serialize() -> Dictionary:
 		"seasons_seen": seasons_seen.duplicate(),
 		"unlocked_decos": unlocked_decos.duplicate(),
 		"hofbuch_claimed": hofbuch_claimed.duplicate(),
+		"hofrang": hofrang,
 		"settings": settings.duplicate(),
 		"tutorial_step": tutorial_step,
 		"next_uid": next_uid,
@@ -2956,6 +3044,7 @@ func deserialize(d: Dictionary) -> bool:
 		var deco_key := str(deco_id)
 		if GameData.DECOS.has(deco_key) and GameData.DECOS[deco_key].has("unlock") and not unlocked_decos.has(deco_key):
 			unlocked_decos.append(deco_key)
+	hofrang = clampi(int(d.get("hofrang", 0)), 0, GameData.HOFRANKS.size())
 	hofbuch_claimed = []
 	for entry_id in _save_array(d, "hofbuch_claimed"):
 		for entry in GameData.HOFBUCH:

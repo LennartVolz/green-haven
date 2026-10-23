@@ -48,6 +48,7 @@ func _initialize() -> void:
 	test_seasons()
 	test_season_goals()
 	test_hofbuch()
+	test_hofranks()
 	test_weather_growth()
 	test_farming()
 	test_inventory()
@@ -249,6 +250,8 @@ func test_season_goals() -> void:
 		unlock_keys["hofbuch:" + str(entry["id"])] = true
 	for neighbor_id in gd.NEIGHBORS:
 		unlock_keys["neighbor:" + str(neighbor_id)] = true
+	for rank in gd.HOFRANKS:
+		unlock_keys["hofrang:" + str(rank["id"])] = true
 	for deco_id in gd.DECOS:
 		var deco: Dictionary = gd.DECOS[deco_id]
 		if not deco.has("unlock"):
@@ -384,6 +387,135 @@ func test_hofbuch() -> void:
 	check(gs.unlocked_decos.size() == 2 and gs.unlocked_decos.has("hofbuch_basket") and gs.unlocked_decos.has("season_arch"), "nur echte Belohnungsdeko wird gespeichert")
 	check(gs.seasons_seen.size() == 2 and not gs.seasons_seen.has("ghost"), "unbekannte Jahreszeiten werden verworfen")
 	gs.new_game()
+
+
+## Ein Bedürfnis eines Hofrangs künstlich erfüllen – immer über die vorhandenen
+## Zähler, damit der Test dieselbe Rechnung prüft wie das Spiel.
+func rank_fill_need(need: Dictionary) -> void:
+	var target := int(need["target"])
+	match str(need["type"]):
+		"lexicon":
+			var lexicon_crops: Array = gd.CROPS.keys()
+			for i in range(mini(target, lexicon_crops.size())):
+				gs.add_item(str(lexicon_crops[i]), 1)
+		"cafe_guests":
+			gs.stats["cafe_guests"] = target
+		"letters":
+			while gs.letters.size() < target:
+				gs.next_letter_at = 0.0
+				gs._refresh_letters()
+		"excursions":
+			gs.stats["excursions"] = target
+		"visits":
+			gs.stats["neighbor_visits"] = target
+		"friends":
+			var friends := 0
+			for neighbor_id in gd.NEIGHBORS:
+				if friends >= target:
+					break
+				gs.neighbor_friendship[str(neighbor_id)] = gs.NEIGHBOR_LEVELS[gs.NEIGHBOR_SIGN_LEVEL - 1]
+				friends += 1
+		"hofbuch":
+			gs.hofbuch_claimed = []
+			for i in range(mini(target, gd.HOFBUCH.size())):
+				gs.hofbuch_claimed.append(str(gd.HOFBUCH[i]["id"]))
+		"achievements":
+			gs.claimed_achievements = []
+			for i in range(mini(target, gd.ACHIEVEMENTS.size())):
+				gs.claimed_achievements.append(str(gd.ACHIEVEMENTS[i]["id"]))
+		"crops":
+			var harvest_crops: Array = gd.CROPS.keys()
+			for i in range(mini(target, harvest_crops.size())):
+				gs.stats["harvested:" + str(harvest_crops[i])] = 1
+		"recipes":
+			var recipes: Array = gd.RECIPES.keys()
+			for i in range(mini(target, recipes.size())):
+				gs.stats["crafted_" + str(recipes[i])] = 1
+		"seasons":
+			for season in gd.SEASONS:
+				gs.seasons_seen.append(str(season["id"]))
+		"season_goals":
+			for i in range(mini(target, gd.SEASON_GOALS.size())):
+				gs.claimed_quests.append("season:1:%s" % str(gd.SEASON_GOALS[i]["id"]))
+		"cafe_stories":
+			gs.stats["cafe_stories_shared"] = target
+
+
+func test_hofranks() -> void:
+	begin("Hofränge")
+	check(gd.HOFRANKS.size() == 6, "sechs Hofränge")
+	check(gs.hofrang == 0, "eine neue Farm hat noch keinen Rang")
+	check(not gs.hofrang_ready(0) and not gs.hofrang_ready(gd.HOFRANKS.size() + 1), "nur die vorhandenen Ränge zählen")
+	check(not gs.hofrang_ready(2), "der zweite Rang wartet auf den ersten")
+	var caps := {
+		"lexicon": 999, "cafe_guests": 9999, "letters": gs.MAX_LETTERS, "excursions": 9999,
+		"visits": 9999, "friends": gd.NEIGHBORS.size(), "hofbuch": gd.HOFBUCH.size(),
+		"achievements": gd.ACHIEVEMENTS.size(), "crops": gd.CROPS.size(), "recipes": gd.RECIPES.size(),
+		"seasons": gd.SEASONS.size(), "season_goals": gd.SEASON_GOALS.size(), "cafe_stories": 9999,
+	}
+	var ids := {}
+	var all_decos := {}
+	for rank in gd.HOFRANKS:
+		var id := str(rank["id"])
+		check(not ids.has(id), "Rang-ID %s ist eindeutig" % id)
+		ids[id] = true
+		check(not String(rank["text"]).is_empty() and not String(rank["description"]).is_empty(), "%s hat Namen und Beschreibung" % id)
+		check(not String(rank.get("story", "")).is_empty(), "%s erzählt einen Absatz" % id)
+		var deco := str(rank.get("deco", ""))
+		check(gd.DECOS.has(deco) and str(gd.DECOS[deco].get("unlock", "")) == "hofrang:" + id, "%s schaltet sein Zeichen frei" % id)
+		check(int(gd.DECOS.get(deco, {}).get("cost", -1)) == 0, "%s ist kostenlos" % id)
+		check(not all_decos.has(deco), "%s hat ein eigenes Zeichen" % id)
+		all_decos[deco] = true
+		var needs: Array = rank.get("needs", [])
+		check(needs.size() >= 2 and needs.size() <= 4, "%s verlangt Breite statt einer Zahl" % id)
+		for need in needs:
+			var kind := str(need["type"])
+			check(caps.has(kind), "%s misst einen bekannten Bereich (%s)" % [id, kind])
+			check(int(need["target"]) > 0 and int(need["target"]) <= int(caps.get(kind, 0)), "%s verlangt Erreichbares (%s %d)" % [id, kind, int(need["target"])])
+	# Der erste Rang entsteht aus vorhandenen Zählern – ohne Münzen und XP.
+	var first: Dictionary = gd.HOFRANKS[0]
+	for need in first["needs"]:
+		rank_fill_need(need)
+	check(gs.hofrang_ready(1), "der erste Rang ist bereit")
+	check(gs.hofrang == 0, "der Rang wird nicht von selbst vergeben")
+	var coins_before: int = gs.coins
+	var xp_before: int = gs.xp
+	var level_before: int = gs.level
+	var inventory_before: int = gs.inventory.size()
+	gs.refresh_hofrang()
+	check(gs.hofrang == 1, "der erste Rang wird eingetragen")
+	check(gs.coins == coins_before and gs.xp == xp_before and gs.level == level_before, "ein Hofrang zahlt weder Münzen noch XP")
+	check(gs.inventory.size() == inventory_before, "ein Hofrang verändert den Vorrat nicht")
+	check(gs.deco_unlocked("rank_banner"), "der Hofwimpel ist sofort platzierbar")
+	check(str(gs.diary[gs.diary.size() - 1]["key"]) == "DIARY_HOFRANK", "der Rang steht im Tagebuch")
+	check(gs.diary_text(gs.diary.back()).contains("Aufgehender Hof"), "das Tagebuch nennt den Rang")
+	check(gs.hofrang_reached(1) and not gs.hofrang_reached(2), "nur der erreichte Rang zählt")
+	check(not gs.hofrang_ready(3), "der dritte Rang wartet auf den zweiten")
+	# Der Rang bleibt dauerhaft, auch wenn Zähler später nicht mehr stimmen.
+	var saved: Dictionary = gs.serialize()
+	check(int(saved["hofrang"]) == 1, "der Rang steht im Spielstand")
+	gs.stats["cafe_guests"] = 0
+	gs.letters = []
+	check(gs.deserialize(saved), "Spielstand mit Hofrang lädt")
+	check(gs.hofrang == 1, "der Rang bleibt nach dem Laden")
+	check(gs.deco_unlocked("rank_banner"), "das Zeichen bleibt freigeschaltet")
+	var legacy: Dictionary = gs.serialize()
+	legacy.erase("hofrang")
+	check(gs.deserialize(legacy), "alter Stand ohne Rang lädt")
+	check(gs.hofrang == 0, "alte Stände starten ohne Hofrang")
+	# Alle sechs Ränge lassen sich nacheinander erreichen.
+	gs.new_game()
+	var reached := 0
+	for index in range(1, gd.HOFRANKS.size() + 1):
+		for need in gd.HOFRANKS[index - 1]["needs"]:
+			rank_fill_need(need)
+		gs.refresh_hofrang()
+		if gs.hofrang == index:
+			reached += 1
+	check(reached == gd.HOFRANKS.size(), "alle sechs Ränge lassen sich nacheinander erreichen")
+	check(gs.deco_unlocked("rank_plaque"), "der letzte Rang schaltet die Hoftafel frei")
+	check(gs.deco_unlocked("rank_bench"), "die Bank unter dem Baum bleibt frei")
+	check(gs.SAVE_VERSION == 11, "Hofränge brauchen keine neue Spielstand-Version")
 
 
 func test_weather_growth() -> void:

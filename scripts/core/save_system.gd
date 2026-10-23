@@ -436,6 +436,9 @@ func migrate(data: Dictionary) -> Dictionary:
 		data["neighbor_friendship"] = {}
 	if typeof(data.get("neighbor_visits")) != TYPE_DICTIONARY:
 		data["neighbor_visits"] = {}
+	# Hofränge sind rein erzählerisch und optional: Altstände starten ohne Rang
+	# und werden beim nächsten Sekundentakt aus ihren Zählern nachgezogen.
+	data["hofrang"] = clampi(int(data.get("hofrang", 0)), 0, 6)
 	# Wilde Sammelstellen sind eine optionale Ergänzung. Altstände starten ohne
 	# Nachwuchszeiten; die Fundstellen selbst ergeben sich aus der Zellposition.
 	if not data.has("forage"):

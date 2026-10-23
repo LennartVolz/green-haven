@@ -148,6 +148,17 @@ Sprachen gepflegt werden muss.
 
 ## Paket 6 – Hofränge
 
+**Status: umgesetzt.**
+
+Sechs Ränge oberhalb der Auszeichnungen: „Aufgehender Hof" bis „Weiter Hof". Jeder
+Rang verlangt zwei bis vier Bereiche gleichzeitig – Lexikon, Erntesorten,
+Jahreszeiten, Saisonziele, Rezepte, Café-Gäste, Café-Geschichten, Briefe,
+Hofbesuche, Freundschaften, Hofbuch-Einträge oder Erfolge – und nichts davon gibt
+Münzen, XP oder Stärke. Einmal erreicht, bleibt ein Rang; er schenkt ein sichtbares
+Zeichen am Hof (Wimpel, Tor, Bank unter dem Baum, Glocke, Meilenstein, Hoftafel)
+und einen kurzen Absatz. Die Ränge stehen oben im Hofbuch, damit die Navigation
+unverändert bleibt.
+
 Das Endgame nach Stufe 23 und nach allen Erfolgen.
 
 **Umfang**

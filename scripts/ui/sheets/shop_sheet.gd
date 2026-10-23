@@ -101,6 +101,8 @@ static func _object_card(ui, c: VBoxContainer, id: String) -> void:
 			if d.has("unlock"):
 				if str(d["unlock"]).begins_with("neighbor:"):
 					info = "Geschenk der Nachbarschaft · kostenlos" if not reward_locked else "Erst ab Freundschaftsstufe 2"
+				elif str(d["unlock"]).begins_with("hofrang:"):
+					info = "Geschenk des Hofrangs · kostenlos" if not reward_locked else "Erst ab einem Hofrang"
 				else:
 					info = "Belohnung aus Zielen · kostenlos" if not reward_locked else "Erst nach einem Ziel verfügbar"
 	v.add_child(UiKit.label(info, 24, UiKit.earth_dark()))

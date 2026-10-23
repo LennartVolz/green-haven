@@ -291,6 +291,25 @@ func check_letters(locale: String) -> void:
 	await frames(2)
 
 
+## Hofbuch mit allen sechs Hofrängen: erreichte Ränge tragen zusätzlich ihren
+## Absatz, und das ist der längste Fall für Höhe und Umbruch.
+func check_hofranks(locale: String) -> void:
+	var view: Vector2 = ui._layer.size
+	var data: Node = root.get_node("GameData")
+	gs.hofrang = data.HOFRANKS.size()
+	ui.open_sheet("hofbuch")
+	await frames(5)
+	check(ui._sheet.visible, "[%s] Hofbuch mit Hofrängen öffnet sich" % locale)
+	check(has_text(ui.content, I18n.t("Hofränge")), "[%s] das Hofbuch zeigt die Hofränge" % locale)
+	check(has_text(ui.content, String(data.HOFRANKS[data.HOFRANKS.size() - 1]["text"])), "[%s] auch der letzte Rang steht im Buch" % locale)
+	check(ui._sheet.size.y <= view.y * 0.83,
+		"[%s] Hofbuch mit Rängen bleibt im Bild (%.0f von %.0f px)" % [locale, ui._sheet.size.y, view.y])
+	check_text(locale, "Hofbuch mit Rängen")
+	check_overflow(locale, "Hofbuch mit Rängen")
+	ui.close_sheet()
+	await frames(2)
+
+
 func check_toolbar(locale: String) -> void:
 	ui.close_sheet()
 	await frames(3)
@@ -468,6 +487,7 @@ func run() -> void:
 		await check_text(locale, "Startbildschirm")
 		await check_orders(locale)
 		await check_sheets(locale)
+		await check_hofranks(locale)
 		if paddock_uid > 0 and rabbit_uid > 0 and chicken_uid > 0:
 			await check_excursion(locale)
 		if cafe_uid > 0:

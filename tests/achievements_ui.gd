@@ -431,7 +431,36 @@ func run() -> void:
 		check(ui._sheet_name == "hofbuch" and ui._title.text == "Hofbuch", "Hofbuch öffnet über die Erfolge")
 		check(contains_label(ui.content, "Ein Jahr im Garten"), "Hofbuch zeigt die Jahres-Auszeichnung")
 		check(contains_label(ui.content, "Jahresbaum"), "Hofbuch nennt die Belohnungsdeko")
-		check(ui.content.get_child_count() == root.get_node("GameData").HOFBUCH.size() + 1, "alle acht Auszeichnungen werden angezeigt")
+		var book_data: Node = root.get_node("GameData")
+		check(ui.content.get_child_count() == book_data.HOFBUCH.size() + book_data.HOFRANKS.size() + 3, "alle Auszeichnungen und Hofränge werden angezeigt")
+		# Hofränge stehen oben: Name, Bedingung mit Fortschritt und Rangnummer.
+		check(contains_label(ui.content, "Hofränge"), "Hofbuch zeigt die Hofränge")
+		check(contains_label(ui.content, "Aufgehender Hof"), "der erste Hofrang steht im Hofbuch")
+		check(contains_label(ui.content, "Café-Gäste 0/6"), "eine Bedingung nennt ihren Fortschritt")
+		check(not contains_label(ui.content, "Der Wimpel hängt am Pfosten"), "ein offener Rang erzählt noch nichts")
+		# Erster Rang: aus vorhandenen Zählern, ohne Münzen und XP.
+		gs.stats["cafe_guests"] = 6
+		for crop_id in book_data.CROPS:
+			if gs.lexicon_discovered("crop", str(crop_id)):
+				continue
+			if gs.lexicon_progress("crop")["seen"] >= 14:
+				break
+			gs.add_item(str(crop_id), 1)
+		while gs.letters.size() < 2:
+			gs.next_letter_at = 0.0
+			gs._refresh_letters()
+		var coins_rank: int = gs.coins
+		var xp_rank: int = gs.xp
+		gs.refresh_hofrang()
+		check(gs.hofrang == 1 and gs.coins == coins_rank and gs.xp == xp_rank, "der Rang kommt ohne Münzen und XP")
+		ui.refresh_sheet()
+		await frames()
+		check(contains_label(ui.content, "Der Wimpel hängt am Pfosten"), "der erreichte Rang erzählt seinen Absatz")
+		check(contains_label(ui.content, "Café-Gäste 6/6"), "erfüllte Bedingungen stehen mit vollem Stand")
+		ui.act_open_shop_tab("decos")
+		await frames()
+		check(contains_label(ui.content, "Hofwimpel"), "der Shop zeigt das Zeichen des Hofrangs")
+		check(contains_label(ui.content, "Geschenk des Hofrangs · kostenlos"), "das Zeichen ist als Geschenk gekennzeichnet")
 	print("achievements UI checked")
 	save_system.delete_save()
 	quit(1 if failures > 0 else 0)
